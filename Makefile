@@ -38,11 +38,11 @@ all:
 # parameters for different versions
 gfortran:
 	${MAKE} FC="gfortran" \
-	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
+	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
 
 serial:
 	${MAKE} FC="ifort" \
-	FFLAGS="${OPTIM}" EXE="gcmc_test.x" ${SERIAL}
+	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
 
 parallel:
 	${MAKE} FC="mpifort" \
