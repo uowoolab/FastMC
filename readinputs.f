@@ -512,7 +512,8 @@ c     halt program if potential cutoff exceeds cell width
      &nnumg,nhis,nwind,mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf,
      &swap_max, mcswif,
      &mctraf, mcrotf,disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
-     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom)
+     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
+     &lwanglandau)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -525,7 +526,7 @@ c*************************************************************************
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,lprob,loop3,rprob,lrestart,laccsample
-      logical leng, l_fwk_seq, lwidom
+      logical leng, l_fwk_seq, lwidom, lwanglandau
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
@@ -579,93 +580,95 @@ c     allocate guest mole fractions
         if(record(1).eq.'#'.or.record(1).eq.' ')then
 c       record is commented out
         else if(findstring('henry', directive, idum))then
-           lwidom=.true.
+          lwidom=.true.
         else if(findstring('restart',directive,idum))then
-           keyres=1
-           if(idnode.eq.0)write(nrite,'(/,3x,a)')
+          keyres=1
+          if(idnode.eq.0)write(nrite,'(/,3x,a)')
      &'***restart requested***'
-           lrestart=.true.
+          lrestart=.true.
         elseif (findstring('temp',directive,idum))then
-           temp=dblstr(directive,lenrec,idum)
-           ltemp=.true.
+          temp=dblstr(directive,lenrec,idum)
+          ltemp=.true.
         elseif (findstring('sampling', directive, idum))then
-           laccsample=.true.
-           write(nrite,"(/,3x,'warning! Sampling accepted',
+          laccsample=.true.
+          write(nrite,"(/,3x,'warning! Sampling accepted',
      &' steps only, this is not true Metropolis importance ',
      &'sampling. This simulation is CURSED!!!!')")
 c       guest related stuff
         elseif (findstring('&guest',directive,idum))then
-           ngst=ngst+1
-           idguest=intstr(directive,lenrec,idum)
-           loop2=.true.
-           rprob=.false.
-           do while(loop2)
-             call getrec(safe,idnode,ncontrol)
-             
-             if(.not.safe)call abort_control_read(1,idnode,ncontrol)
-             call lowcase(record,lenrec)
-             call strip(record,lenrec)
-             if(record(1).eq.'#'.or.record(1).eq.' ')then
-c            record is commented out
-             elseif(findstring('fract',record,idum))then
-               gstmolfract(idguest)=dblstr(record,lenrec,idum)
-             elseif(findstring('press',record,idum))then
-               gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
-             elseif(findstring('probability',record,idum))then
-               lprob=.true.
-               rprob=.true.
-               leng=.false.
-               n=intstr(record,lenrec,idum)
-               nprob(idguest)=n
-               loop3=.true.
-               cprob=0
-               do while(loop3)
-                 call getrec(safe,idnode,ncontrol)
-                 if(.not.safe)call abort_control_read(1,idnode,ncontrol)
-                 call strip(record,lenrec)
-                 if(record(1).eq.'#'.or.record(1).eq.' ')then
-                 elseif(record(1).eq.'e')then
-                   leng=.true.
-                   cprob=cprob+1
-                 else
-                   iprob=iprob+1
-                   cprob=cprob+1 
-                   ntpsite=intstr(record,lenrec,idum)
-                   nprobsites(iprob)=ntpsite
-                   do j=1,ntpsite
-                     lprobsites(iprob,j)=intstr(record,lenrec,idum)
-                   enddo
-                 endif
-                 if(cprob.eq.n)loop3=.false.
-               enddo
-c              add an extra grid for the average counting..
-               if(leng)then
-                   lprobeng(idguest) = .true.
-                   nprob(idguest) = nprob(idguest)+1
-               endif
-             elseif(findstring('&end',record,idum))then
-               loop2=.false.
-             endif    
-           enddo
-           if(.not.rprob)nprob(idguest)=0
+          ngst=ngst+1
+          idguest=intstr(directive,lenrec,idum)
+          loop2=.true.
+          rprob=.false.
+          do while(loop2)
+            call getrec(safe,idnode,ncontrol)
+            
+            if(.not.safe)call abort_control_read(1,idnode,ncontrol)
+            call lowcase(record,lenrec)
+            call strip(record,lenrec)
+            if(record(1).eq.'#'.or.record(1).eq.' ')then
+c           record is commented out
+            elseif(findstring('fract',record,idum))then
+              gstmolfract(idguest)=dblstr(record,lenrec,idum)
+            elseif(findstring('press',record,idum))then
+              gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
+            elseif(findstring('probability',record,idum))then
+              lprob=.true.
+              rprob=.true.
+              leng=.false.
+              n=intstr(record,lenrec,idum)
+              nprob(idguest)=n
+              loop3=.true.
+              cprob=0
+              do while(loop3)
+                call getrec(safe,idnode,ncontrol)
+                if(.not.safe)call abort_control_read(1,idnode,ncontrol)
+                call strip(record,lenrec)
+                if(record(1).eq.'#'.or.record(1).eq.' ')then
+                elseif(record(1).eq.'e')then
+                  leng=.true.
+                  cprob=cprob+1
+                else
+                  iprob=iprob+1
+                  cprob=cprob+1 
+                  ntpsite=intstr(record,lenrec,idum)
+                  nprobsites(iprob)=ntpsite
+                  do j=1,ntpsite
+                    lprobsites(iprob,j)=intstr(record,lenrec,idum)
+                  enddo
+                endif
+                if(cprob.eq.n)loop3=.false.
+              enddo
+c             add an extra grid for the average counting..
+              if(leng)then
+                lprobeng(idguest) = .true.
+                nprob(idguest) = nprob(idguest)+1
+              endif
+            elseif(findstring('&end',record,idum))then
+              loop2=.false.
+            endif    
+          enddo
+          if(.not.rprob)nprob(idguest)=0
         elseif (findstring('steps',directive,idum))then
-           mcsteps=intstr(directive,lenrec,idum)
-           lmcsteps=.true.
+          mcsteps=intstr(directive,lenrec,idum)
+          lmcsteps=.true.
         elseif (findstring('pressure',directive,idum).or.
      &findstring('total press',directive,idum))then
-           total_pressure=dblstr(directive,lenrec,idum)*1.d5
+          total_pressure=dblstr(directive,lenrec,idum)*1.d5
         elseif (findstring('numg',directive,idum))then
-           lnumg=.true.
-           nnumg=intstr(directive,lenrec,idum)
-c          set default writing numguests.out to 1000 steps
-           if(nnumg.le.0)nnumg=1000
+          lnumg=.true.
+          nnumg=intstr(directive,lenrec,idum)
+c         set default writing numguests.out to 1000 steps
+          if(nnumg.le.0)nnumg=1000
         elseif (findstring('fuga',directive,idum))then
-           lfuga=.true. 
+          lfuga=.true. 
         elseif (findstring('hist',directive,idum))then
-           nhis=intstr(directive,lenrec,idum)
+          nhis=intstr(directive,lenrec,idum)
         elseif (findstring('equilibr',directive,idum))then
-           eqsteps=intstr(directive,lenrec,idum)
-           if(eqsteps.ne.0)leqsteps=.true.
+          eqsteps=intstr(directive,lenrec,idum)
+          if(eqsteps.ne.0)leqsteps=.true.
+        elseif (findstring('wang-landau', directive, idum))then
+          lwanglandau=.true. 
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
      &"(/,'gcmc requested')")
@@ -674,20 +677,18 @@ c          set default writing numguests.out to 1000 steps
      &"(/,'single point energy calculation requested ')")
           lspe=.true.
         elseif (findstring('jobcontrol',directive,idum))then
-           ljob=.true.
+          ljob=.true.
         elseif (findstring('cutoff',directive,idum))then
-           rcut=dblstr(directive,lenrec,idum)
+          rcut=dblstr(directive,lenrec,idum)
         elseif (findstring('overlap',directive,idum))then
-           overlap=dblstr(directive,lenrec,idum)
+          overlap=dblstr(directive,lenrec,idum)
         elseif (findstring('surface',directive,idum))then
-           surftol=dblstr(directive,lenrec,idum)
+          surftol=dblstr(directive,lenrec,idum)
         elseif (findstring('delr',directive,idum))then
-           delr=dblstr(directive,lenrec,idum)
-        elseif (findstring('ewald',directive,idum))then
-           
+          delr=dblstr(directive,lenrec,idum)
         elseif (findstring('averaging window',directive,idum))then
-           nwind=intstr(directive,lenrec,idum)
-           lwind=.true.
+          nwind=intstr(directive,lenrec,idum)
+          lwind=.true.
         elseif (findstring('fram', directive, idum))then
           if (findstring('cou', directive, idum))then
             n_fwk=intstr(directive, lenrec, idum)
@@ -735,12 +736,13 @@ c          set default writing numguests.out to 1000 steps
         elseif (findstring('grid',directive,idum))then
 c 'grid' is already read in initscan
         elseif (findstring('finish',directive,idum))then
-           loop=.false.
+          loop=.false.
+        elseif (findstring('ewald',directive,idum))then
+c 'ewald' is already read in initscan
         else
-           if(idnode.eq.0)write(nrite,"(/,/,100a1)")record
-           call error(idnode,3)
+          if(idnode.eq.0)write(nrite,"(/,/,100a1)")record
+          call error(idnode,3)
         endif
-
       enddo
       if(idnode.eq.0)write(nrite,
      &"(/,'tolerance for automatic failure of gcmc move if nearby atoms
@@ -778,9 +780,8 @@ c 'grid' is already read in initscan
      &numguests.out every ",nnumg," gcmc steps***"
         endif
       else
-        if(idnode.eq.0)write(nrite,'(/,a31,i6,a12)')
-     &"writing to numguests.out every ",nnumg," gcmc 
-     &steps."
+        if(idnode.eq.0)write(nrite,'(/,a31,i6,a7)')
+     &"writing to numguests.out every ",nnumg," steps."
       endif
       if(nhis.ne.0)then
         if(idnode.eq.0)write(nrite,'(/,a24,i5,a12)')

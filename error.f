@@ -1139,6 +1139,9 @@ c     dummy entry
           write(nrite,'(/,/,1x,a)')
      x      'error - The sum of mole fractions of your guests sums to 
      & greater than 1.'
+        elseif (kode.eq.2316) then
+          write(nrite, '(/,/,/,1x,a)')
+     &      'error - Terminated from Wang-Landau sampling'
         else
           write(nrite,'(/,/,1x,a)')
      x      'error - unnamed error found'

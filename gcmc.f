@@ -36,7 +36,7 @@ c************************************************************
       character*18 outfile4
       character*70 string
       logical lgchk,lspe,ljob,lprob,fram,widchk
-      logical lfuga, loverlap, lwidom
+      logical lfuga, loverlap, lwidom, lwanglandau
       logical insert,delete,displace,lrestart,laccsample
       logical jump, flex, swap, switch
       logical tran, rota
@@ -104,7 +104,8 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       integer, dimension(3) :: gridfactor
       integer fwk_step_magnitude
 
-      data lgchk/.true./,insert/.false./,delete/.false./lwidom/.false./,
+      data lgchk/.true./,insert/.false./,delete/.false./,
+     &lwidom/.false./,lwanglandau/.false./,
      &displace/.false./,accepted/.false./,production/.false./
       data jump/.false./,flex/.false./,swap/.false./,switch/.false./
       data tran/.false./,rota/.false./,laccsample/.false./
@@ -301,7 +302,8 @@ c     produce unit cell for folding purposes
      &mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf,
      &swap_max, mcswif,mctraf, mcrotf,
      &disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
-     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom)
+     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
+     &lwanglandau)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -647,6 +649,11 @@ c             no rolling average here, just div by widcount at the end
         enddo
         prodcount=widcount
         chainstats(1) = dble(widcount)
+      endif
+      if (lwanglandau)then
+        lgchk=.false.
+        call error(idnode,2316)
+        
       endif
 c******************************************************************
 c
