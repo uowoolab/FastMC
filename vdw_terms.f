@@ -462,7 +462,10 @@ c     calculate interaction energy using 3-point interpolation
         endif
       enddo
       vdwen(maxmls+1)=vdwen(maxmls+1)+engsrp
-
+c     DEBUG
+c      engsrp=0.d0
+c      vdwen=0.d0
+c     END DEBUG
       return
       end
 
@@ -647,7 +650,7 @@ c                  elrc_mol0(kt)=elrc_mol0(kt)+twopi*(natyp*
 c     &              nbtyp-nafrz*nbfrz)/volm**2
 c                enddo
 c              enddo 
-
+c
 c              elrc_mol(:)=elrc_mol(:)+volm*eadd*elrc_mol0(:)
 
             enddo
@@ -658,6 +661,9 @@ c              elrc_mol(:)=elrc_mol(:)+volm*eadd*elrc_mol0(:)
         
       endif
       deallocate(elrc_mol0)
+c     DEBUG
+c      elrc = 0.d0
+c     END DEBUG
       
 c      if(idnode.eq.0) write(nrite,
 c     x  "(/,/,'long range correction for: vdw energy  ',e15.6,/,
@@ -742,5 +748,10 @@ c     long range corrections to energy and pressure
         
       endif
       delrc_mol(:)=delrc_mol(:)-elrc_mol(:)
+c     DEBUG
+c      delrc = 0.d0
+c      delrc_mol = 0.d0
+c      elrc_mol = 0.d0
+c     END DEBUG
       return
       end

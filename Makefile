@@ -8,14 +8,12 @@ OPTIM=
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging
-#DEBUG = -pg -g
+DEBUG = -g
 # no debugging
-#DEBUG=-g
-DEBUG=
+#DEBUG=
 
 SERIAL=ser
 PARALLEL=par
-
 .SUFFIXES: .f .o
 
 OBJPAR = parse_module.o basic_comms.o utility_pack.o error.o \
@@ -47,7 +45,9 @@ serial:
 parallel:
 	${MAKE} FC="mpifort" \
 	FFLAGS="${OPTIM}" EXE="gcmc-par.x" ${PARALLEL}
-
+debug:
+	${MAKE} FC="gfortran" \
+	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
 
 # stuff that does the compilations
 ser: ${OBJSER}

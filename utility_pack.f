@@ -2880,6 +2880,12 @@ c       note, these date_and_time values can be 0
         j=mod(values(7)*23, 177) + 1
         k=mod(values(8)*5, 177) + 1
         l=mod(values(7)*3, 168)
+c       DEBUG
+c        i=40  
+c        j=100
+c        k=66 
+c        l=36 
+c       END DEBUG
 
 c       This is in case we find the same problem arises
 c        write(nrite,"(/,'values for date and time', 9i6,/)")values
@@ -3304,7 +3310,7 @@ c rotate at the new position
       return
       end subroutine random_jump
 
-      subroutine rotationeuler(xxr,yyr,zzr,natms,rotangle)
+      subroutine rotationeuler(xxr,yyr,zzr,natms,angx,angy,angz)
 c*********************************************************************      
 c     subroutine to rotate by the old euler angles.  singularities
 c     are a problem with this, implemented to test robustness of 
@@ -3313,14 +3319,24 @@ c*********************************************************************
       implicit none
       integer i,natms
       real(8) rotangle,alpha,beta,kappa,randmult,xtmp,ytmp,ztmp
+      real(8) angx,angy,angz
       real(8), dimension(9) :: R1,R2,R3,mult1,mult2
       real(8), dimension(natms) :: xxr,yyr,zzr
       real(8) rand1,rand2,rand3,rand4
 c     alpha beta kappa generated from rotangle
-      alpha=(rand1*2.d0-1.d0)*rotangle
-      beta=(rand2*2.d0-1.d0)*rotangle
-      kappa=(rand3*2.d0-1.d0)*rotangle
+c      alpha=(rand1*2.d0-1.d0)*rotangle
+c      beta=(rand2*2.d0-1.d0)*rotangle
+c      kappa=(rand3*2.d0-1.d0)*rotangle
+      alpha=angx*pi/180.d0
+      beta=angy*pi/180.d0
+      kappa=angz*pi/180.d0
 
+c      write(*,*)cos(alpha)
+c      write(*,*)cos(beta)
+c      write(*,*)cos(kappa)
+c      write(*,*)sin(alpha)
+c      write(*,*)sin(beta)
+c      write(*,*)sin(kappa)
 c     R1, rotation about the x axis by angle alpha
 
       R1(1)=1.d0
@@ -3360,21 +3376,38 @@ c     R3, rotation about the z axis by angle kappa
 c     do some matrix multiplication.  This may have a significant
 c     impact on the speed of each gcmc step
 
-      if(rand4.lt.0.5)then
-        call matmul(R2,R3,mult2)
-      else
-        call matmul(R3,R2,mult2)
-      endif
+c      if(rand4.lt.0.5)then
+c        call matmul(R2,R3,mult2)
+c      else
+c        call matmul(R3,R2,mult2)
+c      endif
 
       do i=1,natms
-        xtmp=xxr(i)*mult2(1)+yyr(i)*mult2(4)+zzr(i)*mult2(7)
-        ytmp=xxr(i)*mult2(2)+yyr(i)*mult2(5)+zzr(i)*mult2(8)
-        ztmp=xxr(i)*mult2(3)+yyr(i)*mult2(6)+zzr(i)*mult2(9)
+        xtmp=xxr(i)*R1(1)+yyr(i)*R1(4)+zzr(i)*R1(7)
+        ytmp=xxr(i)*R1(2)+yyr(i)*R1(5)+zzr(i)*R1(8)
+        ztmp=xxr(i)*R1(3)+yyr(i)*R1(6)+zzr(i)*R1(9)
         xxr(i)=xtmp
         yyr(i)=ytmp
         zzr(i)=ztmp
       enddo
 
+      do i=1,natms
+        xtmp=xxr(i)*R2(1)+yyr(i)*R2(4)+zzr(i)*R2(7)
+        ytmp=xxr(i)*R2(2)+yyr(i)*R2(5)+zzr(i)*R2(8)
+        ztmp=xxr(i)*R2(3)+yyr(i)*R2(6)+zzr(i)*R2(9)
+        xxr(i)=xtmp
+        yyr(i)=ytmp
+        zzr(i)=ztmp
+      enddo
+      
+      do i=1,natms
+        xtmp=xxr(i)*R3(1)+yyr(i)*R3(4)+zzr(i)*R3(7)
+        ytmp=xxr(i)*R3(2)+yyr(i)*R3(5)+zzr(i)*R3(8)
+        ztmp=xxr(i)*R3(3)+yyr(i)*R3(6)+zzr(i)*R3(9)
+        xxr(i)=xtmp
+        yyr(i)=ytmp
+        zzr(i)=ztmp
+      enddo
       end subroutine rotationeuler
       subroutine rotation(xxr,yyr,zzr,natms,q1,q2,q3,q4)
 c*****************************************************************************

@@ -357,14 +357,14 @@ c              endif
               engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
      & -ckcold*ckcold-cksold*cksold)
 c             store sums of all mixtures as well
-c              do i=1,maxmls
-c                fkk=2.d0*akk
-c                if(i.eq.mol)fkk=akk
-c                ewald1en(i)=ewald1en(i)+
-c     &            fkk*(ckcsnew(i,kkk)*ckcsnew(mol,kkk)+
-c     &            ckssnew(i,kkk)*ckssnew(mol,kkk) -
-c     &            ckcsum(i,kkk)*ckcsum(mol,kkk) -
-c     &            ckssum(i,kkk)*ckssum(mol,kkk))
+              do i=1,maxmls
+                fkk=2.d0*akk
+                if(i.eq.mol)fkk=akk
+                ewald1en(i)=ewald1en(i)+
+     &            fkk*(ckcsnew(i,kkk)*ckcsnew(mol,kkk)+
+     &            ckssnew(i,kkk)*ckssnew(mol,kkk) -
+     &            ckcsum(i,kkk)*ckcsum(mol,kkk) -
+     &            ckssum(i,kkk)*ckssum(mol,kkk))
 c                if((i.ne.mol).and.(nummols(i).eq.0))then
 c                  write(*,"(/,a12,a12,a12,a12,/,f12.5,f12.5,f12.5,f12.5
 c     &,/)")"ckcsnew","ckssnew","ckcsum","ckssum",
@@ -373,7 +373,7 @@ c     &              ckcsum(i,kkk),ckssum(i,kkk)
 c                  write(*,"('ewald1 energy',f12.5,/)")
 c     &              ewald1en(i)
 c                endif
-c              enddo  
+              enddo  
 
             endif
           

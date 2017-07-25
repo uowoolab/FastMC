@@ -47,7 +47,7 @@ c************************************************************
       integer nfo(8)
       integer accept_ins,accept_del,accept_disp,totaccept,nnumg,nhis
       integer accept_jump, accept_flex, accept_swap, scell_factor
-      integer accept_switch
+      integer accept_switch,minchk
       integer accept_tran, accept_rota, aa, ab, ivdw
       integer ins_count,del_count,disp_count,buffer,idum,levcfg,nstat
       integer jump_count, flex_count, swap_count, np, widcount
@@ -662,16 +662,23 @@ c
 c******************************************************************
 
 c     start delrdisp as delr (read from the CONTROL file)
+      minchk=min(400,nnumg)
       delrdisp=delr
       tran_delr = delr
       rota_rotangle = rotangle
       call timchk(0,timelp)
+c     DEBUG
+      call test
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,
+     &engunit)
+      call error(idnode,0)
+c     END DEBUG
       do while(lgchk)
         gcmccount=gcmccount+1
-        
 c     every so often, update the total number of prodcounts
 c     across all nodes
-        if(mod(gcmccount,400).eq.0)then
+        if(mod(gcmccount,minchk).eq.0)then
 
 c         check jobcontrol
           call jobcheck(idnode,jobsafe,ljob,production)
@@ -863,6 +870,24 @@ c          tran = .false.
 c          rota = .false.
 c          switch = .false.
 c        endif
+c       DEBUG
+c        if(gcmccount.eq.1)then
+c          insert=.true.
+c          iguest=1
+c        else if (gcmccount.eq.2)then
+c          insert=.true.
+c          iguest=2
+c        else if (gcmccount.eq.3)then
+c          insert=.true.
+c          iguest=3
+c        else if (gcmccount.eq.4)then
+c          displace=.true.
+c          iguest=2
+c        else if (gcmccount.eq.5)then
+c          delete=.true.
+c          iguest=3
+c        endif
+c       END DEBUG 
         oldeng = 0.d0
         ewald1en=0.d0
         ewald2en=0.d0
@@ -873,7 +898,7 @@ c        endif
         delE=0.d0
 c***********************************************************************
 c    
-c             Insertion
+c       Insertion
 c
 c***********************************************************************
         if(insert)then
@@ -885,7 +910,6 @@ c         calculate vdw interaction (only for new mol)
           engsicprev=engsic
           ins(iguest)=1
           ins_count=ins_count+1
-          delE=0.d0
           call random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
           estep = 0.d0
           call insertion
@@ -893,6 +917,7 @@ c         calculate vdw interaction (only for new mol)
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,loverlap,lnewsurf,surftol)
           accepted=.false.
+
           if (.not.loverlap)then
             gpress=gstfuga(iguest)
             ngsts=nummols(mol)
@@ -901,6 +926,9 @@ c         calculate vdw interaction (only for new mol)
      &(estep,rande,statvolm,iguest,0,temp,beta,
      &displace,insert,delete,swap,accepted)
           endif
+c         DEBUG
+c          accepted=.true.
+c         END DEBUG
           if(accepted)then
             accept_ins=accept_ins+1
             call accept_move
@@ -931,7 +959,6 @@ c       ewald1,ewald2,vdw of the mol you wish to delete
           del(iguest)=1
           del_count=del_count+1 
           randchoice=floor(duni(idnode)*nmols)+1
-          delE=0.d0
           estep = 0.d0
           call deletion 
      &(imcon,idnode,keyfce,iguest,randchoice,alpha,rcut,delr,drewd,
@@ -949,6 +976,9 @@ c       ewald1,ewald2,vdw of the mol you wish to delete
      &displace,insert,delete,swap,accepted)
          
 c         the following occurs if the move is accepted.
+c         DEBUG
+c          accepted=.true.
+c         END DEBUG
 
           if(accepted)then
             accept_del=accept_del+1
@@ -1014,7 +1044,6 @@ c***********************************************************************
             dis_delr = delrdisp
             dis_rotangle = rotangle
           endif
-          delE=0.d0
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
 
@@ -1072,9 +1101,10 @@ c            write(*,*)vdwsum/engunit
      &displace,insert,delete,swap,accepted)
             endif
           endif
+c         DEBUG
+c          accepted=.true.
+c         END DEBUG
           if(accepted)then
-c            delE=0.d0
-c            delE(iguest)=estep
             call accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,guest_toten,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,
@@ -1082,7 +1112,6 @@ c            delE(iguest)=estep
 c           check if the energy probability grid is requested,
 c           then one has to compute the standalone energy
 c           at the new position (requires ewald1 calc)
-c            delE(iguest)=estep
             if(lprobeng(iguest))then
 c             the ewald1sum should be the energy of inserting a guest
 c             in the new spot? shouldn't the elimination of the guest
@@ -3234,5 +3263,76 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
+      subroutine test
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,
+     &engunit)
+c***********************************************************************
+c
+c     testing for various bugs etc in fastmc. 
+c
+c***********************************************************************
+      implicit none
+      logical loverlap,lnewsurf
+      integer imcon,idnode,iguest,keyfce,totatm,ntpguest
+      integer kmax1,kmax2,kmax3,ntpatm,maxvdw
+      real(8) alpha,rcut,delr,drewd,volm,epsq,engunit
+      integer i,ntpfram,randchoice,maxmls
+      integer imol,natms
+      real(8) apos,bpos,cpos,xc,yc,zc
+      real(8) comx,comy,comz
+      real(8) angx,angy,angz
+      real(8) delrc,estep,surftol
 
+      write(*,*)"TESTING"
+
+      delrc=0.d0
+      estep=0.d0
+      surftol=0.d0
+
+      apos=5.d-1
+      bpos=5.d-1
+      cpos=5.d-1
+c     NB for CO2 angx will not rotate anything due to symmetry
+c     and it's starting configuration along the x-axis
+      angx=0.d0
+      angy=90.d0
+      angz=0.d0
+
+c     INSERT in a specific position
+c     convert rand fractions to cartesian coordinates in the cell 
+      call cartesian(apos,bpos,cpos,xc,yc,zc)
+c     xc,yc,zc are the coordinates of the com guestx,guesty,guestz 
+c     are the positions of atom i relative to the com
+      iguest=1
+      imol=locguest(iguest)
+      natms=numatoms(imol)
+
+      do i=1, natms
+        newx(i)=guestx(iguest,i)
+        newy(i)=guesty(iguest,i)
+        newz(i)=guestz(iguest,i)
+      enddo
+c     rotate
+      call rotationeuler(newx,newy,newz,natms,angx,angy,angz) 
+c     add the com to each atom in the guest
+c
+      do i=1, natms
+        newx(i)=newx(i)+xc
+        newy(i)=newy(i)+yc
+        newz(i)=newz(i)+zc
+c        write(*,*)newx(i),newy(i),newz(i)
+      enddo
+c
+      call insertion
+     &  (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     &  ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &  engunit,delrc,estep,loverlap,lnewsurf,surftol)
+      write(*,*)estep
+c      call accept_move
+c     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,guest_toten,
+c     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,
+c     &maxmls,sumchg)
+c      write(*,*)estep
+      end subroutine test
       end
