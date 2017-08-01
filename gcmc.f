@@ -1,17 +1,43 @@
-c************************************************************
-c      main gcmc program                                    *
-c************************************************************
-c      personal reference                                   *
-c      imcon                                                *
-c      0  -  no periodic boundaries                         *
-c      1  -  cubic boundary conditions  (b.c.)              *
-c      2  -  orthorhombic b.c.                              *
-c      3  -  parallelpiped b.c.                             *
-c      4  -  truncated octahedral b.c.                      *
-c      5  -  rhombic dodecahedral b.c                       *
-c      6  -  x-y parallelogram b.c. no periodicity in z     *
-c      7  -  hexagonal prism b.c.                           *
-c************************************************************
+c*************************************************************
+c      main gcmc program                                     *
+c*************************************************************
+c      personal reference                                    *
+c      imcon                                                 *
+c      0  -  no periodic boundaries                          *
+c      1  -  cubic boundary conditions  (b.c.)               *
+c      2  -  orthorhombic b.c.                               *
+c      3  -  parallelpiped b.c.                              *
+c      4  -  truncated octahedral b.c.                       *
+c      5  -  rhombic dodecahedral b.c                        *
+c      6  -  x-y parallelogram b.c. no periodicity in z      *
+c      7  -  hexagonal prism b.c.                            *
+c                                                            *
+c                                                            *
+c                                                            *
+c                                                            *
+c     avgwindow will reset to 0's once the average has been  *
+c     carried over to varwindow.                             *
+c     Varwindow will be a rolling variance calculation of    *
+c     the windowed averages.                                 * 
+c     currently the order is:                                *
+c     chainstats(1) = production gcmc step count             *
+c     chainstats(2) = rolling average number of guests <N>   *
+c     chainstats(3) = rolling average energy <E>             *
+c     chainstats(4) = rolling average for energy*guests <EN> *
+c     chainstats(5) = rolling average for N^2 <N2>           *
+c     chainstats(6) = rolling average for (energy)^2 <E2>    *
+c     chainstats(7) = rolling average for <N surface>        *
+c     chainstats(8) = rolling average for <exp(-E/kb/T)>     *
+c     chainstats(9) = rolling stdev value for <N>            *
+c     chainstats(10) = rolling stdev value for <E>           *
+c     chainstats(11) = rolling stdev value for <EN>          *
+c     chainstats(12) = rolling stdev value for <N2>          *
+c     chainstats(13) = rolling stdev value for <E2>          *
+c     chainstats(14) = rolling stdev value for <N surface>   *
+c     chainstats(15) = rolling stdev value for <Q_st>        *
+c     chainstats(16) = rolling stdev value for <C_v>         *
+c     chainstats(17) = rolling stdev value for <exp(-E/kb/T)>*
+c*************************************************************
 
 
       use utility_pack
@@ -35,7 +61,7 @@ c************************************************************
       character*21 outfile3
       character*18 outfile4
       character*70 string
-      logical lgchk,lspe,ljob,lprob,fram,widchk
+      logical lgchk,lspe,ljob,lprob,widchk
       logical lfuga, loverlap, lwidom, lwanglandau
       logical insert,delete,displace,lrestart,laccsample
       logical jump, flex, swap, switch
@@ -216,34 +242,12 @@ c     & f6.3)")maxmls,mxatm,mxatyp,volm,kmax2,kmax3,mxebuf,mxewld,
 c     & ntpguest,rcut,rvdw,delr
       call alloc_config_arrays
      & (idnode,mxnode,maxmls,mxatm,mxatyp,volm,ntpguest,rcut,rvdw,delr)
-c     avgwindow will reset to 0's once the average has been carried
-c     over to varwindow.
-c     varwindow will be a rolling variance calculation of the windowed
-c     averages 
-c     currently the order is:
-c     chainstats(1) = production gcmc step count
-c     chainstats(2) = rolling average number of guests <N>
-c     chainstats(3) = rolling average energy <E>
-c     chainstats(4) = rolling average for energy*guests <EN> 
-c     chainstats(5) = rolling average for (number of guests)^2 <N2> 
-c     chainstats(6) = rolling average for (energy)^2 <E2>
-c     chainstats(7) = rolling average for <N close to framework>
-c     chainstats(8) = rolling average for <exp(-E/kb/T)>
-c     chainstats(9) = rolling stdev value for <N> 
-c     chainstats(10) = rolling stdev value for <E> 
-c     chainstats(11) = rolling stdev value for <EN> 
-c     chainstats(12) = rolling stdev value for <N2> 
-c     chainstats(13) = rolling stdev value for <E2> 
-c     chainstats(14) = rolling stdev value for <N close to framework> 
-c     chainstats(15) = rolling stdev value for <Q_st>
-c     chainstats(16) = rolling stdev value for <C_v>
-c     chainstats(17) = rolling stdev value for <exp(-E/kb/T)>
 
       call alloc_vdw_arrays(idnode,maxvdw,maxmls,mxatyp)
       call readfield
      &(idnode,ntpvdw,maxvdw,ntpatm,ntpmls,ntpguest,
      &ntpfram,totatm,rvdw,dlrpot,engunit,sumchg)
-
+     
       call readconfig(idnode,mxnode,imcon,cfgname,levcfg,
      &ntpmls,maxmls,totatm,volm,rcut,celprp)
 
@@ -373,7 +377,6 @@ c Now we normalise
       if(.not.lspe)then
         call sleep(idnode+1)
         init=duni(idnode)
-        init=duni(idnode)
 
 c     initialize jobcontrol file
         if(idnode.eq.0)then
@@ -389,6 +392,7 @@ c==========================================================================
 c       if restart requested then descend into the branch
 c       and read the REVIVE and REVCON for the appropriate
 c       arrays
+c==========================================================================
 
         if(lrestart)then
 c         do a check to see if the number of branch directories
@@ -458,6 +462,7 @@ c     This may only work on system specific machines
         endif
 c=========================================================================
 c      open necessary archiving files
+c=========================================================================
 
         if(ntpguest.gt.1)then
           do i=1,ntpguest
@@ -495,8 +500,7 @@ c      open(999,file=debug)
 c      write(999,'(a20,i2,/)')'data for node ',idnode
 c      write(999,'(a20,/,3f16.5,/,3f16.5,/,3f16.5)')'cell vectors',
 c     & (cell(i),i=1,3),(cell(j),j=4,6),(cell(k),k=7,9)
- 
-      call guest_exclude(ntpguest)
+      call guest_exclude(ntpmls,ntpguest)
       call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
 
 c      write(999,"('atomic information',/)")
@@ -524,19 +528,14 @@ c     we don't need this....
 
       epsq=1.d0
 
-c    create ewald interpolation arrays 
+c     create ewald interpolation arrays 
       call erfcgen(keyfce,alpha,rcut,drewd)
-
-      spenergy=0.d0
-      evdwg=0.d0
-      ecoulg=0.d0
-      ewald1en=0.d0
-      ewald2en=0.d0
-      vdwen=0.d0
+c     populate ewald3 arrays
       call single_point
-     &(imcon,idnode,keyfce,alpha,rcut,delr,totatm,totfram,ntpfram,
-     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,spenergy,evdw,ecoul,evdwg,ecoulg,dlpeng,maxmls)
+     &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
+     &ntpguest,ntpmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
+
       if(idnode.eq.0)then
 c        write(nrite,'(/,/,a35,f22.6)')'Configurational energy:
 c     & ',spenergy
@@ -545,46 +544,15 @@ c     &(evdw+ecoul)/engunit
         write(nrite,'(a35,f22.6)')'Initial guest energy :',
      &spenergy
         write(nrite,'(a35,f22.6)')'van der Waals energy :',
-     &evdwg/engunit
+     &vdwsum/engunit
         write(nrite,'(a35,f22.6)')'Electrostatic energy :',
-     &ecoulg/engunit
+     &ecoul/engunit
         write(nrite,'(a35,f22.6)')'Energy reported by DL_POLY:',
      &dlpeng
 
       endif
-c     ewald1 arrays populated in single_point subroutine
-      call ewald1_init
-     &(imcon,engacc,engsicold,mxatm,volm,alpha,sumchg,
-     &kmax1,kmax2,kmax3,epsq,newld,maxmls)
+      call error(idnode,0)
 
-c     populate ewald3 array with values for each guest
-c     this assumes the guests are rigid so the correction
-c     to the reciprocal space ewald arrays is constant.
-      fram=.false.
-      do k=1,ntpguest
-        ewld3sum=0.d0
-        mol=locguest(k)
-        natms=numatoms(mol)
-        do i=1,natms-1
-          ik=0
-          do j=i+1,natms
-            ik=ik+1
-            jlist(ik)=j
-            moldf(ik)=mol
-            xdf(ik)=guestx(k,i)-guestx(k,j)
-            ydf(ik)=guesty(k,i)-guesty(k,j)
-            zdf(ik)=guestz(k,i)-guestz(k,j)
-          enddo
-
-          call images(imcon,ik,cell,xdf,ydf,zdf)
-
-          chg=atmchg(mol,i)
-          call ewald3(chg,mol,ik,alpha,engcpe,epsq)
-          ewld3sum=ewld3sum+engcpe
-          
-        enddo
-        ewald3en(k)=ewld3sum
-      enddo 
 
       nguests=0
       do i=1,ntpguest
@@ -671,7 +639,7 @@ c     DEBUG
       call test
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,
-     &engunit)
+     &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg)
       call error(idnode,0)
 c     END DEBUG
       do while(lgchk)
@@ -1058,7 +1026,7 @@ c         its orginal place
      &loverlap,1)
           ewld2sum=-ewld2sum
           vdwsum=-vdwsum 
-          ewld1old=(-ewld1eng+ewald3en(iguest))
+          ewld1old=(-ewld1eng+ewald3en(mol))
 
 c          write(*,*)"Ewald1 Energy Before: ",ewld1eng/engunit
 c         LOOP 2 - shift the newx,newy,newz coordinates and re-calculate
@@ -1085,9 +1053,9 @@ c          write(*,*)"Ewald1 Energy After:  ",ewld1eng/engunit
           if (.not.loverlap)then
             gpress=gstfuga(iguest)
             ngsts=nummols(mol)
-            ewld3sum=ewald3en(iguest)
+            ewld3sum=ewald3en(mol)
             estep=(ewld1eng+ewld2sum+vdwsum)/engunit
-c            write(*,*)"Final Ewald1+3 :",(ewld1eng+ewld3sum)/engunit
+c            write(*,*)"Final Ewald1+3 :",(ewld1eng-ewld3sum)/engunit
 c            write(*,*)"Final Ewald1   :",(ewld1eng)/engunit
 c            write(*,*)"Estep          :",estep
 c            write(*,*)ewld2sum/engunit
@@ -1170,7 +1138,7 @@ c         find which index the molecule "randchoice" is
      &loverlap,1)
           ewld2sum=-ewld2sum
           vdwsum=-vdwsum
-          ewld1old=(-ewld1eng+ewald3en(iguest))
+          ewld1old=(-ewld1eng+ewald3en(mol))
           ewald1en(:)=0.d0
           ewald2en(:)=0.d0
           vdwen(:)=0.d0
@@ -1324,15 +1292,15 @@ conditions
           ckcsnew = ckcsum
           ckssnew = ckssum
 
-          call guest_exclude(ntpguest)
+          call guest_exclude(ntpmls,ntpguest)
           call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
           call lrcorrect(idnode,imcon,keyfce,totatm,ntpatm,maxvdw,
      &engunit,rcut,volm,maxmls)
 c Assume the single_point calculates the correct spenergy (evdwg+ecoulg)
           call single_point
-     &(imcon,idnode,keyfce,alpha,rcut,delr,totatm,totfram,ntpfram,
-     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,spenergy,evdw,ecoul,evdwg,ecoulg,dlpeng,maxmls)
+     &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
+     &ntpguest,ntpmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
 
           delE_fwk = spenergy+fwk_ener(new_fwk)-delE_fwk
 
@@ -1369,16 +1337,16 @@ c have to put everything back as it was
             ckcsum = ckcsnew
             ckssum = ckssnew
 c rebuild all the atom lists
-c            call guest_exclude(ntpguest)
+c            call guest_exclude(ntpmls,ntpguest)
             call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
 c            call erfcgen(keyfce,alpha,rcut,drewd)
-            call parlst(imcon,totatm,fram,rcut,delr)
+            call parlst(imcon,totatm,rcut,delr)
             call lrcorrect(idnode,imcon,keyfce,totatm,ntpatm,maxvdw,
      &engunit,rcut,volm,maxmls)
 c             call single_point
-c     &(imcon,idnode,keyfce,alpha,rcut,delr,totatm,totfram,ntpfram,
-c     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-c     &engunit,spenergy,evdw,ecoul,evdwg,ecoulg,dlpeng)
+c     &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
+c     &ntpguest,ntpmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
           endif
           flex = .false.
 
@@ -2484,9 +2452,9 @@ c*****************************************************************************
 
       end subroutine hisarchive
       subroutine single_point
-     &(imcon,idnode,keyfce,alpha,rcut,delr,totatm,totfram,ntpfram,
-     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,spenergy,evdw,ecoul,evdwg,ecoulg,dlpeng,maxmls)
+     &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
+     &ntpguest,ntpmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
 c*****************************************************************************
 c
 c     does a single point energy calculation over all atoms in the
@@ -2494,17 +2462,17 @@ c      system
 c
 c*****************************************************************************
       implicit none
-      logical insert,delete,displace,fram
+      logical latmsurf,lmolsurf
       integer i,ii,ik,j,jj,p,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,newld,sittyp,idnode,ntpatm,maxvdw,totfram
       integer k,mol,ntpguest,natms,nmols,ntpfram,maxmls
+      integer aa,ab,jatm,ivdw,iatm,ntpmls
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr,ecoul,evdw
-      real(8) engcpe,engsic,chg,engsrp,engunit,ecoulg,evdwg
+      real(8) engsic,chg,engsrp,engunit,ecoulg,evdwg
       real(8) ewald1sum,ewald2sum,ewald3sum,vdwsum
       real(8) ewald1eng,ewald2eng,ewald3eng,vdweng
-      real(8) spenergy,delrc,dlpeng
-
-      ewald1sum = 0.d0
+      real(8) spenergy,delrc,dlpeng,surftol,surftolsq
+      real(8) req,sig,ak
       ewald2sum = 0.d0
       ewald3eng = 0.d0
       vdwsum = 0.d0
@@ -2521,165 +2489,183 @@ c     "gstlrcorrect"
       call lrcorrect(idnode,imcon,keyfce,totatm,ntpatm,maxvdw,
      &engunit,rcut,volm,maxmls)
 
-      call erfcgen(keyfce,alpha,rcut,drewd)
-   
-c      call condensefram(totfram,ntpfram)
-c      call images(imcon,totfram,cell,xxx,yyy,zzz)
-      
-c     reciprocal space ewald calculation
-      call ewald1_init(imcon,engcpe,engsic,totatm,volm,alpha,sumchg,
-     &kmax1,kmax2,kmax3,epsq,newld,maxmls)
-
-      ewald1sum=engcpe
-c      fram=.true.
-c     generate neighbour list
-c      call parlst(imcon,totfram,fram,rcut,delr)
-
-c     start loop over atoms
-
-c      do i=1,totfram
-c        do k=1,lentry(i)
-c
-c          j=list(i,k)
-c
-c          ilist(k)=j
-c
-c          xdf(k)=xxx(i)-xxx(j)
-c          ydf(k)=yyy(i)-yyy(j)
-c          zdf(k)=zzz(i)-zzz(j)
-c
-c        enddo
-
-c        call images(imcon,lentry(i),cell,xdf,ydf,zdf)
-c
-c        do k=1,lentry(i)
-          
-c          j=list(i,k)
-c          rsqdf(k)=xdf(k)**2+ydf(k)**2+zdf(k)**2
-c
-c        enddo
-
-c       calculate pairwise interactions
-        
-c        chg=atmcharge(i)
-c        call ewald2(chg,lentry(i),engcpe,drewd,rcut,epsq)
-c
-c        ewald2sum=ewald2sum+engcpe
-c
-c        sittyp=ltype(i)
-c        call srfrce(sittyp,lentry(i),engsrp,rcut,dlrpot)
-c
-c        vdwsum=vdwsum+engsrp
-c
-c      enddo
-
-c     ewald 3 calculation NOT done on framework.  this is 
-c     because the framework is considered fixed, all 
-c     sites are excluded from the energy calculation so
-c     this is redundant
-      fram=.false.
-c     done framework energy calcs
-c      ecoul=ewald1eng+ewald2sum
-c      evdw=vdwsum
-c      spenergy=(ecoul+evdw)/engunit
-
-c     second time 'round do guest energy calcs
-      
 c     generate neighbour list
       call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
-c      call images(imcon,totatm,cell,xxx,yyy,zzz)
-
-      call parlst(imcon,totatm,fram,rcut,delr)
+c
+      call parlst(imcon,totatm,rcut,delr)
 c     reciprocal space ewald calculation
+      call ewald1(imcon,ewald1sum,engsic,totatm,volm,alpha,sumchg,
+     &kmax1,kmax2,kmax3,epsq,newld,maxmls)
+c     compute for all molecules, the excluding contributions
+c     to the reciprocal space sum.
+      call excluding_ewald_charges
+     &(imcon,idnode,ntpmls,ntpguest,totatm,ewald3eng,alpha,epsq)
 
-c      ewald1eng=engcpe-ewald1sum
-c      ewald1eng=engcpe
+c     compute short range interactions, molecule-by-molecule
+c     integer 'i' counts from the atom beginning to the end.
+      i=0
 
-c     start loop over atoms
-c     NEED to separate energies calculated for different
-c     guests if multiple guests are requested.
-c     these initial values will skew the enthalpy 
-c     of adsorption otherwise.
+      do mol=1,ntpmls
+        if(nummols(mol).gt.0)then
+          do imol=1,nummols(mol)
+            lmolsurf=.false.
+            do iatm=1,numatoms(mol)
+c             increment counter over all atoms
+              i=i+1
+c              aa = ltpsit(mol,i)
+              ik=0
+              if(lentry(i).gt.0)then
+                do j=1,lentry(i)
+                  ik=ik+1
 
-c     the if statement checks if any guests are present in the
-c     system prior to the gcmc sim.  If there aren't any
-c     the following loops are ignored.
-      if(totatm.gt.totfram)then
-        do i=1,totatm
-          do k=1,lentry(i)
-
-            j=list(i,k)
- 
-            ilist(k)=j
-            moldf(k)=moltype(j)
-            xdf(k)=xxx(i)-xxx(j)
-            ydf(k)=yyy(i)-yyy(j)
-            zdf(k)=zzz(i)-zzz(j)
-
+                  jatm=list(i,j)
+                  ilist(j)=jatm
+                  moldf(j)=moltype(jatm)
+                  xdf(ik)=xxx(i)-xxx(jatm)
+                  ydf(ik)=yyy(i)-yyy(jatm)
+                  zdf(ik)=zzz(i)-zzz(jatm)
+                enddo
+                call images(imcon,ik,cell,xdf,ydf,zdf)
+                do j=1,lentry(i)
+                  rsqdf(j)=xdf(j)**2+ydf(j)**2+zdf(j)**2
+c                 check if a surface atom
+                  if(surftol.ge.0.d0)then
+                    jatm = ilist(j)
+                    call surface_check(i,jatm,surftol,latmsurf)
+                    if(latmsurf)lmolsurf=.true.
+                  endif
+                enddo
+                chg=atmcharge(i)
+                sittyp=ltype(i)
+                
+                call ewald2
+     &          (chg,lentry(i),ewald2eng,mol,maxmls,
+     &          drewd,rcut,epsq)
+                ewald2sum=ewald2sum+ewald2eng
+c               calc vdw interactions
+                call srfrce
+     &          (sittyp,lentry(i),imol,maxmls,vdweng,rcut,dlrpot)
+                vdwsum=vdwsum+vdweng
+              endif
+            enddo
           enddo
-
-          call images(imcon,lentry(i),cell,xdf,ydf,zdf)
-
-          do k=1,lentry(i)
-          
-            j=list(i,k)
-            rsqdf(k)=xdf(k)**2+ydf(k)**2+zdf(k)**2
-
-          enddo
-
-c       calculate pairwise interactions
-        
-          chg=atmcharge(i)
-          call ewald2(chg,lentry(i),engcpe,mol,maxmls,
-     &                drewd,rcut,epsq)
-
-          ewald2eng=ewald2eng+engcpe
-
-          sittyp=ltype(i)
-          call srfrce(sittyp,lentry(i),mol,maxmls,engsrp,
-     &                rcut,dlrpot)
-c          write(*,'(f25.10)') engsrp
- 
-          vdweng=vdweng+engsrp
-
-        enddo
-
-        do i=1,totatm
-          do k=1,nexatm(i)
- 
-            j=lexatm(i,k)
-            jlist(k)=j
-            moldf=moltype(i) 
-            xdf(k)=xxx(i)-xxx(j)
-            ydf(k)=yyy(i)-yyy(j)
-            zdf(k)=zzz(i)-zzz(j)
-
-          enddo
-
-          call images(imcon,nexatm(i),cell,xdf,ydf,zdf)
- 
-          chg=atmcharge(i)
-          call ewald3(chg,mol,nexatm(i),alpha,engcpe,epsq)
-          ewald3eng=ewald3eng+engcpe  
-
-        enddo
-        ecoulg=ecoulg+ewald1eng+ewald2eng+ewald3eng
-
-        evdwg=evdwg+vdweng+elrc
-
-      endif
-      spenergy=(ecoulg+evdwg)/engunit
+          if(lmolsurf)surfacemols(mol)=surfacemols(mol)+1
+        endif
+c       increment surface count
+      enddo
 c      write(*,'(f25.10)') ewald1eng+ewald1sum,ewald2eng,ewald3eng,vdweng
 c     &, elrc/engunit
-      do i=1,maxmls
-c       really don't know how to mix the elrc and ewald3eng properly
-        energy(i)=(ewald1en(i)+ewald2en(i)+vdwen(i)+elrc+ewald3eng)
-     &/engunit 
-      enddo
-      dlpeng=(ewald1sum+ewald2eng+vdweng+elrc+ewald3eng)
+c      do i=1,maxmls
+cc       really don't know how to mix the elrc and ewald3eng properly
+c        energy(i)=(ewald1en(i)+ewald2en(i)+vdwen(i)+elrc+ewald3eng)
+c     &/engunit 
+c      enddo
+      vdwsum = vdwsum + elrc
+      dlpeng=(ewald1sum+ewald2eng+vdwsum-ewald3eng)
      & /engunit
+      ecoul = ewald2sum + ewald1sum - ewald3eng
       return
       end subroutine single_point
+      subroutine excluding_ewald_charges
+     &(imcon,idnode,ntpmls,ntpguest,totatm,ewald3sum,alpha,epsq)
+c***********************************************************************
+c                                                                      * 
+c     Compute for each molecule type specified in the FIELD file       *
+c     the intramolecular charge interactions that will be cancelled    *
+c     from the long range ewald contribution.                          *
+c     This includes 'frozen' atoms that will not interact with each    *
+c     other in a framework, as well as rigid guest molecules which     *
+c     move, but do not interact with each other.                       *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      logical lguest,lfrzi,lfrzj
+      integer nmols,mol,ntpmls,imol,iatm,itgst,gstmol
+      integer ntpguest,itatm,totatm,imcon,idnode,katm
+      real(8) ewald3mol,ewald3sum,engcpe,alpha,epsq
+      ewald3sum=0.d0
+      ewald3en(:)=0.d0
+c     count total number of atoms
+      itatm=0
+      do mol=1,ntpmls
+        lguest=.false.
+        ewald3mol=0.d0
+        nmols=nummols(mol)
+        natms=numatoms(mol)
+c       check if a guest molecule, here we assume that
+c       non-bonded interactions between atoms in a guest are 
+c       excluded
+        do itgst=1,ntpguest
+          gstmol=locguest(itgst)
+          if (gstmol.eq.mol)then
+c           add the total number of atoms in the molecule
+c           to the atom count. This is in case there are
+c           guests already in the framework at the beginning
+c           of the run.
+            lguest=.true.
+            itatm=itatm+nmols*natms
+            do iatm=1,natms-1
+              ik=0
+              do jatm=iatm+1,natms
+                ik=ik+1
+                jlist(ik)=jatm
+                xdf(ik)=guestx(itgst,iatm)-guestx(itgst,jatm)
+                ydf(ik)=guesty(itgst,iatm)-guesty(itgst,jatm)
+                zdf(ik)=guestz(itgst,iatm)-guestz(itgst,jatm)
+              enddo
+              call images(imcon,ik,cell,xdf,ydf,zdf)
+              chg=atmchg(mol,iatm)
+              call ewald3(chg,mol,ik,alpha,engcpe,epsq)
+              ewald3mol=ewald3mol+engcpe
+              ewald3en(mol)=ewald3en(mol)+engcpe
+            enddo
+            ewald3sum=ewald3sum+nmols*ewald3mol
+          endif
+        enddo
+c       after this it will be framework atoms populating
+c       the list.
+        if(.not.lguest)then
+          do imol=1,nmols
+            do iatm=1,natms
+              ik=0
+              lfrzi=(lfzsite(mol,iatm).ne.0)
+              do jmol=imol,nmols
+                if((jmol.eq.imol).and.(iatm.eq.natms))then
+c                 do not count the last interaction 
+c                 it is iatm=jatm=natms
+                  continue
+                elseif(jmol.eq.imol)then
+                  katm=iatm+1
+                else
+                  katm=1
+                endif
+                do jatm=katm,natms
+                  lfrzj=(lfzsite(mol,jatm).ne.0)
+                  if((iatm.eq.jatm).and.(imol.eq.jmol))then
+c                 this is the same atom in the same image
+                    continue 
+                  elseif((lfrzi).and.(lfrzj))then
+                    ik=ik+1
+                    jlist(ik)=jatm
+                    xdf(ik)=molxxx(mol,iatm)-molxxx(mol,jatm)
+                    ydf(ik)=molyyy(mol,iatm)-molyyy(mol,jatm)
+                    zdf(ik)=molzzz(mol,iatm)-molzzz(mol,jatm)
+                  endif
+                enddo
+              enddo
+              call images(imcon,ik,cell,xdf,ydf,zdf)
+              chg=atmchg(mol,iatm)
+              call ewald3(chg,mol,ik,alpha,engcpe,epsq)
+              ewald3en(mol)=ewald3en(mol)+engcpe
+c             don't add this contribution to the total.
+c             It is a constant factor and will be cancelled
+c             out when computing most interactions.
+            enddo
+          enddo
+        endif
+      enddo 
+      return
+      end subroutine excluding_ewald_charges
       subroutine insertion
      &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
@@ -2801,20 +2787,26 @@ c     program run.  Assumes constant bond distances.
       call ewald1_guest
      &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
      &kmax1,kmax2,kmax3,epsq,maxmls,.true.,.false.,.false.,1)
-      ewld3sum=ewald3en(iguest)
+      ewld3sum=ewald3en(mol)
 c      write(*,*)"STEP ENERGY"
 c      write(*,*)mol,ewld1eng/engunit,ewld2sum/engunit,ewld3sum/engunit,
 c     &vdwsum/engunit,delrc/engunit 
 c      write(*,*)"DONE"
       estep= estep+ 
-     &       (ewld1eng+ewld2sum+ewld3sum+vdwsum+delrc)/engunit
+     &       (ewld1eng+ewld2sum-ewld3sum+vdwsum+delrc)/engunit
+
+c      write(*,*)ewld1eng/engunit,
+c     & ewld2sum/engunit,
+c     & ewld3sum/engunit,
+c     & vdwsum/engunit,
+c     & delrc/engunit
       do i=1, maxmls
         ewld3sum=0.d0
         ik=loc2(mol,i)
         delrc_tmp=delrc_mol(ik)/engunit
         if(i.ne.mol)then
           delE(i)=delE(i)+
-     &(ewald1en(i)+ewald2en(i)+ewld3sum+vdwen(i)+delrc_tmp)
+     &(ewald1en(i)+ewald2en(i)-ewld3sum+vdwen(i)+delrc_tmp)
      &/engunit
 c          write(*,*)nummols(i),
 c     &ewald1en(i)/engunit,
@@ -2936,16 +2928,16 @@ c       calc vdw interactions
       enddo
 c     calculate the pairwise intramolecular coulombic correction
 c     (calculated at the begining - assumes constant bond distance)
-      ewld3sum=ewald3en(iguest)
+      ewld3sum=ewald3en(mol)
       estep= estep+ 
-     &     (ewld1eng-ewld2sum-ewld3sum-vdwsum+delrc)/engunit
+     &     (ewld1eng-ewld2sum+ewld3sum-vdwsum+delrc)/engunit
       do i=1, maxmls
         ewld3sum=0.d0
         ik=loc2(mol,i)
         delrc_tmp=delrc_mol(ik)/engunit
         if(i.ne.mol)then
           delE(i)=delE(i)+
-     &(ewald1en(i)-ewald2en(i)-ewld3sum-vdwen(i)+delrc_tmp)
+     &(ewald1en(i)-ewald2en(i)+ewld3sum-vdwen(i)+delrc_tmp)
      &/engunit
         endif
       enddo
@@ -3049,7 +3041,7 @@ c       calc vdw interactions
      & (sittyp,gstlentry(i),mol,maxmls,vdweng,rcut,dlrpot)
         vdwsum=vdwsum+vdweng
       enddo
-      ewld3sum=ewald3en(iguest)
+      ewld3sum=ewald3en(mol)
       if(pass.eq.1)delE(mol)=delE(mol)-(ewld2sum+vdwsum)/engunit
       if(pass.eq.2)delE(mol)=delE(mol)+
      &  (ewld1eng+ewld2sum+vdwsum)/engunit
@@ -3263,10 +3255,41 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
+      subroutine surface_check(iatm,jatm,surftol,latmsurf)
+c***********************************************************************
+c
+c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
+c     This assumes that a 'surface' atom is frozen, and that
+c     the array populated with the squared distance between neighbour
+c     atoms is populated correctly for 'jatm'.
+c
+c***********************************************************************
+      implicit none
+      logical latmsurf
+      integer aa,ab,ivdw,iatm,jatm
+      real(8) ak,sig,req,surftol
+      latmsurf=.false.
+
+      if(lfreezesite(jatm).eq.0)return
+
+      aa = ltype(iatm) 
+      ab = ltype(jatm)
+      if(aa.gt.ab)then
+        ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
+      else
+        ak=(ab*(ab-1.d0)*0.5d0+aa+0.5d0)
+      endif
+      ivdw=lstvdw(int(ak))
+      sig = prmvdw(ivdw,2)
+      req = sig
+c      req = sig*(2.d0**(1.d0/6.d0))
+      surftolsq = (surftol+req)**2
+      if (rsqdf(j).lt.surftolsq)latmsurf=.true.
+      end subroutine surface_check
       subroutine test
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,
-     &engunit)
+     &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg)
 c***********************************************************************
 c
 c     testing for various bugs etc in fastmc. 
@@ -3277,13 +3300,19 @@ c***********************************************************************
       integer imcon,idnode,iguest,keyfce,totatm,ntpguest
       integer kmax1,kmax2,kmax3,ntpatm,maxvdw
       real(8) alpha,rcut,delr,drewd,volm,epsq,engunit
-      integer i,ntpfram,randchoice,maxmls
-      integer imol,natms
+      integer i,ntpfram,randchoice,maxmls,ntpmls
+      integer imol,natms,levcfg
       real(8) apos,bpos,cpos,xc,yc,zc
       real(8) comx,comy,comz
       real(8) angx,angy,angz
       real(8) delrc,estep,surftol
+      real(8) guest_toten,sumchg,eng
+      character*8 outdir,localdir
+      character*1 cfgname(80)      
 
+      randchoice=0
+      guest_toten=0.d0
+      sumchg=0.d0
       write(*,*)"TESTING"
 
       delrc=0.d0
@@ -3329,10 +3358,16 @@ c
      &  ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &  engunit,delrc,estep,loverlap,lnewsurf,surftol)
       write(*,*)estep
-c      call accept_move
-c     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,guest_toten,
-c     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,
-c     &maxmls,sumchg)
+
+      call accept_move
+     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,guest_toten,
+     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,
+     &maxmls,sumchg)
+      eng = 0.d0 
+      call revive
+     &(idnode,totatm,levcfg,production,ntpguest,ntpmls,
+     &imcon,cfgname,eng,outdir)
+
 c      write(*,*)estep
       end subroutine test
       end

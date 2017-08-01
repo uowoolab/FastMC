@@ -1367,49 +1367,6 @@ c     calculate fugacity coefficient
 
       end subroutine calc_fugacity
 
-
-      subroutine condensefram(totfram,ntpfram)
-c**********************************************************************
-c
-c     subroutine to allocate all x,y,z coordinates and relevant
-c     atomic data to 1-d arrays.  This is necessary for easier
-c     calculations of neighbour lists ewald sums etc.
-c*********************************************************************
-
-      implicit none
-      integer iatm,ntpfram,mol
-      integer i,j,k,imol,nmols,totfram
-      iatm=0
-      imol=0
-      totfram=0
-
-      do i=1,ntpfram
-        mol=locfram(i)
-        nmols=nummols(mol)
-        do j=1,nmols
-          do k=1,numatoms(mol)
-             totfram=totfram+1
-             iatm=iatm+1
-             imol=imol+1
-             xxx(iatm)=molxxx(mol,imol)
-             yyy(iatm)=molyyy(mol,imol)
-             zzz(iatm)=molzzz(mol,imol)
-             atmcharge(iatm)=atmchg(mol,k)
-             lfreezesite(iatm)=lfzsite(mol,k)
-             atomname(iatm)=atmname(mol,k)
-             atmweight(iatm)=atmwght(mol,k)
-             moltype(iatm) = mol
-             ltype(iatm)=ltpsit(mol,k)
-          enddo
-        enddo
-
-        imol=0
-      enddo
-
-      return
-
-      end subroutine condensefram
-
       subroutine floorimages
      x  (imcon,natms,cell,xxx,yyy,zzz)
       
@@ -3734,25 +3691,21 @@ c     initialize the counter array
       return
       end subroutine guestlistgen
 
-      subroutine guest_exclude
-     &(ntpguest)
-c*****************************************************************************
-c
-c     subroutine populates the exclude lists for a guest
-c     (excludes the other atoms of the guest.)
-c     
-c*****************************************************************************
+      subroutine guest_exclude(ntpmls,ntpguest)
+c************************************************************************
+c                                                                       * 
+c     subroutine populates the exclude lists for each molecule          *
+c                                                                       *
+c************************************************************************
       implicit none
       logical lchk
-      integer nmols,natms,indx,last,mpm2,npm2,m,i,j,k,ii
-      integer ntpguest,mol,jj,jz
+      integer ntpguest,ntpmls,ntpfram,mol,jz,iguest,ifram,ii,jj
+      integer nmols,natms,indx,last,mpm2,npm2,m,i,j,k,iatm,jatm
  
-c     make a general list of exclusion sites for all guest atom types
+c     make a general list of exclusion sites 
 c     then we can build the neighbour lists based on these general lists
-
 c     initialize arrays
-
-      do i=1,ntpguest
+            do i=1,ntpguest
         mol=locguest(i)
         natms=numatoms(mol)
         do ii=1,natms
@@ -3921,7 +3874,6 @@ c      this is based on the assumption that
 c      guest atoms are RIGID and pairwise
 c      interactions WILL NOT be calculated
 c      between them.
-            
             
             do k=1,nexsit(itgst,isite)
               newatm=lexsit(itgst,isite,k)+lsite

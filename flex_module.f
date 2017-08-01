@@ -176,7 +176,7 @@ c*************************************************************************
       integer fwk_id
 
       safe=.true.
-      write(fwkname,'(a,i5.5)'),'FWK',fwk_id
+      write(fwkname,'(a,i5.5)')'FWK',fwk_id
       if(idnode.eq.0)then
         open(nconfig,file=fwkname,status='old')
       endif
@@ -434,7 +434,7 @@ c      totatm=0
 
       loop=.true.
 
-      write(fldname,'(a,i5.5)'),'FLD',fwk_id
+      write(fldname,'(a,i5.5)')'FLD',fwk_id
       if(idnode.eq.0)then
         open(nfield,file=fldname,status='old')
       endif

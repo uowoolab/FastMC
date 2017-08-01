@@ -21,7 +21,6 @@ c     bunch of ewald arrays and parameters
       real(8), allocatable :: ewald1en(:)
       real(8), allocatable :: ewald2en(:)
       real(8), allocatable :: ewald3en(:)
-      real(8), allocatable :: ewald3spe(:)
       real(8), allocatable :: engsic(:)
       real(8), allocatable :: engsicprev(:)
    
@@ -31,7 +30,7 @@ c     bunch of ewald arrays and parameters
       save ckcsnew,ckssnew,qfix_mol,qfix_molorig
       save elc,els,emc,ems,erc,fer,enc,ens
       save ewald1en,ewald2en,ewald3en,engsic
-      save engsicprev,ewald3spe
+      save engsicprev
       contains
       
       subroutine alloc_ewald_arrays
@@ -72,7 +71,6 @@ c     N choose 2 + last entry is storage for total sum
       allocate(ewald1en(maxmls+1),stat=fail(19))
       allocate(ewald2en(maxmls+1),stat=fail(20))
       allocate(ewald3en(maxmls+1),stat=fail(21))
-      allocate(ewald3spe(maxmls+1),stat=fail(22))
       allocate(engsic(maxmls+9),stat=fail(23))
       allocate(engsicprev(maxmls+9),stat=fail(24))
       allocate(qfix_mol(maxmls+9),stat=fail(25))
@@ -87,7 +85,6 @@ c     N choose 2 + last entry is storage for total sum
       ewald1en(:) = 0.d0
       ewald2en(:) = 0.d0
       ewald3en(:) = 0.d0
-      ewald3spe(:) = 0.d0
       engsic(:) = 0.d0
       engsicprev(:) = 0.d0
       qfix_mol(:) = 0.d0

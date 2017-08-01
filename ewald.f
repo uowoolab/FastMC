@@ -483,7 +483,7 @@ c          enddo
       return
       end subroutine ewald1_guest  
 
-      subroutine ewald1_init
+      subroutine ewald1
      &(imcon,engcpe,engsicold,mxatm,volm,alpha,sumchg,
      &kmax1,kmax2,kmax3,epsq,newld,maxmls)
 c********************************************************************
@@ -798,7 +798,7 @@ c     &        (alpha*alpha*volm))
         enddo
       endif
       return
-      end subroutine ewald1_init
+      end subroutine ewald1
 
       subroutine ewald2(chg,natm,engcpe,mol,maxmls,
      &drewd,rcut,epsq)
@@ -873,15 +873,15 @@ c             write(*,*)engcpe
 
       subroutine ewald3(chg,mol,natms,alpha,engcpe,epsq)
 c********************************************************************
-c                Subroutine to calculate the                        *
-c                correction terms for excluded                      *
-c                atoms                                              *
+c     Subroutine to calculate the                                   *
+c     correction terms for excluded                                 *
+c     atoms                                                         *
 c********************************************************************
       use ewald_module
       use utility_pack
       implicit none
 
-      integer jatm,natms,m,mol,imol
+      integer jatm,natms,m,mol
 
       real(8) engcpe,epsq,a1,a2,a3,alpha,chg
       real(8) a4,a5,pp,rr3,r10,r42,r216,chgea,chgprd,rrr,rsq,alpr
@@ -902,7 +902,6 @@ c     want to calculate the electrostatic interaction with
       do m=1,natms
 
         jatm=jlist(m)
-        imol=moldf(m)
         chgprd=chgea*atmchg(mol,jatm)
 c       calculate interatomic distance
 
@@ -923,10 +922,7 @@ c       calculate interatomic distance
           erfr=(1.d0-tt*(a1+tt*(a2+tt*(a3+tt*(a4+tt*a5))))*exp1)*
      &          chgprd/rrr
         endif
-        engcpe=engcpe-erfr
-        ewald3spe(imol)=ewald3spe(imol)-erfr
-        if(imol.ne.mol)ewald3spe(mol)=ewald3spe(mol)-erfr
-      
+        engcpe=engcpe+erfr
       enddo
 
       return

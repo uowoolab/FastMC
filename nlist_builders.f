@@ -1,4 +1,4 @@
-      subroutine parlst(imcon,natms,fram,rcut,delr)
+      subroutine parlst(imcon,natms,rcut,delr)
 
 c***********************************************************************
 c     
@@ -41,6 +41,7 @@ c     set control variables
       lchk=.true.
       mpm2=natms/2
       npm2=(natms-1)/2
+      fram=.false.
         
 c     set cutoff radius
 c     rmin to prevent framework atom interactions at too close a range
@@ -91,7 +92,7 @@ c     allocate atoms to neighbour list
           
         do i=1,last
 
-c******* commented out so that pairwise interactions *******
+c******* comment out so that pairwise interactions *******
 c******* will be calculated between frozen sites ********        
          lfrzi=(lfreezesite(i).ne.0)
 
@@ -114,7 +115,7 @@ c     reject frozen atom pairs
           
             ldo=.true.
 
-c******* commented out so that pairwise interactions *******
+c******* comment out so that pairwise interactions *******
 c******* will be calculated between frozen sites ********        
             if(lfrzi.and.(.not.fram))ldo=(lfreezesite(j).eq.0)
              
