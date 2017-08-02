@@ -38,10 +38,10 @@ c     bunch of ewald arrays and parameters
       implicit none
       integer, parameter :: nv=26
       integer i,idnode,maxalloc,kmax1,kmax2,kmax3
-      integer maxmls,totatm,maxguest
+      integer maxmls,totatm,maxguest,mxcmls
       integer, dimension(nv) :: fail
       real(8) rvdw
-      
+      mxcmls=(maxmls)*(maxmls-1)/2+maxmls
       maxalloc = totatm+maxguest
       mxegrd = max(1000, int(rvdw/0.01d0 + 0.5d0) + 4)
 c     used to allocate ckcsum, ckssum etc.
@@ -68,13 +68,13 @@ c     N choose 2 + last entry is storage for total sum
       allocate(ens(maxalloc,0:kmax3),stat=fail(16))
       allocate(erc(mxegrd),stat=fail(17))
       allocate(fer(mxegrd),stat=fail(18))
-      allocate(ewald1en(maxmls+1),stat=fail(19))
-      allocate(ewald2en(maxmls+1),stat=fail(20))
-      allocate(ewald3en(maxmls+1),stat=fail(21))
-      allocate(engsic(maxmls+9),stat=fail(23))
-      allocate(engsicprev(maxmls+9),stat=fail(24))
-      allocate(qfix_mol(maxmls+9),stat=fail(25))
-      allocate(qfix_molorig(maxmls+9),stat=fail(26))
+      allocate(ewald1en(mxcmls),stat=fail(19))
+      allocate(ewald2en(mxcmls),stat=fail(20))
+      allocate(ewald3en(maxmls),stat=fail(21))
+      allocate(engsic(mxcmls),stat=fail(23))
+      allocate(engsicprev(mxcmls),stat=fail(24))
+      allocate(qfix_mol(maxmls),stat=fail(25))
+      allocate(qfix_molorig(maxmls),stat=fail(26))
 
       do i=1,nv
         if(fail(i).gt.0)then

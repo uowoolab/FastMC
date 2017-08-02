@@ -392,7 +392,7 @@ c***********************************************************************
       
       implicit none
 
-      integer iatm,ik,m,jatm,k,l,sittyp,mol,jmol,maxmls
+      integer iatm,ik,m,jatm,k,l,sittyp,mol,jmol,maxmls,kmol
       real(8) engsrp,virsrp,rcut,dlrpot
       real(8) fi,rcsq,rdr,strs1,strs2,strs3,strs5,strs6,strs9,ai,aj
       real(8) ab,rrr,rsq,ppp,t1,t2,vk0,vk1,vk2,gk0,gk1,gk2,gamma,fx
@@ -454,14 +454,12 @@ c     calculate interaction energy using 3-point interpolation
             
             omega=t1+(t2-t1)*ppp*0.5d0
             engsrp=omega+engsrp
-            vdwen(jmol)=vdwen(jmol)+omega
-            if(jmol.ne.mol)vdwen(mol)=vdwen(mol)+omega
-
+            kmol=loc2(jmol,mol)
+            vdwen(kmol)=vdwen(kmol)+omega
           endif
           
         endif
       enddo
-      vdwen(maxmls+1)=vdwen(maxmls+1)+engsrp
 c     DEBUG
 c      engsrp=0.d0
 c      vdwen=0.d0
@@ -639,19 +637,19 @@ c             done again during guest insertions and deletions.
               elrc=elrc+volm*denprd*eadd
               plrc=plrc+denprd*padd/3.d0
               elrc_mol0(:)=0.d0
-c              do it=1,maxmls
-c                do jt=1,maxmls
-c                  kt=loc2(it,jt)
-c                  natyp=dble(numtyp_mol(it,i))
-c                  nbtyp=dble(numtyp_mol(jt,j))
-c                  nafrz=dble(numfrz_mol(it,i))
-c                  nbfrz=dble(numfrz_mol(jt,j))
-c                  elrc_mol0(kt)=elrc_mol0(kt)+twopi*(natyp*
-c     &              nbtyp-nafrz*nbfrz)/volm**2
-c                enddo
-c              enddo 
-c
-c              elrc_mol(:)=elrc_mol(:)+volm*eadd*elrc_mol0(:)
+              do it=1,maxmls
+                do jt=1,maxmls
+                  kt=loc2(it,jt)
+                  natyp=dble(numtyp_mol(it,i))
+                  nbtyp=dble(numtyp_mol(jt,j))
+                  nafrz=dble(numfrz_mol(it,i))
+                  nbfrz=dble(numfrz_mol(jt,j))
+                  elrc_mol0(kt)=elrc_mol0(kt)+twopi*(natyp*
+     &              nbtyp-nafrz*nbfrz)/volm**2
+                enddo
+              enddo 
+
+              elrc_mol(:)=elrc_mol(:)+volm*eadd*elrc_mol0(:)
 
             enddo
             

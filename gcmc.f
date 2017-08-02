@@ -82,14 +82,14 @@ c*************************************************************
       integer itatm,newld,gcmccount,prodcount,globalprod,ii
       integer ibuff,iprob,cprob,totfram,prevnodes,nwind,rollstat,c
       integer n,k,p,i,j,ik,ka,jj,kk,l,mm,ierr,ksite,ntpatm,nang,gridsize
-      integer kmax1,kmax2,kmax3,ntpvdw,maxvdw,maxmls,mxnode,idnode
+      integer kmax1,kmax2,kmax3,ntpvdw,maxvdw,mxcmls,maxmls,mxnode
       integer ntpfram,randchoice,nmols,ngsts,molecules,totsteps
       integer ichoice,jchoice,iswap,origtotatm
       integer mxatm,imcon,keyfce,mxatyp,sittyp,mcsteps,eqsteps,vstat
       integer iguest,ntpguest,ntpmls,natms,mol,maxanglegrid,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
       integer ins_rollcount, nswapguest, num_swaps, swap_max
-      integer swap_guest_max
+      integer swap_guest_max,idnode
       integer ngrida,ngridb,ngridc,nguests,mxewld,istat,avcount
       integer totalguests,globalnguests,globalsteps
       integer, allocatable :: fwksumbuff(:)
@@ -535,19 +535,35 @@ c     populate ewald3 arrays
      &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
      &ntpguest,ntpmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
-
       if(idnode.eq.0)then
 c        write(nrite,'(/,/,a35,f22.6)')'Configurational energy:
 c     & ',spenergy
 c        write(nrite,'(/,a35,f22.6)')'Initial framework energy :',
 c     &(evdw+ecoul)/engunit
-        write(nrite,'(a35,f22.6)')'Initial guest energy :',
-     &spenergy
+        do iguest=1,ntpguest
+          mol=locguest(iguest)
+          nmols=nummols(mol)
+          spenergy=0.d0
+          do jmol=1,ntpmls
+            ik=loc2(mol,jmol)
+c            THIS EWALD1 AND 3 CALCULATION SHOULD BE THE SAME,
+c            BUT THEY'RE CURRENTLY NOT!
+c            print*, jmol,ewald1en(10)/engunit,ewald3en(jmol)/engunit
+            spenergy=spenergy+(
+     &ewald1en(ik) +
+     &ewald2en(ik) +
+     &vdwen(ik)+
+     &elrc_mol(ik))/engunit
+          enddo 
+          if(nmols.gt.0)spenergy=spenergy-nmols*ewald3en(mol)/engunit
+          write(nrite,'(a23,i3,a9,f22.6)')'Initial guest ',
+     &iguest,' energy :',spenergy
+        enddo
         write(nrite,'(a35,f22.6)')'van der Waals energy :',
      &vdwsum/engunit
         write(nrite,'(a35,f22.6)')'Electrostatic energy :',
      &ecoul/engunit
-        write(nrite,'(a35,f22.6)')'Energy reported by DL_POLY:',
+        write(nrite,'(a35,f22.6)')'Energy reported by DL_POLY :',
      &dlpeng
 
       endif
@@ -2544,7 +2560,7 @@ c                 check if a surface atom
                 ewald2sum=ewald2sum+ewald2eng
 c               calc vdw interactions
                 call srfrce
-     &          (sittyp,lentry(i),imol,maxmls,vdweng,rcut,dlrpot)
+     &          (sittyp,lentry(i),mol,maxmls,vdweng,rcut,dlrpot)
                 vdwsum=vdwsum+vdweng
               endif
             enddo
@@ -2581,12 +2597,12 @@ c***********************************************************************
       implicit none
       logical lguest,lfrzi,lfrzj
       integer nmols,mol,ntpmls,imol,iatm,itgst,gstmol
-      integer ntpguest,itatm,totatm,imcon,idnode,katm
+      integer ntpguest,totatm,imcon,idnode,katm
       real(8) ewald3mol,ewald3sum,engcpe,alpha,epsq
+      real(8) chg
       ewald3sum=0.d0
       ewald3en(:)=0.d0
 c     count total number of atoms
-      itatm=0
       do mol=1,ntpmls
         lguest=.false.
         ewald3mol=0.d0
@@ -2603,7 +2619,6 @@ c           to the atom count. This is in case there are
 c           guests already in the framework at the beginning
 c           of the run.
             lguest=.true.
-            itatm=itatm+nmols*natms
             do iatm=1,natms-1
               ik=0
               do jatm=iatm+1,natms
@@ -2624,32 +2639,34 @@ c           of the run.
         enddo
 c       after this it will be framework atoms populating
 c       the list.
+c       NB This part doesn't work currently. It doesn't matter
+c       since the framework atoms are fixed and the ewald1 energy
+c       will not change. the SIC for this is constant. But this 
+c       is driving me NUTS.
         if(.not.lguest)then
           do imol=1,nmols
             do iatm=1,natms
               ik=0
               lfrzi=(lfzsite(mol,iatm).ne.0)
               do jmol=imol,nmols
-                if((jmol.eq.imol).and.(iatm.eq.natms))then
-c                 do not count the last interaction 
-c                 it is iatm=jatm=natms
-                  continue
-                elseif(jmol.eq.imol)then
+c               do not count the last interaction 
+c               it is iatm=jatm=natms
+c                if((jmol.eq.imol).and.(iatm.eq.natms))cycle
+                if(jmol.eq.imol)then
                   katm=iatm+1
                 else
                   katm=1
                 endif
                 do jatm=katm,natms
                   lfrzj=(lfzsite(mol,jatm).ne.0)
-                  if((iatm.eq.jatm).and.(imol.eq.jmol))then
 c                 this is the same atom in the same image
-                    continue 
-                  elseif((lfrzi).and.(lfrzj))then
+                  if((iatm.eq.jatm).and.(imol.eq.jmol))cycle
+                  if((lfrzi).and.(lfrzj))then
                     ik=ik+1
                     jlist(ik)=jatm
-                    xdf(ik)=molxxx(mol,iatm)-molxxx(mol,jatm)
-                    ydf(ik)=molyyy(mol,iatm)-molyyy(mol,jatm)
-                    zdf(ik)=molzzz(mol,iatm)-molzzz(mol,jatm)
+                    xdf(ik)=molxxx(imol,iatm)-molxxx(jmol,jatm)
+                    ydf(ik)=molyyy(imol,iatm)-molyyy(jmol,jatm)
+                    zdf(ik)=molzzz(imol,iatm)-molzzz(jmol,jatm)
                   endif
                 enddo
               enddo
@@ -2677,7 +2694,7 @@ c     energy of an additional particle.
 c
 c***********************************************************************
       implicit none
-      logical loverlap,lnewsurf
+      logical loverlap,lnewsurf,latmsurf
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
@@ -2692,7 +2709,8 @@ c c   calculate the ewald sums ewald1 and ewald2(only for new mol)
 c c   store ewald1 and 2 separately for the next step.
 c c   calculate vdw interaction (only for new mol)
       mol=locguest(iguest)
-      
+       
+      latmsurf=.false.
       natms=numatoms(mol)
       nmols=nummols(mol)
       ewld2sum=0.d0
@@ -2742,24 +2760,9 @@ c     do vdw and ewald2 energy calculations for the new atoms
 c         check if a surface atom
           if(surftol.ge.0.d0)then
             jatm = ilist(l)
-            ab = ltype(jatm)
-            if(aa.gt.ab)then
-                ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
-            else
-                ak=(ab*(ab-1.d0)*0.5d0+aa+0.5d0)
-            endif
-            ivdw=lstvdw(int(ak))
-            sig = prmvdw(ivdw,2)
-            req = sig
-c            req = sig*(2.d0**(1.d0/6.d0))
-            surftolsq = (surftol+req)**2
-            if (rsqdf(l).lt.surftolsq) then
-c               framework atoms are frozen....
-                if(lfreezesite(jatm).ne.0)then
-                  lnewsurf=.true.
-                endif
-            endif
+            call surface_check(i,jatm,surftol,latmsurf)
           endif
+          if(latmsurf)lnewsurf=.true.
         enddo
 c       figure out which index contains charges and ltype arrays
 c       that match the guest...
@@ -2830,7 +2833,7 @@ c     deletes a particle from the framework
 c
 c***********************************************************************
       implicit none
-      logical linitsurf
+      logical linitsurf,latmsurf
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
@@ -2842,6 +2845,7 @@ c***********************************************************************
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
       real(8) delrc,estep,sig,surftol,req,surftolsq
       
+      latmsurf=.false.
       ewld2sum=0.d0
       vdwsum=0.d0
 c     find which index the molecule "choice" is
@@ -2895,24 +2899,9 @@ c     do vdw and ewald2 energy calculations for the new atoms
 c         check if a surface atom
           if(surftol.ge.0.d0)then
             jatm = ilist(l)
-            ab = ltype(jatm)
-            if(aa.gt.ab)then
-                ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
-            else
-                ak=(ab*(ab-1.d0)*0.5d0+aa+0.5d0)
-            endif
-            ivdw=lstvdw(int(ak))
-            sig = prmvdw(ivdw,2)
-            req = sig
-c            req = sig*(2.d0**(1.d0/6.d0))
-            surftolsq = (surftol+req)**2
-            if (rsqdf(l).lt.surftolsq) then
-c               framework atoms are frozen....
-                if(lfreezesite(jatm).ne.0)then
-                  linitsurf=.true.
-                endif
-            endif
+            call surface_check(i,jatm,surftol,latmsurf)
           endif
+          if(latmsurf)linitsurf=.true.
         enddo
         chg=atmcharge(itatm)
         sittyp=ltype(itatm)
@@ -2956,7 +2945,7 @@ c     compute the energy of a guest in it's current position
 c
 c***********************************************************************
       implicit none
-      logical lsurf,loverlap
+      logical lsurf,loverlap,latmsurf
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
@@ -2973,7 +2962,7 @@ c***********************************************************************
       nmols=nummols(mol)
       ewld2sum=0.d0
       vdwsum=0.d0
-
+      latmsurf=.false.
       call guestlistgen
      &(imcon,iguest,totatm,rcut,delr,
      &natms,newx,newy,newz)
@@ -3003,24 +2992,9 @@ c     do vdw and ewald2 energy calculations for the new atoms
 c         check if a surface atom
           if(surftol.ge.0.d0)then
             jatm = ilist(l)
-            ab = ltype(jatm)
-            if(aa.gt.ab)then
-              ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
-            else
-              ak=(ab*(ab-1.d0)*0.5d0+aa+0.5d0)
-            endif
-            ivdw=lstvdw(int(ak))
-            sig = prmvdw(ivdw,2)
-            req = sig
-c            req = sig*(2.d0**(1.d0/6.d0))
-            surftolsq = (surftol+req)**2
-            if (rsqdf(l).lt.surftolsq) then
-c             framework atoms are frozen....
-              if(lfreezesite(jatm).ne.0)then
-                lsurf=.true.
-              endif
-            endif
+            call surface_check(i,jatm,surftol,latmsurf)
           endif
+          if(latmsurf)lsurf=.true.
         enddo
 c       only do an overlap check if the pass is not 1
 c       This assumes that the particle has moved to a

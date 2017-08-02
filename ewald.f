@@ -498,7 +498,7 @@ c********************************************************************
       integer idnode,kmax1,kmax2,kmax3,mxatm,jj
       integer iatm0,iatm1,i,j,limit,l,kkk,nmin,maxmls
       integer mmin,ll,m,mm,n,nn,k,imcon,newld,mol,molidx
-      integer mixcount
+      integer mixcount,kmol,ik
       real(8) engcpe,volm,epsq,alpha,sumchg,qfix
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsicold,ssx
       real(8) sic
@@ -546,12 +546,11 @@ c     and deletions would cause difficulty..
       do n=1,mxatm
         mol=moltype(n)
         tchge=atmcharge(n)**2
+        ik=loc2(mol,mol)
         engsicold=engsicold+tchge
-        engsic(mol)=engsic(mol)+tchge
-        engsic(maxmls+1)=engsic(maxmls+1)+tchge
+        engsic(ik)=engsic(ik)+tchge
         qfix_mol(mol)=qfix_mol(mol)+atmcharge(n)
-        qfix_mol(maxmls+1)=qfix_mol(maxmls+1)+atmcharge(n)
-      enddo      
+      enddo
       engsicold=-r4pie0/epsq*alpha*engsicold/sqrpi
 c     calculate and store the exponential factors
 
@@ -718,9 +717,6 @@ c               store individual molecule sums
                 ckcsum(mol,kkk) = ckcsum(mol,kkk) + ckc(i)
                 ckssum(mol,kkk) = ckssum(mol,kkk) + cks(i)
               enddo
-c             store total energy sums in the last index
-              ckcsum(maxmls+1,kkk)=ckcs
-              ckssum(maxmls+1,kkk)=ckss
 
 c             calculation of akk coefficients
 
@@ -733,20 +729,17 @@ c             calculation of akk coefficients
 
 c             accumulate potential energy terms
               engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss)
-              ewald1en(maxmls+1)=engcpe
 
 c             store sums of all mixtures as well
+              kmol=0
               do i=1,maxmls
                 fkk=2.d0*akk
-                do j=i,maxmls
+                do j=1,i
+                  kmol=kmol+1
                   if(i.eq.j)fkk=akk
-                  ewald1en(i)=ewald1en(i) +
+                  ewald1en(kmol)=ewald1en(kmol) +
      &              fkk*(ckcsum(i,kkk)*ckcsum(j,kkk) 
      &              + ckssum(i,kkk)*ckssum(j,kkk))
-                  ewald1en(j)=ewald1en(j) +
-     &              fkk*(ckcsum(i,kkk)*ckcsum(j,kkk) 
-     &              + ckssum(i,kkk)*ckssum(i,kkk))
-                  
                 enddo
               enddo  
 
@@ -769,32 +762,32 @@ c     potential.
       if(lconsw)then 
         eng1=engcpe
         engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsicold+qfix
-        ewald1en(maxmls+1)=engcpe
         do i=1,maxmls
           fkk=1.d0
-          sic=-r4pie0/epsq*alpha*engsic(i)/sqrpi
-          do j=i,maxmls
+          do j=1,i
             if(i.eq.j)fkk=0.5d0
-c            sic=sic- 
-c     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
-c     &        (alpha*alpha*volm))
+            ik=loc2(i,j)
+            sic=-r4pie0/epsq*alpha*engsic(ik)/sqrpi
+            sic=sic- 
+     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
+     &        (alpha*alpha*volm))
+            ewald1en(ik)=2.d0*rvolm*r4pie0*ewald1en(ik)/epsq+sic
           enddo
-          ewald1en(i)=2.d0*rvolm*r4pie0*ewald1en(i)/epsq+sic
         enddo
       else
         eng1=engcpe
         engcpe=rvolm*r4pie0*engcpe/epsq+engsicold+qfix
-        ewald1en(maxmls+1)=engcpe
         do i=1,maxmls
           fkk=1.d0
-          sic=-r4pie0/epsq*alpha*engsic(i)/sqrpi
-          do j=i,maxmls
+          do j=1,i 
             if(i.eq.j)fkk=0.5d0
-c            sic=sic-
-c     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
-c     &        (alpha*alpha*volm))
+            ik=loc2(i,j)
+            sic=-r4pie0/epsq*alpha*engsic(ik)/sqrpi
+            sic=sic-
+     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
+     &        (alpha*alpha*volm))
+            ewald1en(ik) =rvolm*r4pie0*ewald1en(ik)/epsq+sic
           enddo
-          ewald1en(i) =rvolm*r4pie0*ewald1en(i)/epsq+sic
         enddo
       endif
       return
@@ -812,7 +805,7 @@ c********************************************************************
 
       implicit none
       integer m,n,i,ik,jatm,natm,ll,l1,l2,mol,idxij
-      integer jmol,maxmls
+      integer jmol,maxmls,kmol
       real(8) engcpe,drewd,epsq,rcut
       real(8) rcsq,rdrewd,chgea,chg
       real(8) chgprd,rsq,rrr,ppp,vk0,vk1,vk2,t1,t2,erfcr
@@ -857,15 +850,14 @@ c     calculate interaction energy using 3-point interpolation
 c     separate guest-framwork interactions for Hconst.
              engcpe=engcpe+erfcr
 c             write(*,*)engcpe
-             ewald2en(mol)=ewald2en(mol)+erfcr
-             if(jmol.ne.mol)ewald2en(jmol)=ewald2en(jmol)+erfcr
+             kmol=loc2(mol,jmol)
+             ewald2en(kmol)=ewald2en(kmol)+erfcr
 
             endif
 
          endif
   
       enddo
-      ewald2en(maxmls+1)=ewald2en(maxmls+1)+engcpe
       return
 
       end subroutine ewald2

@@ -41,7 +41,7 @@ c     maximum number of vdw parameters
       allocate (steadd(maxvdw),stat=fail(3))
       allocate (prmvdw(maxvdw,mxpvdw),stat=fail(4))
       allocate (vvv(mxegrd,maxvdw),stat=fail(5))
-      allocate (vdwen(maxmls+1),stat=fail(6))
+      allocate (vdwen(mxcombo+1),stat=fail(6))
       allocate (elrc_mol(mxcombo),stat=fail(7))
       allocate (origelrc_mol(mxcombo),stat=fail(8))
       allocate (numfrz_mol(maxmls+1,mxatyp),stat=fail(9))
