@@ -45,7 +45,7 @@ c********************************************************************
       integer idnode,kmax1,kmax2,kmax3,natms,pass
       integer iatm0,iatm1,i,j,limit,l,kkk,nmin
       integer mmin,ll,m,mm,n,nn,k,imcon,iguest,mol
-      integer maxmls
+      integer maxmls,kmol
       real(8) engcpe,volm,epsq,alpha,sic,sumchg,qfix,chgtmp
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsictmp,ssx
       real(8) ssy,ssz,rkx1,rky1,rkz1,cs,tmp,rkx2,rky2,rkz2
@@ -279,8 +279,6 @@ c               update molecule sum, then total sum
                 ckssnew(mol,kkk)=ckssum(mol,kkk)+ckss
                 ckcs=ckcs+ckcold
                 ckss=ckss+cksold
-                ckcsnew(maxmls+1,kkk)=ckcs
-                ckssnew(maxmls+1,kkk)=ckss
 
 c          deletions will subtract the sums of a guest from the
 c          existing summation
@@ -290,8 +288,6 @@ c               update molecule sum, then total sum
                 ckssnew(mol,kkk)=ckssum(mol,kkk)-ckss
                 ckcs=ckcold-ckcs
                 ckss=cksold-ckss
-                ckcsnew(maxmls+1,kkk)=ckcs
-                ckssnew(maxmls+1,kkk)=ckss
 
 c          translations will subtract the sums of a guest at it's
 c          old position and then add the sums of the new position
@@ -301,8 +297,6 @@ c          old position and then add the sums of the new position
                   ckssnew(mol,kkk)=ckssum(mol,kkk)-ckss
                   ckcs=ckcold-ckcs
                   ckss=cksold-ckss
-                  ckcsnew(maxmls+1,kkk)=ckcs
-                  ckssnew(maxmls+1,kkk)=ckss
                 elseif(pass.eq.2)then
                   ckcmol2=ckcsnew(mol,kkk)
                   ckcsmol=ckcmol2+ckcs
@@ -311,15 +305,8 @@ c          old position and then add the sums of the new position
                   cksmol2=ckssnew(mol,kkk)
                   ckssmol=cksmol2+ckss
                   ckssnew(mol,kkk)=ckssmol
-c                  if(abs(ckcsnew(maxmls+1,kkk)).gt.10.d0)then
-c                    write(*,*)ckcs,ckcsnew(maxmls+1,kkk)
-c                  endif
-                  ckcpass2=ckcsnew(maxmls+1,kkk)
-                  ckspass2=ckssnew(maxmls+1,kkk)
                   ckcs=ckcpass2+ckcs
                   ckss=ckspass2+ckss
-                  ckcsnew(maxmls+1,kkk)=ckcs
-                  ckssnew(maxmls+1,kkk)=ckss
                 endif
               endif
 
@@ -338,41 +325,18 @@ c             squared values for the above calculated sums
 c             the new squared values are subtracted from the
 c             old squared values to give the delE for the 
 c             reciprocal ewald sums
-  
-c              if(displace)then
-c                if(pass.eq.2)then
-c                  engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
-c     & -ckcold*ckcold-cksold*cksold)
-c                endif 
-c              else
-c              if((displace).and.(pass.eq.1))then
-cc              if(insert)then
-c                write(*,"(/,a12,a12,a12,a12,/,f12.5,f12.5,f12.5,f12.5
-c     &,/)")"ckcsnew","ckssnew","ckcsum","ckssum",
-c     &              ckcs,ckss,
-c     &              ckcold,cksold
-c                write(*,"('ewald1 energy',f12.5,f12.4/)")
-c     &              engcpe,akk
-c              endif
               engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
      & -ckcold*ckcold-cksold*cksold)
 c             store sums of all mixtures as well
               do i=1,maxmls
                 fkk=2.d0*akk
                 if(i.eq.mol)fkk=akk
-                ewald1en(i)=ewald1en(i)+
+                kmol=loc2(mol,i)
+                ewald1en(kmol)=ewald1en(kmol)+
      &            fkk*(ckcsnew(i,kkk)*ckcsnew(mol,kkk)+
      &            ckssnew(i,kkk)*ckssnew(mol,kkk) -
      &            ckcsum(i,kkk)*ckcsum(mol,kkk) -
      &            ckssum(i,kkk)*ckssum(mol,kkk))
-c                if((i.ne.mol).and.(nummols(i).eq.0))then
-c                  write(*,"(/,a12,a12,a12,a12,/,f12.5,f12.5,f12.5,f12.5
-c     &,/)")"ckcsnew","ckssnew","ckcsum","ckssum",
-c     &              ckcsnew(i,kkk),ckssnew(i,kkk),
-c     &              ckcsum(i,kkk),ckssum(i,kkk)
-c                  write(*,"('ewald1 energy',f12.5,/)")
-c     &              ewald1en(i)
-c                endif
               enddo  
 
             endif
@@ -387,8 +351,8 @@ c                endif
         
       enddo
 c     correction for charged systems
-      qfix=-(0.5d0*pi*r4pie0/epsq)*(((qfix_mol(maxmls+1)/alpha)**2-
-     &     (sumchg/alpha)**2)/volm)
+c      qfix=-(0.5d0*pi*r4pie0/epsq)*(((qfix_mol(maxmls+1)/alpha)**2-
+c     &     (sumchg/alpha)**2)/volm)
 c      write(*,*)qfix
 c     add self interaction correction (sic) to the 
 c     potential.
@@ -398,83 +362,24 @@ c     lconsw=.false. conditions
 c     the self interaction correction is not needed for
 c     translation since it is the same before and after
 c     the move 
-        if(displace)then 
-          if(pass.eq.1)then
-            eng1=engcpe
-            engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp
-            ewald1en(maxmls+1)=engcpe
-c            do i=1,maxmls
-c              if(i.eq.mol)then
-c                fkk=0.5d0
-c                prev=(qfix_mol(i)+chgtmp)*(qfix_mol(i)+chgtmp)
-c                sic=engsictmp
-c              else
-c                fkk=1.d0
-c                prev=(qfix_mol(i)*(qfix_mol(mol)+chgtmp))
-c                sic=0.d0
-c              endif
-c              qfixtmp=-fkk*pi*r4pie0/epsq*
-c     &          (qfix_mol(i)*qfix_mol(mol) - prev)/ 
-c     &          (alpha*alpha*volm)
-c              sic=0.d0
-c              qfixtmp=0.d0
-c              ewald1en(i) =
-c     &2.d0*rvolm*r4pie0*ewald1en(i)/epsq
-c     &-sic+qfixtmp
-c            enddo
-          elseif(pass.eq.2)then
-            eng1=engcpe
-            engcpe=2.d0*rvolm*r4pie0*engcpe/epsq
-            ewald1en(maxmls+1)=engcpe
-c            do i=1,maxmls
-c              ewald1en(i) =
-c     &2.d0*rvolm*r4pie0*ewald1en(i)/epsq
-c            enddo
-          endif
-        elseif(delete)then
+        if(delete)then
           eng1=engcpe
           engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp+qfix
-          ewald1en(maxmls+1)=engcpe
-c          do i=1,maxmls
-c            if(i.eq.mol)then
-c              fkk=0.5d0
-c              prev=(qfix_mol(i)+chgtmp)*(qfix_mol(i)+chgtmp)
-c              sic=engsictmp
-c            else
-c              fkk=1.d0
-c              prev=(qfix_mol(i)*(qfix_mol(mol)+chgtmp))
-c              sic=0.d0
-c            endif
-c            qfixtmp=-fkk*pi*r4pie0/epsq*
-c     &          (qfix_mol(i)*qfix_mol(mol) - prev)/ 
-c     &          (alpha*alpha*volm)
-c            qfixtmp=0.d0
-c            sic=0.d0
-c            ewald1en(i) =
-c     &2.d0*rvolm*r4pie0*ewald1en(i)/epsq-sic+qfixtmp
-c          enddo
+          do i=1,maxmls
+            if(i.eq.mol)fkk=0.5d0
+            kmol=loc2(i,mol)
+            ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
+c     & -sic+qfixtmp
+          enddo
         else
           eng1=engcpe
           engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsictmp+qfix
-          ewald1en(maxmls+1)=engcpe
-c          do i=1,maxmls
-c            if(i.eq.mol)then
-c              fkk=0.5d0
-c              prev=(qfix_mol(i)-chgtmp)*(qfix_mol(i)-chgtmp)
-c              sic=engsictmp
-c            else
-c              fkk=1.d0
-c              prev=(qfix_mol(i)*(qfix_mol(mol)-chgtmp))
-c              sic=0.d0
-c            endif
-c            qfixtmp=-fkk*pi*r4pie0/epsq*
-c     &          (qfix_mol(i)*qfix_mol(mol) - prev)/ 
-c     &          (alpha*alpha*volm)
-c            qfixtmp=0.d0
-c            sic=0.d0
-c            ewald1en(i) =
-c     &2.d0*rvolm*r4pie0*ewald1en(i)/epsq+sic+qfixtmp
-c          enddo
+          do i=1,maxmls
+            if(i.eq.mol)fkk=0.5d0
+            kmol=loc2(i,mol)
+            ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
+c     &+sic+qfixtmp
+          enddo
         endif
       else
         write(*,*)"YOU DONE MESS'D UP!"

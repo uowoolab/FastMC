@@ -911,7 +911,7 @@ c*********************************************************************
       implicit none
       integer, parameter :: na = 84 
       integer maxmls,mxatm,maxalloc,iatm,ntpguest,i,kk,j,k
-      integer mxatyp,idnode,mxnode
+      integer mxatyp,idnode,mxnode,mxcmls
       real(8) density,ratio,cut,volm,rcut,rvdw,delr
       integer, dimension(na) :: fail
 
@@ -919,6 +919,7 @@ c     initialize fail check array
       do i=1,na
         fail(i) = 0
       enddo
+      mxcmls=maxmls* (maxmls-1) / 2 + maxmls
       mxegrd=max(1000,int(rvdw/0.01d0+0.5d0)+4)
       maxalloc=mxatm+maxguest
 c     the following line was added to test the size of maxalloc
@@ -981,7 +982,7 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(ind(mxguestsite),stat=fail(51))
       allocate(energy(maxmls+1),stat=fail(52))
       allocate(origenergy(maxmls+1),stat=fail(53))
-      allocate(delE(maxmls+1),stat=fail(54))
+      allocate(delE(mxcmls),stat=fail(54))
       allocate(avgwindow(ntpguest*9),stat=fail(55))
       allocate(sumwindowav(ntpguest*9),stat=fail(56))
       allocate(varwindow(ntpguest*9),stat=fail(57))
@@ -1041,17 +1042,17 @@ c     module
         sumwindowav(i)=0.d0
       enddo
 c     initialize the stat arrays
-      chainstats(1:1+ntpguest*16)=0.d0
-      ins(1:ntpguest) = 0.d0
-      del(1:ntpguest) = 0.d0
-      dis(1:ntpguest) = 0.d0
-      jmp(1:ntpguest) = 0.d0
-      flx(1:ntpguest) = 0.d0
-      swp(1:ntpguest) = 0.d0
-      swi(1:ntpguest) = 0.d0
-      energy(1:maxmls+1) = 0.d0
-      origenergy(1:maxmls+1) = 0.d0
-      delE(1:maxmls+1) = 0.d0
+      chainstats(:)=0.d0
+      ins(:) = 0.d0
+      del(:) = 0.d0
+      dis(:) = 0.d0
+      jmp(:) = 0.d0
+      flx(:) = 0.d0
+      swp(:) = 0.d0
+      swi(:) = 0.d0
+      energy(:) = 0.d0
+      origenergy(:) = 0.d0
+      delE(:) = 0.d0
       return
       end subroutine alloc_config_arrays
 

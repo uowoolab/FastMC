@@ -552,10 +552,11 @@ c            print*, jmol,ewald1en(10)/engunit,ewald3en(jmol)/engunit
             spenergy=spenergy+(
      &ewald1en(ik) +
      &ewald2en(ik) +
-     &vdwen(ik)+
-     &elrc_mol(ik))/engunit
+     &elrc_mol(ik) +
+     &vdwen(ik))/engunit
           enddo 
           if(nmols.gt.0)spenergy=spenergy-nmols*ewald3en(mol)/engunit
+          energy(mol)=spenergy
           write(nrite,'(a23,i3,a9,f22.6)')'Initial guest ',
      &iguest,' energy :',spenergy
         enddo
@@ -567,26 +568,11 @@ c            print*, jmol,ewald1en(10)/engunit,ewald3en(jmol)/engunit
      &dlpeng
 
       endif
-      call error(idnode,0)
-
-
-      nguests=0
-      do i=1,ntpguest
-c       this is incorrect because spenergy includes energies
-c       calculated from all guests in the framework at the begining
-c       where energy separates these values
-        mol=locguest(i)
-        nmols=nummols(mol)
-        energy(mol)=spenergy
-        nguests=nguests+nmols
-      enddo
      
       if(lspe)then
         if(lspe)lgchk=.false.
         call error(idnode,0)
-        
       endif
-
    
       call timchk(1,tzero)
       if((eqsteps.eq.0).and.(.not.ljob))production=.true.
@@ -2724,7 +2710,6 @@ c
      &(imcon,iguest,totatm,rcut,delr,
      &natms,newx,newy,newz)
 
- 
 c     calculate long range correction to vdw for the insertion
 c     of an additional guest
       do i=1,natms
@@ -3326,12 +3311,12 @@ c
         newz(i)=newz(i)+zc
 c        write(*,*)newx(i),newy(i),newz(i)
       enddo
-c
+
       call insertion
      &  (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      &  ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &  engunit,delrc,estep,loverlap,lnewsurf,surftol)
-      write(*,*)estep
+      write(*,*)loverlap,estep
 
       call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,guest_toten,
