@@ -31,7 +31,8 @@ c     look-up tables for real space part of ewald sum
 
       subroutine ewald1_guest
      &(imcon,engcpe,natms,iguest,volm,alpha,sumchg,
-     &kmax1,kmax2,kmax3,epsq,maxmls,insert,delete,displace,pass)
+     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,
+     &insert,delete)
 c********************************************************************
 c                Subroutine to determine the                        *
 c                reciprocal part of the ewald                       *
@@ -48,6 +49,7 @@ c********************************************************************
       integer maxmls,kmol
       real(8) engcpe,volm,epsq,alpha,sic,sumchg,qfix,chgtmp
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsictmp,ssx
+      real(8) engsicmol,qfixmol
       real(8) ssy,ssz,rkx1,rky1,rkz1,cs,tmp,rkx2,rky2,rkz2
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
       real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,chge,prev
@@ -93,20 +95,8 @@ c     the self interaction correction in real space
         chgtmp=chgtmp+chge
         tchge = chge*chge 
         engsictmp=engsictmp+tchge
-        if (insert)then
-          qfix_mol(mol)=qfix_mol(mol)+chge
-          qfix_mol(maxmls+1)=qfix_mol(maxmls+1)+chge
-          engsic(mol)=engsic(mol)+tchge
-          engsic(maxmls+1)=engsic(maxmls+1)+tchge
-        else if (delete)then
-          qfix_mol(mol)=qfix_mol(mol)-chge
-          qfix_mol(maxmls+1)=qfix_mol(maxmls+1)-chge
-          engsic(mol)=engsic(mol)-tchge
-          engsic(maxmls+1)=engsic(maxmls+1)-tchge
-        end if
       enddo      
       engsictmp=-r4pie0/epsq*alpha*engsictmp/sqrpi
-      
 c     calculate and store the exponential factors
      
       i=0
@@ -277,6 +267,8 @@ c             summation
 c               update molecule sum, then total sum
                 ckcsnew(mol,kkk)=ckcsum(mol,kkk)+ckcs
                 ckssnew(mol,kkk)=ckssum(mol,kkk)+ckss
+                ckcsnew(maxmls+1,kkk)=ckcsum(maxmls+1,kkk)+ckcs
+                ckssnew(maxmls+1,kkk)=ckssum(maxmls+1,kkk)+ckss
                 ckcs=ckcs+ckcold
                 ckss=ckss+cksold
 
@@ -286,30 +278,11 @@ c          existing summation
 c               update molecule sum, then total sum
                 ckcsnew(mol,kkk)=ckcsum(mol,kkk)-ckcs
                 ckssnew(mol,kkk)=ckssum(mol,kkk)-ckss
+                ckcsnew(maxmls+1,kkk)=ckcsum(maxmls+1,kkk)-ckcs
+                ckssnew(maxmls+1,kkk)=ckssum(maxmls+1,kkk)-ckss
                 ckcs=ckcold-ckcs
                 ckss=cksold-ckss
-
-c          translations will subtract the sums of a guest at it's
-c          old position and then add the sums of the new position
-              elseif(displace)then
-                if(pass.eq.1)then
-                  ckcsnew(mol,kkk)=ckcsum(mol,kkk)-ckcs
-                  ckssnew(mol,kkk)=ckssum(mol,kkk)-ckss
-                  ckcs=ckcold-ckcs
-                  ckss=cksold-ckss
-                elseif(pass.eq.2)then
-                  ckcmol2=ckcsnew(mol,kkk)
-                  ckcsmol=ckcmol2+ckcs
-                  ckcsnew(mol,kkk)=ckcsmol
-
-                  cksmol2=ckssnew(mol,kkk)
-                  ckssmol=cksmol2+ckss
-                  ckssnew(mol,kkk)=ckssmol
-                  ckcs=ckcpass2+ckcs
-                  ckss=ckspass2+ckss
-                endif
               endif
-
 c             calculation of akk coefficients
 
               rrksq=1.d0/rksq
@@ -351,9 +324,8 @@ c             store sums of all mixtures as well
         
       enddo
 c     correction for charged systems
-c      qfix=-(0.5d0*pi*r4pie0/epsq)*(((qfix_mol(maxmls+1)/alpha)**2-
-c     &     (sumchg/alpha)**2)/volm)
-c      write(*,*)qfix
+      qfix=-(0.5d0*pi*r4pie0/epsq)*((chgtmp*sumchg)/alpha + 
+     & (chgtmp/alpha)**2)/volm
 c     add self interaction correction (sic) to the 
 c     potential.
 c     in most cases lconsw=.true. probably deprecate the
@@ -364,21 +336,35 @@ c     translation since it is the same before and after
 c     the move 
         if(delete)then
           eng1=engcpe
-          engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp+qfix
+          engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp-qfix
           do i=1,maxmls
-            if(i.eq.mol)fkk=0.5d0
+            fkk=1.d0
+            sic=0.d0
+            if(i.eq.mol)then
+              fkk=0.5d0
+              sic=engsictmp
+            endif
+            qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
+     &/(alpha*alpha*volm)
             kmol=loc2(i,mol)
             ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
-c     & -sic+qfixtmp
+     &-sic-qfixmol
           enddo
         else
           eng1=engcpe
           engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsictmp+qfix
           do i=1,maxmls
-            if(i.eq.mol)fkk=0.5d0
+            fkk=1.d0
+            sic=0.d0
+            if(i.eq.mol)then
+              fkk=0.5d0
+              sic=engsictmp
+            endif
+            qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
+     &/(alpha*alpha*volm)
             kmol=loc2(i,mol)
             ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
-c     &+sic+qfixtmp
+     &+sic+qfixmol
           enddo
         endif
       else
@@ -422,7 +408,6 @@ c    initialize the coulombic potential energy
       engcpe=0.d0
       jj=0
 c    working parameters
-
       rvolm=twopi/volm
       ralph=-0.25d0/alpha**2
 
@@ -446,7 +431,6 @@ c     we can optimize the ewald at each step if we
 c     dont re-calculate this each time.  insertions
 c     and deletions would cause difficulty..
       engsicold=0.d0
-      qfix_mol(:)=0.d0
       engsic(:)=0.d0
       do n=1,mxatm
         mol=moltype(n)
@@ -454,7 +438,7 @@ c     and deletions would cause difficulty..
         ik=loc2(mol,mol)
         engsicold=engsicold+tchge
         engsic(ik)=engsic(ik)+tchge
-        qfix_mol(mol)=qfix_mol(mol)+atmcharge(n)
+        chgsum_mol(mol)=chgsum_mol(mol)+atmcharge(n)
       enddo
       engsicold=-r4pie0/epsq*alpha*engsicold/sqrpi
 c     calculate and store the exponential factors
@@ -612,7 +596,7 @@ c            calculate vector sums
 
               ckcs=0.d0
               ckss=0.d0
-
+              jj=jj+1
               kkk=kkk+1
               do i=1,limit
                 ckcs=ckcs+ckc(i)
@@ -621,6 +605,9 @@ c            calculate vector sums
 c               store individual molecule sums
                 ckcsum(mol,kkk) = ckcsum(mol,kkk) + ckc(i)
                 ckssum(mol,kkk) = ckssum(mol,kkk) + cks(i)
+c               store total sum.
+                ckcsum(maxmls+1,kkk) = ckcsum(maxmls+1,kkk)+ckc(i)
+                ckssum(maxmls+1,kkk) = ckssum(maxmls+1,kkk)+ckc(i)
               enddo
 
 c             calculation of akk coefficients
@@ -674,7 +661,7 @@ c     potential.
             ik=loc2(i,j)
             sic=-r4pie0/epsq*alpha*engsic(ik)/sqrpi
             sic=sic- 
-     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
+     &        ((fkk*pi*r4pie0/epsq)*chgsum_mol(i)*chgsum_mol(j)/
      &        (alpha*alpha*volm))
             ewald1en(ik)=2.d0*rvolm*r4pie0*ewald1en(ik)/epsq+sic
           enddo
@@ -689,7 +676,7 @@ c     potential.
             ik=loc2(i,j)
             sic=-r4pie0/epsq*alpha*engsic(ik)/sqrpi
             sic=sic-
-     &        ((fkk*pi*r4pie0/epsq)*qfix_mol(i)*qfix_mol(j)/
+     &        ((fkk*pi*r4pie0/epsq)*chgsum_mol(i)*chgsum_mol(j)/
      &        (alpha*alpha*volm))
             ewald1en(ik) =rvolm*r4pie0*ewald1en(ik)/epsq+sic
           enddo

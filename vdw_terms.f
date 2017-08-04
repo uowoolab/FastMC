@@ -176,7 +176,7 @@ c     define zero potential for undefined interactions
       deallocate (parpot)
 
       return
-      end
+      end subroutine define_van_der_waals
 
       subroutine forgen(idnode,ntpvdw,dlrpot,rcut)
 
@@ -377,7 +377,7 @@ c       weeks-chandler-anderson potential
         endif 
       enddo
       return
-      end
+      end subroutine forgen
 
       subroutine srfrce(sittyp,ik,mol,maxmls,engsrp,rcut,dlrpot)
 
@@ -465,11 +465,11 @@ c      engsrp=0.d0
 c      vdwen=0.d0
 c     END DEBUG
       return
-      end
+      end subroutine srfrce 
 
       subroutine lrcorrect
      x  (idnode,imcon,keyfce,natms,ntpatm,ntpvdw,engunit,
-     x  rcut,volm,maxmls)
+     x  rcut,volm,maxmls,ntpguest)
       
 c*************************************************************************
 c     
@@ -486,7 +486,7 @@ c      use config_module
       implicit none
 
       integer idnode,imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
-      integer ivdw,j,k,mol,maxmls,mxmls2,it,jt,kt
+      integer ivdw,j,k,mol,maxmls,mxmls2,it,jt,kt,ntpguest,ntatm
       real(8) engunit,virlrc,rcut,volm,twopi,plrc,eadd,padd
       real(8) denprd,aaa,bbb,ccc,ddd,eee,eps,sig,rr0,ann,amm
       real(8) natyp,nbtyp,nafrz,nbfrz
@@ -496,15 +496,29 @@ c      use config_module
 
       twopi=2.0d0*pi
       
+      elrc_mol0(:)=0.d0
+      elrc_mol(:)=0.d0
 c     initalise counter arrays
-      
-      do i=1,ntpatm
-        
-        numtyp(i)=0
-        numfrz(i)=0
-        
-      enddo
+      numtyp(:)=0
+      numfrz(:)=0
+      numfrz_mol(:,:)=0
+      numtyp_mol(:,:)=0
+      numfrz_gstmol(:,:)=0
+      numtyp_gstmol(:,:)=0
 
+c     populate guest counters for
+c     a single molecule.
+      do i=1,ntpguest
+        mol=locguest(i)
+        ntatm=numatoms(mol)
+        do j=1,ntatm
+          ka=ltpsit(mol,j)
+          numtyp_gstmol(i,ka)=numtyp_gstmol(i,ka)+1
+          if(lfzsite(mol,j).ne.0)then
+            numfrz_gstmol(i,ka)=numfrz_gstmol(i,ka)+1
+          endif
+        enddo 
+      enddo
 c     evaluate number density in system
       
       do i=1,natms
@@ -668,10 +682,10 @@ c     x  "(/,/,'long range correction for: vdw energy  ',e15.6,/,
 c     x  25x,': vdw pressure',e15.6)") elrc/engunit,plrc*prsunt
       
       return
-      end
+      end subroutine lrcorrect
 
       subroutine gstlrcorrect
-     x  (idnode,imcon,mol,keyfce,natms,ntpatm,ntpvdw,engunit,
+     x  (idnode,imcon,iguest,keyfce,natms,ntpatm,ntpvdw,engunit,
      x  delrc,rcut,volm,maxmls)
       
 c*************************************************************************
@@ -688,22 +702,13 @@ c***************************************************************************
       implicit none
 
       integer idnode,imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
-      integer ivdw,j,k,mol,maxmls,it,kt,jt
-      real(8) engunit,rcut,volm,twopi,eadd
+      integer ivdw,j,k,iguest,mol,maxmls,it,kt,jt
+      real(8) engunit,rcut,volm,twopi,eadd,self
       real(8) denprd,delrc,natyp,nbtyp,nafrz,nbfrz
       twopi=2.0d0*pi
 
-
-c     this part will be put before calling this subroutine in gcmc.f      
-c      do i=1,natms
-        
-c        ka=ltpsit(mol,i)
-c        numtyp(ka)=numtyp(ka)+1
-c        if(lfzsite(mol,i).ne.0)numfrz(ka)=numfrz(ka)+1
-c      enddo
-
 c     long range corrections to energy and pressure
-      
+      mol=locguest(iguest)
       delrc=0.d0
       delrc_mol=0.d0
       if(imcon.ne.0.and.imcon.ne.6.and.ntpvdw.gt.0) then 
@@ -712,29 +717,33 @@ c     long range corrections to energy and pressure
           ivdw=0
           
           do i=1, ntpatm
-            
-            do j=1,i
+c           j is looping over the atom types in the other list            
+            do j=1,ntpatm
               
               eadd=0.d0              
-              ivdw=ivdw+1
-              
+c              ivdw=ivdw+1
+              ivdw = loc2(j,i)
               eadd=steadd(ivdw)
 
-              denprd=twopi*(dble(numtyp(i))*dble(numtyp(j))-
-     x          dble(numfrz(i))*dble(numfrz(j)))/volm**2
-              delrc=delrc+volm*denprd*eadd
+              denprd=(
+     &dble(numtyp_gstmol(iguest,i))*dble(numtyp(j))-
+     &dble(numfrz_gstmol(iguest,i))*dble(numfrz(j)))
+c             this extra calc could slow things down..
+              self=0.d0
+              if(j.le.i)self=self+(
+     &dble(numtyp_gstmol(iguest,i))*dble(numtyp_gstmol(iguest,j))-
+     &dble(numfrz_gstmol(iguest,i))*dble(numfrz_gstmol(iguest,j)))
+              do jt=1,maxmls
+                kt=loc2(mol,jt)
+                natyp=dble(numtyp_gstmol(iguest,i)) 
+                nbtyp=dble(numtyp_mol(jt,j))
+                nafrz=dble(numfrz_gstmol(iguest,i)) 
+                nbfrz=dble(numfrz_mol(jt,j))
+                delrc_mol0(kt)=delrc_mol0(kt)+twopi*(natyp*
+     &           nbtyp-nafrz*nbfrz+self)/volm**2
+              enddo
+              delrc=delrc+volm*twopi*(self+denprd)/volm**2*eadd
               delrc_mol0(:)=0.d0
-              do it=1,maxmls
-                do jt=1,maxmls
-                  kt=loc2(it,jt)
-                  natyp=dble(numtyp_mol(it,i))
-                  nbtyp=dble(numtyp_mol(jt,j))
-                  nafrz=dble(numfrz_mol(it,i))
-                  nbfrz=dble(numfrz_mol(jt,j))
-                  delrc_mol0(kt)=delrc_mol0(kt)+twopi*(natyp*
-     &              nbtyp-nafrz*nbfrz)/volm**2
-                enddo
-              enddo 
               delrc_mol(:)=delrc_mol(:)+volm*eadd*delrc_mol0(:)
               
             enddo
@@ -745,11 +754,10 @@ c     long range corrections to energy and pressure
         endif
         
       endif
-      delrc_mol(:)=delrc_mol(:)-elrc_mol(:)
 c     DEBUG
 c      delrc = 0.d0
 c      delrc_mol = 0.d0
 c      elrc_mol = 0.d0
 c     END DEBUG
       return
-      end
+      end subroutine gstlrcorrect

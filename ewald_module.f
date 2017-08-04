@@ -13,7 +13,7 @@ c     bunch of ewald arrays and parameters
       real(8), allocatable :: ckcsum(:,:),ckssum(:,:)
       real(8), allocatable :: ckcsorig(:,:),ckssorig(:,:) 
       real(8), allocatable :: ckcsnew(:,:),ckssnew(:,:)
-      real(8), allocatable :: qfix_mol(:),qfix_molorig(:)
+      real(8), allocatable :: chgsum_mol(:),chgsum_molorig(:)
       real(8), allocatable :: elc(:,:),els(:,:)
       real(8), allocatable :: emc(:,:),ems(:,:)
       real(8), allocatable :: erc(:),fer(:)
@@ -22,15 +22,15 @@ c     bunch of ewald arrays and parameters
       real(8), allocatable :: ewald2en(:)
       real(8), allocatable :: ewald3en(:)
       real(8), allocatable :: engsic(:)
-      real(8), allocatable :: engsicprev(:)
+      real(8), allocatable :: engsicorig(:)
    
       save mxebuf
       save ckc,cks,clm,slm
       save ckcsum,ckssum,ckcsorig,ckssorig
-      save ckcsnew,ckssnew,qfix_mol,qfix_molorig
+      save ckcsnew,ckssnew,chgsum_mol,chgsum_molorig
       save elc,els,emc,ems,erc,fer,enc,ens
       save ewald1en,ewald2en,ewald3en,engsic
-      save engsicprev
+      save engsicorig
       contains
       
       subroutine alloc_ewald_arrays
@@ -72,9 +72,9 @@ c     N choose 2 + last entry is storage for total sum
       allocate(ewald2en(mxcmls),stat=fail(20))
       allocate(ewald3en(maxmls),stat=fail(21))
       allocate(engsic(mxcmls),stat=fail(23))
-      allocate(engsicprev(mxcmls),stat=fail(24))
-      allocate(qfix_mol(maxmls),stat=fail(25))
-      allocate(qfix_molorig(maxmls),stat=fail(26))
+      allocate(engsicorig(mxcmls),stat=fail(24))
+      allocate(chgsum_mol(maxmls),stat=fail(25))
+      allocate(chgsum_molorig(maxmls),stat=fail(26))
 
       do i=1,nv
         if(fail(i).gt.0)then
@@ -86,9 +86,9 @@ c     N choose 2 + last entry is storage for total sum
       ewald2en(:) = 0.d0
       ewald3en(:) = 0.d0
       engsic(:) = 0.d0
-      engsicprev(:) = 0.d0
-      qfix_mol(:) = 0.d0
-      qfix_molorig(:) = 0.d0
+      engsicorig(:) = 0.d0
+      chgsum_mol(:) = 0.d0
+      chgsum_molorig(:) = 0.d0
       end subroutine alloc_ewald_arrays
 
       end module ewald_module
