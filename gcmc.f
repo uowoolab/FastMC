@@ -842,35 +842,6 @@ c       the following is added in case of initial conditions
           rota = .false.
           switch = .false.
         endif
-c        if (nmols.eq.1)then
-c          insert=.false.
-c          delete=.false.
-c          displace=.true.
-c          jump = .false.
-c          flex = .false.
-c          swap = .false.
-c          tran = .false.
-c          rota = .false.
-c          switch = .false.
-c        endif
-c       DEBUG
-c        if(gcmccount.eq.1)then
-c          insert=.true.
-c          iguest=1
-c        else if (gcmccount.eq.2)then
-c          insert=.true.
-c          iguest=2
-c        else if (gcmccount.eq.3)then
-c          insert=.true.
-c          iguest=3
-c        else if (gcmccount.eq.4)then
-c          displace=.true.
-c          iguest=2
-c        else if (gcmccount.eq.5)then
-c          delete=.true.
-c          iguest=3
-c        endif
-c       END DEBUG 
         oldeng = 0.d0
         ewald1en=0.d0
         ewald2en=0.d0
@@ -960,22 +931,12 @@ c       ewald1,ewald2,vdw of the mol you wish to delete
      &displace,insert,delete,swap,accepted)
          
 c         the following occurs if the move is accepted.
-c         DEBUG
-c          accepted=.true.
-c         END DEBUG
-
           if(accepted)then
             accept_del=accept_del+1
-c            if(nummols(mol).eq.1)then
-c              write(*,*)"1. ",energy(3),delE(3)
-c            endif
             call accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,
      &linitsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
-c            if (nummols(mol).eq.0)then
-c              write(*,*)"2. ",energy(3)
-c            endif
           else
             call reject_move
      &(idnode,iguest,0,insert,delete,displace,swap)
@@ -1051,7 +1012,6 @@ c         update the arrays.
           ckcsum=ckcsnew
           ckssum=ckssnew
 
-c          write(*,*)"Ewald1 Energy Before: ",ewld1eng/engunit
 c         LOOP 2 - shift the newx,newy,newz coordinates and re-calculate
 c         the new energy and subtract from the above energy.
 c         dis_delr and dis_rotangle depend on the type of move!
@@ -1069,7 +1029,6 @@ c         dis_delr and dis_rotangle depend on the type of move!
      &chgtmp,engsictmp,loverlap,2)
 c         total up the energy contributions. The Ewald1 sum is dealt
 c         with internally
-c          write(*,*)"Ewald1 Energy After:  ",ewld1eng/engunit
           ewld2sum = ewld2sum + newewld2sum
           vdwsum = vdwsum + newvdwsum
           accepted=.false.
@@ -1078,11 +1037,6 @@ c          write(*,*)"Ewald1 Energy After:  ",ewld1eng/engunit
             ngsts=nummols(mol)
             ewld3sum=ewald3en(mol)
             estep=(ewld1eng+ewld2sum+vdwsum)/engunit
-c            write(*,*)"Final Ewald1+3 :",(ewld1eng-ewld3sum)/engunit
-c            write(*,*)"Final Ewald1   :",(ewld1eng)/engunit
-c            write(*,*)"Estep          :",estep
-c            write(*,*)ewld2sum/engunit
-c            write(*,*)vdwsum/engunit
             if(estep.lt.0.d0)then
               accepted=.true.
             else
