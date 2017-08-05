@@ -106,6 +106,9 @@ c*************************************************************
       real(8) tzero,timelp,engunit,rvdw,press,temp,beta
       real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,init,gpress
       real(8) ewld1eng,ewld2eng
+c     DEBUG
+      real(8) pewld1,pewld2,pelrc,pvdw
+c     DEBUG
       real(8) alen,blen,clen,ecoul,evdw
       real(8) ecoulg,evdwg,engcomm,dummy,overlap,surfmol
       real(8) ewld2sum,vdwsum,ewld3sum,comx,comy,comz,ewaldaverage
@@ -544,17 +547,26 @@ c     &(evdw+ecoul)/engunit
           mol=locguest(iguest)
           nmols=nummols(mol)
           spenergy=0.d0
+          pewld1=0.d0; pewld2=0.d0; pelrc=0.d0;pvdw=0.d0
           do jmol=1,ntpmls
             ik=loc2(mol,jmol)
 c            THIS EWALD1 AND 3 CALCULATION SHOULD BE THE SAME,
 c            BUT THEY'RE CURRENTLY NOT!
 c            print*, jmol,ewald1en(10)/engunit,ewald3en(jmol)/engunit
+            pewld1=pewld1+ewald1en(ik)
+            pewld2=pewld2+ewald2en(ik)
+            pelrc=pelrc+elrc_mol(ik)
+            pvdw=pvdw+vdwen(ik)
             spenergy=spenergy+(
      &ewald1en(ik) +
      &ewald2en(ik) +
      &elrc_mol(ik) +
      &vdwen(ik))/engunit
-          enddo 
+          enddo
+c          print *,"EWALD1 ",pewld1/engunit
+c          print *,"EWALD2 ",pewld2/engunit
+c          print *,"VDW    ",pvdw/engunit
+c          print *,"DELRC  ",pelrc/engunit
           if(nmols.gt.0)spenergy=spenergy-nmols*ewald3en(mol)/engunit
           energy(mol)=spenergy
           write(nrite,'(a23,i3,a9,f22.6)')'Initial guest ',
@@ -904,7 +916,7 @@ c         END DEBUG
           if(accepted)then
             accept_ins=accept_ins+1
             call accept_move
-     &(imcon,idnode,iguest,insert,delete,displace,estep,guest_toten,
+     &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
           else
@@ -958,7 +970,7 @@ c            if(nummols(mol).eq.1)then
 c              write(*,*)"1. ",energy(3),delE(3)
 c            endif
             call accept_move
-     &(imcon,idnode,iguest,insert,delete,displace,estep,guest_toten,
+     &(imcon,idnode,iguest,insert,delete,displace,estep,
      &linitsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
 c            if (nummols(mol).eq.0)then
@@ -1085,7 +1097,7 @@ c          accepted=.true.
 c         END DEBUG
           if(accepted)then
             call accept_move
-     &(imcon,idnode,iguest,insert,delete,displace,estep,guest_toten,
+     &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
 c           check if the energy probability grid is requested,
@@ -1188,7 +1200,7 @@ c         find which index the molecule "randchoice" is
           if(accepted)then
             accept_jump=accept_jump+1
             call accept_move
-     &(imcon,idnode,iguest,insert,delete,jump,estep,guest_toten,
+     &(imcon,idnode,iguest,insert,delete,jump,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             if(lprobeng(iguest))then
@@ -1470,7 +1482,7 @@ c************************************************************************
 c           update ewald arrays as if the deletion was accepted
             estep=estep+estepi
             call accept_move
-     &(imcon,idnode,iguest,.false.,.true.,.false.,estepi,guest_toten,
+     &(imcon,idnode,iguest,.false.,.true.,.false.,estepi,
      &.false.,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             ewald1en=0.d0
@@ -1487,14 +1499,12 @@ c           update ewald arrays as if the deletion was accepted
             estep=estep+estepj
 c           update ewald arrays as if the deletion was accepted
             call accept_move
-     &(imcon,idnode,jguest,.false.,.true.,.false.,estepj,guest_toten,
+     &(imcon,idnode,jguest,.false.,.true.,.false.,estepj,
      &.false.,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             ewald1en=0.d0
             ewald2en=0.d0
             vdwen=0.d0
-            ckcsnew=0.d0
-            ckssnew=0.d0
 
             lnewsurfj=.false.
             do iatm=1,natms
@@ -1510,14 +1520,12 @@ c           update ewald arrays as if the deletion was accepted
      & loverlap,lnewsurfj,surftol)
             estep=estep+estepj
             call accept_move
-     &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,guest_toten,
+     &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,
      &.false.,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             ewald1en=0.d0
             ewald2en=0.d0
             vdwen=0.d0
-            ckcsnew=0.d0
-            ckssnew=0.d0
 
             if((linitsurfj).and.(.not.lnewsurfj))then
               surfacemols(jmol) = surfacemols(jmol) - 1
@@ -1543,7 +1551,7 @@ c           update ewald arrays as if the deletion was accepted
             estep=estep+estepi
             energy=origenergy
             call accept_move
-     &(imcon,idnode,iguest,.true.,.false.,.false.,estepi,guest_toten,
+     &(imcon,idnode,iguest,.true.,.false.,.false.,estepi,
      &.false.,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             ewald1en=0.d0
@@ -1673,7 +1681,7 @@ c         delete first guest
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estepi,linitsurf,surftol)
           call accept_move
-     &(imcon,idnode,iguest,.false.,.true.,.false.,estepi,guest_toten,
+     &(imcon,idnode,iguest,.false.,.true.,.false.,estepi,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
           energy=origenergy
@@ -1702,7 +1710,7 @@ c         insert second guest
      & loverlap,lnewsurf,surftol)
 c          write(*,*)delE(imol)-estepi,delE(jmol)-estepj
           call accept_move
-     &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,guest_toten,
+     &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,
      &lnewsurf,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
 
@@ -2700,10 +2708,8 @@ c c   calculate vdw interaction (only for new mol)
       ewld2sum=0.d0
       vdwsum=0.d0
       loverlap = .false.
-c      
-      do i=1,natms
-        ind(i)=0
-      enddo
+c     
+      ind(:) = 0 
       call guestlistgen
      &(imcon,iguest,totatm,rcut,delr,
      &natms,newx,newy,newz)
@@ -2769,21 +2775,25 @@ c     program run.  Assumes constant bond distances.
       ewld3sum=ewald3en(mol)
       estep= estep+ 
      &       (ewld1eng+ewld2sum-ewld3sum+vdwsum+delrc)/engunit
-
+      
+c      print *,"EWALD1 ",ewld1eng/engunit,-ewld3sum/engunit
+c      print *,"EWALD2 ",ewld2sum/engunit
+c      print *,"VDW    ",vdwsum/engunit
+c      print *,"DELRC  ",delrc/engunit
       do i=1, maxmls
         ewld3sum=0.d0
         ik=loc2(mol,i)
         delrc_tmp=delrc_mol(ik)/engunit
-        if(i.ne.mol)then
-          delE(i)=delE(i)+
-     &(ewald1en(ik)+ewald2en(ik)-ewld3sum+vdwen(ik)+delrc_tmp)
+
+        if(i.ne.mol)delE(i)=delE(i)+
+     &(ewald1en(ik)+ewald2en(ik)+vdwen(ik)+delrc_tmp)
      &/engunit
 c          write(*,*)nummols(i),
 c     &ewald1en(i)/engunit,
 c     &ewald2en(i)/engunit,
 c     &vdwen(i)/engunit,
 c     &delrc_tmp
-        endif
+c        endif
       enddo
       delE(mol)=delE(mol)+
      &  estep
@@ -3050,7 +3060,7 @@ c       reset engsic
 
       end subroutine reject_move
       subroutine accept_move
-     &(imcon,idnode,iguest,insert,delete,displace,estep,guest_toten,
+     &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lsurf,delrc,totatm,choice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
 c***********************************************************************
@@ -3063,19 +3073,19 @@ c***********************************************************************
       integer idnode,iguest,natms,mol,i,mm,totatm,choice,at
       integer ntpfram,imcon,ntpmls,ntpguest,maxmls,kk,ka
       logical insert,delete,displace,lsurf
-      real(8) estep,guest_toten,delrc,sumchg,chgtmp,engsictmp
+      real(8) estep,delrc,sumchg,chgtmp,engsictmp
 c      ewaldaverage = ewaldaverage + abs(ewld1eng+ewld3sum)/engunit
       mol = locguest(iguest)
       kk = loc2(mol,mol)
       natms = numatoms(mol)
       at=(choice-1)*natms+1
-      guest_toten=estep
 c     update energy arrays
-c      energy(mol)=energy(mol)+estep
       do i=1,maxmls
-c        if(i.ne.mol)energy(i)=energy(i)+delE(i)
          energy(i)=energy(i)+delE(i)
       enddo
+c     update ewald1 sums
+      ckcsum = ckcsnew
+      ckssum = ckssnew
       if(insert)then
         mm=natms*nummols(mol)
         engsic(kk)=engsic(kk)+engsictmp
@@ -3099,9 +3109,6 @@ c       & increment type counters
             numfrz_mol(mol,ka)=numfrz_mol(mol,ka)+1
           endif
         enddo
-c       update ewald1 sums
-        ckcsum = ckcsnew
-        ckssum = ckssnew
 c       update long range correction
         elrc=elrc+delrc
         elrc_mol(:)=elrc_mol(:)+delrc_mol(:)
@@ -3113,11 +3120,9 @@ c       with this after
         call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
         choice = nummols(mol)
       elseif(delete)then
-        guest_toten= -estep
         engsic(kk)=engsic(kk)-engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
         sumchg = sumchg-chgtmp
-c        write(*,*)"Deletion Total guest energy:",guest_toten
         mm=natms*nummols(mol)
 c       update surface molecules
         if(lsurf)then
@@ -3137,9 +3142,6 @@ c       & decrement counters
             numfrz_mol(mol,ka)=numfrz_mol(mol,ka)-1
           endif
         enddo
-c       update ewald1 sums
-        ckcsum = ckcsnew
-        ckssum = ckssnew
 
 c       update nummols,totatm, then condense everything to 1d arrays
         elrc=elrc+delrc
@@ -3156,8 +3158,6 @@ c        call images(imcon,totatm,cell,xxx,yyy,zzz)
           molyyy(mol,i)=newy(mm)
           molzzz(mol,i)=newz(mm)
         enddo
-        ckcsum = ckcsnew
-        ckssum = ckssnew
         call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
       endif
 
@@ -3225,6 +3225,62 @@ c      req = sig*(2.d0**(1.d0/6.d0))
       surftolsq = (surftol+req)**2
       if (rsqdf(j).lt.surftolsq)latmsurf=.true.
       end subroutine surface_check
+
+      subroutine insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol)
+c***********************************************************************
+c                                                                      *
+c     insert a guest molecule at a given lattice coordinate (COM)      *
+c     and orientation about the Eueler axes.                           *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      logical loverlap,lnewsurf
+      integer imcon,idnode,iguest,natms,i,mol,keyfce
+      integer totatm,ntpguest,kmax1,kmax2,kmax3
+      integer ntpatm,maxvdw
+      real(8) apos,bpos,cpos,angx,angy,angz,xc,yc,zc
+      real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot
+      real(8) engunit,delrc,estep,sumchg,surftol
+      real(8) chgtmp,engsictmp
+c     convert rand fractions to cartesian coordinates in the cell 
+      call cartesian(apos,bpos,cpos,xc,yc,zc)
+c     xc,yc,zc are the coordinates of the com guestx,guesty,guestz 
+c     are the positions of atom i relative to the com
+      mol=locguest(iguest)
+      natms=numatoms(mol)
+
+      do i=1, natms
+        newx(i)=guestx(iguest,i)
+        newy(i)=guesty(iguest,i)
+        newz(i)=guestz(iguest,i)
+      enddo
+c     rotate
+      call rotationeuler(newx,newy,newz,natms,angx,angy,angz) 
+c     add the com to each atom in the guest
+c
+      do i=1, natms
+        newx(i)=newx(i)+xc
+        newy(i)=newy(i)+yc
+        newz(i)=newz(i)+zc
+      enddo
+
+      delE(:)=0.d0
+      call insertion
+     & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,
+     & loverlap,lnewsurf,surftol)
+
+      call accept_move
+     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
+     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp)
+
+      end subroutine insert_guest
       subroutine test
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,
@@ -3240,69 +3296,45 @@ c***********************************************************************
       integer kmax1,kmax2,kmax3,ntpatm,maxvdw
       real(8) alpha,rcut,delr,drewd,volm,epsq,engunit
       integer i,ntpfram,randchoice,maxmls,ntpmls
-      integer imol,natms,levcfg
+      integer mol,natms,levcfg
       real(8) apos,bpos,cpos,xc,yc,zc
       real(8) comx,comy,comz
       real(8) angx,angy,angz,chgtmp,engsictmp
       real(8) delrc,estep,surftol
-      real(8) guest_toten,sumchg,eng
+      real(8) sumchg,eng
       character*8 outdir,localdir
       character*1 cfgname(80)      
 
       randchoice=0
-      guest_toten=0.d0
       sumchg=0.d0
       write(*,*)"TESTING"
 
       delrc=0.d0
-      estep=0.d0
       surftol=0.d0
 
-      apos=5.d-1
-      bpos=5.d-1
-      cpos=5.d-1
+      iguest=1 
+      apos=5.d-1; bpos=5.d-1; cpos=5.d-1
 c     NB for CO2 angx will not rotate anything due to symmetry
 c     and it's starting configuration along the x-axis
-      angx=0.d0
-      angy=90.d0
-      angz=0.d0
+      angx=0.d0; angy=90.d0; angz=0.d0
+      estep=0.d0
+      call insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol)
+      iguest=2 
+      apos=5.d-1; bpos=5.d-1; cpos=3.d-1
+c     NB for CO2 angx will not rotate anything due to symmetry
+c     and it's starting configuration along the x-axis
+      angx=90.d0; angy=90.d0; angz=0.d0
+      estep=0.d0
+      call insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol)
 
-c     INSERT in a specific position
-c     convert rand fractions to cartesian coordinates in the cell 
-      call cartesian(apos,bpos,cpos,xc,yc,zc)
-c     xc,yc,zc are the coordinates of the com guestx,guesty,guestz 
-c     are the positions of atom i relative to the com
-      iguest=1
-      imol=locguest(iguest)
-      natms=numatoms(imol)
-
-      do i=1, natms
-        newx(i)=guestx(iguest,i)
-        newy(i)=guesty(iguest,i)
-        newz(i)=guestz(iguest,i)
-      enddo
-c     rotate
-      call rotationeuler(newx,newy,newz,natms,angx,angy,angz) 
-c     add the com to each atom in the guest
-c
-      do i=1, natms
-        newx(i)=newx(i)+xc
-        newy(i)=newy(i)+yc
-        newz(i)=newz(i)+zc
-c        write(*,*)newx(i),newy(i),newz(i)
-      enddo
-
-      call insertion
-     & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,
-     & loverlap,lnewsurf,surftol)
-      write(*,*)"ESTEP: ",estep
-
-      call accept_move
-     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,guest_toten,
-     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
       eng = 0.d0 
       call revive
      &(idnode,totatm,levcfg,production,ntpguest,ntpmls,

@@ -54,7 +54,7 @@ c********************************************************************
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
       real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,chge,prev
       real(8) ckcold,cksold,qfixtmp,ckcpass2,ckspass2,eng1
-      real(8) ckcmol2,cksmol2,ckcsmol,ckssmol 
+      real(8) ckcmol2,cksmol2,ckcsmol,ckssmol
       real(8), dimension(10) :: buffer
       real(8), dimension(9) :: rcell
 
@@ -64,9 +64,11 @@ c********************************************************************
       twopi=2.d0*pi
 
 c    initialize the coulombic potential energy
-
+      ewald1en(:) = 0.d0 
       engcpe=0.d0
-
+c    initialize ckssnew as the ckssum
+      ckcsnew(:,:) = ckcsum(:,:)
+      ckssnew(:,:) = ckssum(:,:)
 c    working parameters
       mol=locguest(iguest)
       rvolm=twopi/volm
@@ -265,10 +267,10 @@ c             insertions will add an additional sum to the existing
 c             summation
               if(insert)then
 c               update molecule sum, then total sum
-                ckcsnew(mol,kkk)=ckcsum(mol,kkk)+ckcs
-                ckssnew(mol,kkk)=ckssum(mol,kkk)+ckss
-                ckcsnew(maxmls+1,kkk)=ckcsum(maxmls+1,kkk)+ckcs
-                ckssnew(maxmls+1,kkk)=ckssum(maxmls+1,kkk)+ckss
+                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
+                ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
+                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
+                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
                 ckcs=ckcs+ckcold
                 ckss=ckss+cksold
 
@@ -276,10 +278,10 @@ c          deletions will subtract the sums of a guest from the
 c          existing summation
               elseif(delete)then
 c               update molecule sum, then total sum
-                ckcsnew(mol,kkk)=ckcsum(mol,kkk)-ckcs
-                ckssnew(mol,kkk)=ckssum(mol,kkk)-ckss
-                ckcsnew(maxmls+1,kkk)=ckcsum(maxmls+1,kkk)-ckcs
-                ckssnew(maxmls+1,kkk)=ckssum(maxmls+1,kkk)-ckss
+                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)-ckcs
+                ckssnew(mol,kkk)=ckssnew(mol,kkk)-ckss
+                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)-ckcs
+                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)-ckss
                 ckcs=ckcold-ckcs
                 ckss=cksold-ckss
               endif
@@ -304,12 +306,12 @@ c             store sums of all mixtures as well
               do i=1,maxmls
                 fkk=2.d0*akk
                 if(i.eq.mol)fkk=akk
-                kmol=loc2(mol,i)
+                kmol=loc2(i,mol)
                 ewald1en(kmol)=ewald1en(kmol)+
-     &            fkk*(ckcsnew(i,kkk)*ckcsnew(mol,kkk)+
-     &            ckssnew(i,kkk)*ckssnew(mol,kkk) -
-     &            ckcsum(i,kkk)*ckcsum(mol,kkk) -
-     &            ckssum(i,kkk)*ckssum(mol,kkk))
+     &            fkk*(ckcsnew(mol,kkk)*ckcsnew(i,kkk)+
+     &            ckssnew(mol,kkk)*ckssnew(i,kkk) -
+     &            ckcsum(mol,kkk)*ckcsum(i,kkk) -
+     &            ckssum(mol,kkk)*ckssum(i,kkk))
               enddo  
 
             endif
@@ -607,7 +609,7 @@ c               store individual molecule sums
                 ckssum(mol,kkk) = ckssum(mol,kkk) + cks(i)
 c               store total sum.
                 ckcsum(maxmls+1,kkk) = ckcsum(maxmls+1,kkk)+ckc(i)
-                ckssum(maxmls+1,kkk) = ckssum(maxmls+1,kkk)+ckc(i)
+                ckssum(maxmls+1,kkk) = ckssum(maxmls+1,kkk)+cks(i)
               enddo
 
 c             calculation of akk coefficients
@@ -648,9 +650,9 @@ c             store sums of all mixtures as well
       enddo
       newld=jj
 
-      qfix=-(0.5d0*pi*r4pie0/epsq)*((sumchg/alpha)**2/volm)
 c     add self interaction correction (sic) to the 
 c     potential.
+      qfix=-(0.5d0*pi*r4pie0/epsq)*((sumchg/alpha)**2/volm)
       if(lconsw)then 
         eng1=engcpe
         engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsicold+qfix
