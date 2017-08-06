@@ -687,7 +687,7 @@ c     x  25x,': vdw pressure',e15.6)") elrc/engunit,plrc*prsunt
 
       subroutine gstlrcorrect
      x  (idnode,imcon,iguest,keyfce,natms,ntpatm,ntpvdw,engunit,
-     x  delrc,rcut,volm,maxmls)
+     x  delrc,rcut,volm,maxmls,lexisting)
       
 c*************************************************************************
 c     
@@ -701,11 +701,12 @@ c***************************************************************************
       use utility_pack
 
       implicit none
-
+      logical lexisting
       integer idnode,imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
       integer ivdw,j,k,iguest,mol,maxmls,it,kt,jt
-      real(8) engunit,rcut,volm,twopi,eadd,self
+      real(8) engunit,rcut,volm,twopi,eadd,self,sic
       real(8) denprd,delrc,natyp,nbtyp,nafrz,nbfrz
+      real(8) nctyp,ndtyp,ncfrz,ndfrz
       twopi=2.0d0*pi
 
 c     long range corrections to energy and pressure
@@ -718,37 +719,53 @@ c     long range corrections to energy and pressure
           ivdw=0
           
           do i=1, ntpatm
-c           j is looping over the atom types in the other list            
-            do j=1,ntpatm
+            do j=1,i
               
               eadd=0.d0              
-c              ivdw=ivdw+1
-              ivdw = loc2(j,i)
+              ivdw=ivdw+1
+c              ivdw = loc2(j,i)
               eadd=steadd(ivdw)
 
-              denprd=(
-     &dble(numtyp_gstmol(iguest,i))*dble(numtyp(j))-
-     &dble(numfrz_gstmol(iguest,i))*dble(numfrz(j)))
+              natyp=dble(numtyp_gstmol(iguest,i))
+              nbtyp=dble(numtyp_gstmol(iguest,j))
+
+              nafrz=dble(numfrz_gstmol(iguest,i))
+              nbfrz=dble(numfrz_gstmol(iguest,j))
+
+              denprd=(natyp*dble(numtyp(j))
+     & + nbtyp*dble(numtyp(i))
+     & - nafrz*dble(numfrz(j))
+     & - nbfrz*dble(numfrz(i)))
+              
+              if(lexisting)denprd = -1.d0*denprd
+
+              denprd=denprd + (natyp*nbtyp-nafrz*nbfrz)
 c             this extra calc could slow things down..
-              self=0.d0
-              if(j.le.i)self=self+(
-     &dble(numtyp_gstmol(iguest,i))*dble(numtyp_gstmol(iguest,j))-
-     &dble(numfrz_gstmol(iguest,i))*dble(numfrz_gstmol(iguest,j)))
+
+              delrc=delrc+volm*twopi*(denprd)/volm**2*eadd
+              delrc_mol0(:)=0.d0
               do jt=1,maxmls
                 kt=loc2(mol,jt)
-                natyp=dble(numtyp_gstmol(iguest,i)) 
-                nbtyp=dble(numtyp_mol(jt,j))
-                nafrz=dble(numfrz_gstmol(iguest,i)) 
-                nbfrz=dble(numfrz_mol(jt,j))
-                delrc_mol0(kt)=delrc_mol0(kt)+twopi*(natyp*
-     &           nbtyp-nafrz*nbfrz+self)/volm**2
+                nctyp=dble(numtyp_mol(jt,j))
+                ndtyp=dble(numtyp_mol(jt,i))
+                
+                ncfrz=dble(numfrz_mol(jt,j))
+                ndfrz=dble(numfrz_mol(jt,i))
+                
+                sic = (natyp*nctyp + nbtyp*ndtyp 
+     &- nafrz*ncfrz-nbfrz*ndfrz)
+                self=0.d0
+                if(jt.eq.mol)then
+                  self=(natyp*nbtyp - nafrz*nbfrz)
+                  if(lexisting)sic=-1.d0*sic
+                endif
+                delrc_mol0(kt)=delrc_mol0(kt)+twopi*(sic+self)
+     & /volm**2
               enddo
-              delrc=delrc+volm*twopi*(self+denprd)/volm**2*eadd
-              delrc_mol0(:)=0.d0
+c              delrc_mol0(:)=0.d0
               delrc_mol(:)=delrc_mol(:)+volm*eadd*delrc_mol0(:)
               
             enddo
-
             
           enddo
           

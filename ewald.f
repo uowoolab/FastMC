@@ -54,7 +54,7 @@ c********************************************************************
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
       real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,chge,prev
       real(8) ckcold,cksold,qfixtmp,ckcpass2,ckspass2,eng1
-      real(8) ckcmol2,cksmol2,ckcsmol,ckssmol
+      real(8) mixterm,sumsqd
       real(8), dimension(10) :: buffer
       real(8), dimension(9) :: rcell
 
@@ -67,8 +67,10 @@ c    initialize the coulombic potential energy
       ewald1en(:) = 0.d0 
       engcpe=0.d0
 c    initialize ckssnew as the ckssum
-      ckcsnew(:,:) = ckcsum(:,:)
-      ckssnew(:,:) = ckssum(:,:)
+c      ckcsnew(:,:) = ckcsum(:,:)
+c      ckssnew(:,:) = ckssum(:,:)
+      ckcsnew(:,:) = 0.d0
+      ckssnew(:,:) = 0.d0
 c    working parameters
       mol=locguest(iguest)
       rvolm=twopi/volm
@@ -265,26 +267,30 @@ c             ckcsum,and ckssum
               cksold=ckssum(maxmls+1,kkk)
 c             insertions will add an additional sum to the existing
 c             summation
-              if(insert)then
-c               update molecule sum, then total sum
-                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
-                ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
-                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
-                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
-                ckcs=ckcs+ckcold
-                ckss=ckss+cksold
+              ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
+              ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
+              ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
+              ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
+c              if(insert)then
+cc               update molecule sum, then total sum
+c                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
+c                ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
+c                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
+c                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
+c                ckcs=ckcs+ckcold
+c                ckss=ckss+cksold
 
 c          deletions will subtract the sums of a guest from the
 c          existing summation
-              elseif(delete)then
-c               update molecule sum, then total sum
-                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)-ckcs
-                ckssnew(mol,kkk)=ckssnew(mol,kkk)-ckss
-                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)-ckcs
-                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)-ckss
-                ckcs=ckcold-ckcs
-                ckss=cksold-ckss
-              endif
+c              elseif(delete)then
+cc               update molecule sum, then total sum
+c                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)-ckcs
+c                ckssnew(mol,kkk)=ckssnew(mol,kkk)-ckss
+c                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)-ckcs
+c                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)-ckss
+c                ckcs=ckcold-ckcs
+c                ckss=cksold-ckss
+c              endif
 c             calculation of akk coefficients
 
               rrksq=1.d0/rksq
@@ -300,18 +306,22 @@ c             squared values for the above calculated sums
 c             the new squared values are subtracted from the
 c             old squared values to give the delE for the 
 c             reciprocal ewald sums
-              engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
-     & -ckcold*ckcold-cksold*cksold)
+              mixterm = 2.d0*ckcs*ckcold + 2.d0*ckss*cksold
+              sumsqd = ckcs*ckcs + ckss*ckss
+              if(delete)mixterm=-1.d0*mixterm
+              engcpe = engcpe + akk*(mixterm + sumsqd)
+c              engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
+c     & -ckcold*ckcold-cksold*cksold)
 c             store sums of all mixtures as well
               do i=1,maxmls
                 fkk=2.d0*akk
                 if(i.eq.mol)fkk=akk
                 kmol=loc2(i,mol)
                 ewald1en(kmol)=ewald1en(kmol)+
-     &            fkk*(ckcsnew(mol,kkk)*ckcsnew(i,kkk)+
-     &            ckssnew(mol,kkk)*ckssnew(i,kkk) -
-     &            ckcsum(mol,kkk)*ckcsum(i,kkk) -
-     &            ckssum(mol,kkk)*ckssum(i,kkk))
+     &            fkk*(ckcsnew(mol,kkk)*ckcsum(i,kkk)+
+     &            ckssnew(mol,kkk)*ckssum(i,kkk))
+c     &           -ckcsum(mol,kkk)*ckcsum(i,kkk) 
+c     &           -ckssum(mol,kkk)*ckssum(i,kkk))
               enddo  
 
             endif
