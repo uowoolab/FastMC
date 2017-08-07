@@ -1003,14 +1003,10 @@ c         its orginal place
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
      &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,
      &surftol,sumchg,chgtmp,engsictmp,loverlap,estep)
-          ewld2sum=-ewld2sum
-          vdwsum=-vdwsum 
-          ewld1old=(-ewld1eng+ewald3en(mol))
 
-
-c         update the arrays.
-          ckcsum=ckcsnew
-          ckssum=ckssnew
+          enginit=estep
+          ckcsum=ckcsum+ckcsnew
+          ckssum=ckssum+ckssnew
 
 c         LOOP 2 - shift the newx,newy,newz coordinates and re-calculate
 c         the new energy and subtract from the above energy.
@@ -1019,9 +1015,6 @@ c         dis_delr and dis_rotangle depend on the type of move!
      &(imcon,natms,mol,newx,newy,newz,dis_delr,cell,rcell,dis_rotangle,
      &randa,randb,randc,rand1,rand2,rand3,rand4)
           lnewsurf=.false.
-          ewald1en(:)=0.d0
-          ewald2en(:)=0.d0
-          vdwen(:)=0.d0
           call guest_energy
      &(imcon,idnode,keyfce,iguest,randchoice,alpha,rcut,delr,drewd,
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
@@ -1029,14 +1022,9 @@ c         dis_delr and dis_rotangle depend on the type of move!
      &surftol,sumchg,chgtmp,engsictmp,loverlap,estep)
 c         total up the energy contributions. The Ewald1 sum is dealt
 c         with internally
-          ewld2sum = ewld2sum + newewld2sum
-          vdwsum = vdwsum + newvdwsum
+          estep=estep-enginit
           accepted=.false.
           if (.not.loverlap)then
-            gpress=gstfuga(iguest)
-            ngsts=nummols(mol)
-            ewld3sum=ewald3en(mol)
-            estep=(ewld1eng+ewld2sum+vdwsum)/engunit
             if(estep.lt.0.d0)then
               accepted=.true.
             else
@@ -2499,11 +2487,7 @@ c              aa = ltpsit(mol,i)
                 do j=1,lentry(i)
                   rsqdf(j)=xdf(j)**2+ydf(j)**2+zdf(j)**2
 c                 check if a surface atom
-                  if(surftol.ge.0.d0)then
-                    jatm = ilist(j)
-                    call surface_check(i,jatm,surftol,latmsurf)
-                    if(latmsurf)lmolsurf=.true.
-                  endif
+                  call surface_check(i,j,surftol,loverlap,latmsurf)
                 enddo
                 chg=atmcharge(i)
                 sittyp=ltype(i)
@@ -2522,10 +2506,10 @@ c               calc vdw interactions
           if(lmolsurf)surfacemols(mol)=surfacemols(mol)+1
         endif
       enddo
-      print *,"EWALD1 ",ewald1sum/engunit,-ewald3eng/engunit
-      print *,"EWALD2 ",ewald2sum/engunit
-      print *,"VDW    ",vdwsum/engunit
-      print *,"DELRC  ",elrc/engunit
+c      print *,"EWALD1 ",ewald1sum/engunit,-ewald3eng/engunit
+c      print *,"EWALD2 ",ewald2sum/engunit
+c      print *,"VDW    ",vdwsum/engunit
+c      print *,"DELRC  ",elrc/engunit
       dlpeng=(ewald1sum+ewald2sum+vdwsum-ewald3eng+elrc)
      
       ecoul = ewald2sum + ewald1sum - ewald3eng
@@ -2661,11 +2645,11 @@ c c   calculate vdw interaction (only for new mol)
       mol=locguest(iguest)
        
       latmsurf=.false.
+      loverlap = .false.
       natms=numatoms(mol)
       nmols=nummols(mol)
       ewld2sum=0.d0
       vdwsum=0.d0
-      loverlap = .false.
 c       
       ind(:) = 0 
       ewald1en(:)=0.d0
@@ -2681,10 +2665,8 @@ c     of an additional guest
       call gstlrcorrect(idnode,imcon,iguest,keyfce,natms,ntpatm,maxvdw,
      &engunit,delrc,rcut,volm,maxmls,.false.)
 
-      print *,natms
 c     do vdw and ewald2 energy calculations for the new atoms
       do i=1,natms
-        print *,i,gstlentry(i)
         ik=0
         aa = ltpsit(mol,i)
         do j=1,gstlentry(i)
@@ -2697,36 +2679,29 @@ c     do vdw and ewald2 energy calculations for the new atoms
           zdf(ik)=newz(i)-zzz(jatm)
         enddo
         call images(imcon,ik,cell,xdf,ydf,zdf)
+
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          if(surftol.ge.0.d0)then
-            jatm = ilist(l)
-            call surface_check(i,jatm,surftol,latmsurf)
-          endif
+          call surface_check(i,l,surftol,loverlap,latmsurf)
           if(latmsurf)lnewsurf=.true.
         enddo
+        if (loverlap)exit 
 c       figure out which index contains charges and ltype arrays
 c       that match the guest...
-        call overlap_check(loverlap,natms,overlap)
-        if (loverlap)then
-          exit
-        else
-          chg=atmchg(mol,i)
-          sittyp=ltpsit(mol,i)
+        chg=atmchg(mol,i)
+        sittyp=ltpsit(mol,i)
 
-c         calc ewald2 interactions
-          call ewald2
+c       calc ewald2 interactions
+        call ewald2
      & (chg,gstlentry(i),ewld2eng,mol,maxmls,drewd,rcut,epsq)
-          ewld2sum=ewld2sum+ewld2eng
-c         calc vdw interactions 
+        ewld2sum=ewld2sum+ewld2eng
+c       calc vdw interactions 
 
-          call srfrce
+        call srfrce
      & (sittyp,gstlentry(i),mol,maxmls,vdweng,rcut,dlrpot)
-          vdwsum=vdwsum+vdweng 
-        endif
+        vdwsum=vdwsum+vdweng 
       enddo
-      print *, overlap, loverlap
 c     the pairwise intramolecular coulombic correction
 c     calculated for the guest at the begining of the 
 c     program run.  Assumes constant bond distances.
@@ -2740,10 +2715,11 @@ c     program run.  Assumes constant bond distances.
       estep= estep+ 
      &       (ewld1eng+ewld2sum-ewld3sum+vdwsum+delrc)/engunit
       
-      print *,"EWALD1 ",ewld1eng/engunit,-ewld3sum/engunit
-      print *,"EWALD2 ",ewld2sum/engunit
-      print *,"VDW    ",vdwsum/engunit
-      print *,"DELRC  ",delrc/engunit
+c      print *,"EWALD1 ",ewld1eng/engunit,-ewld3sum/engunit
+c      print *,"EWALD2 ",ewld2sum/engunit
+c      print *,"VDW    ",vdwsum/engunit
+c      print *,"DELRC  ",delrc/engunit
+
       do i=1, maxmls
         ewld3sum=0.d0
         ik=loc2(mol,i)
@@ -2811,15 +2787,17 @@ c     &     (ewld1eng-ewld2sum+ewld3sum-vdwsum-delrc)/engunit
         ewld3sum=0.d0
         ik=loc2(mol,i)
         delrc_tmp=delrc_mol(ik)
-        if(i.ne.mol)then
-          delE(i)=delE(i)+
-     &(ewald1en(ik)-ewald2en(ik)+ewld3sum-vdwen(ik)-delrc_tmp)
+        if(i.ne.mol)delE(i)=delE(i)-
+     &(ewald1en(ik)+ewald2en(ik)-ewld3sum+vdwen(ik)+delrc_tmp)
      &/engunit
-        endif
       enddo
-      delE(mol)=delE(mol)+
+      delE(mol)=delE(mol)-
      &  estep
-      delE=-1.d0*delE
+c      print *, delrc_mol(2), delrc_mol(3), delrc_mol(5),delrc_mol(8)
+c      print *, ewald1en(2), ewald1en(3), ewald1en(5), ewald1en(8)
+c      print *, ewald2en(2), ewald2en(3), ewald2en(5), ewald2en(8)
+c      print *, vdwen(2), vdwen(3), vdwen(5), vdwen(8)
+c      delE=-1.d0*delE
       end subroutine deletion
       subroutine guest_energy
      &(imcon,idnode,keyfce,iguest,choice,alpha,rcut,delr,drewd,
@@ -2850,6 +2828,7 @@ c***********************************************************************
       ewld2sum=0.d0
       vdwsum=0.d0
       latmsurf=.false.
+      loverlap=.false.
       ewald1en(:)=0.d0
       vdwen(:)=0.d0
       ewald2en(:)=0.d0
@@ -2885,16 +2864,9 @@ c     do vdw and ewald2 energy calculations for the atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          if(surftol.ge.0.d0)then
-            jatm = ilist(l)
-            call surface_check(i,jatm,surftol,latmsurf)
-          endif
+          call surface_check(i,l,surftol,loverlap,latmsurf)
           if(latmsurf)lsurf=.true.
         enddo
-c       only do an overlap check if the pass is not 1
-c       This assumes that the particle has moved to a
-c       new position, so that an overlap check is relevant
-        call overlap_check(loverlap,natms,overlap)
         if(loverlap)exit
         chg=atmcharge(itatm)
         sittyp=ltype(itatm)
@@ -2985,9 +2957,9 @@ c     update energy arrays
          energy(i)=energy(i)+delE(i)
       enddo
 c     update ewald1 sums
-      ckcsum = ckcsum+ckcsnew
-      ckssum = ckssum+ckssnew
       if(insert)then
+        ckcsum = ckcsum+ckcsnew
+        ckssum = ckssum+ckssnew
         mm=natms*nummols(mol)
         engsic(kk)=engsic(kk)+engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)+chgtmp
@@ -3021,6 +2993,8 @@ c       with this after
         call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
         choice = nummols(mol)
       elseif(delete)then
+        ckcsum = ckcsum-ckcsnew
+        ckssum = ckssum-ckssnew
         engsic(kk)=engsic(kk)-engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
         sumchg = sumchg-chgtmp
@@ -3031,10 +3005,10 @@ c       update surface molecules
         endif
 c       update atomic coordinates
 c       & decrement counters
-        do i=at+natms,mm
-          molxxx(mol,i-natms)=molxxx(mol,i)
-          molyyy(mol,i-natms)=molyyy(mol,i)
-          molzzz(mol,i-natms)=molzzz(mol,i)
+        do i=at,mm
+          molxxx(mol,i)=molxxx(mol,i+natms)
+          molyyy(mol,i)=molyyy(mol,i+natms)
+          molzzz(mol,i)=molzzz(mol,i+natms)
           ka=ltpsit(mol,i)
           numtyp(ka)=numtyp(ka)-1
           numtyp_mol(mol,ka)=numtyp_mol(mol,ka)-1
@@ -3095,7 +3069,7 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
-      subroutine surface_check(iatm,jatm,surftol,latmsurf)
+      subroutine surface_check(iatm,j,surftol,loverlap,latmsurf)
 c***********************************************************************
 c
 c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
@@ -3105,11 +3079,12 @@ c     atoms is populated correctly for 'jatm'.
 c
 c***********************************************************************
       implicit none
-      logical latmsurf
-      integer aa,ab,ivdw,iatm,jatm
+      logical latmsurf,loverlap
+      integer aa,ab,ivdw,iatm,j,jatm
       real(8) ak,sig,req,surftol
       latmsurf=.false.
 
+      jatm=ilist(j)
       if(lfreezesite(jatm).eq.0)return
 
       aa = ltype(iatm) 
@@ -3125,6 +3100,8 @@ c***********************************************************************
 c      req = sig*(2.d0**(1.d0/6.d0))
       surftolsq = (surftol+req)**2
       if (rsqdf(j).lt.surftolsq)latmsurf=.true.
+      if (rsqdf(j).lt.overlap)loverlap=.true.
+      return
       end subroutine surface_check
 
       subroutine insert_guest
@@ -3225,64 +3202,99 @@ c     FIGURE OUT WHY N2 gives loverlap when overlap != 0.d0
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
      &delrc,estep,sumchg,surftol,overlap)
-      print *,estep
+      print *,"INSERT", iguest,estep
       do i=1,maxmls
         eng=0.d0
         print *, "MOLECULE ",i,"ENERGY: ",energy(i)
       enddo
-c      iguest=1
-c      apos=5.d-1; bpos=5.d-1; cpos=3.d-1
-cc     NB for CO2 angx will not rotate anything due to symmetry
-cc     and it's starting configuration along the x-axis
-c      angx=90.d0; angy=90.d0; angz=0.d0
-c      estep=0.d0
-c      call insert_guest
-c     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
-c     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
-c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-c     &delrc,estep,sumchg,surftol)
-c
-c      print *,estep
-c      ik=0
-c      do i=1,maxmls
-c        eng=0.d0
-c        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
-c      enddo
-c      iguest=1 
-c      apos=5.d-1; bpos=5.d-1; cpos=75.d-2
-cc     NB for CO2 angx will not rotate anything due to symmetry
-cc     and it's starting configuration along the x-axis
-c      angx=90.d0; angy=90.d0; angz=0.d0
-c      estep=0.d0
-c      call insert_guest
-c     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
-c     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
-c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-c     &delrc,estep,sumchg,surftol)
-c
-c      print *,estep
-c      ik=0
-c      do i=1,maxmls
-c        eng=0.d0
-c        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
-c      enddo
-c      iguest=2
-c      imol=1
-c      estep=0.d0
-c      call deletion 
-c     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
-c     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-c     &engunit,delrc,estep,linitsurf,surftol)
-c      print *, estep
-c      call accept_move
-c     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
-c     &linitsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
-c     &sumchg,engsictmp,chgtmp)
-c      ik=0
-c      do i=1,maxmls
-c        eng=0.d0
-c        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
-c      enddo
+      iguest=1
+      apos=5.d-1; bpos=5.d-1; cpos=3.d-1
+c     NB for CO2 angx will not rotate anything due to symmetry
+c     and it's starting configuration along the x-axis
+      angx=90.d0; angy=90.d0; angz=0.d0
+      estep=0.d0
+      call insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol,overlap)
+
+      print *,"INSERT", iguest,estep
+      ik=0
+      do i=1,maxmls
+        eng=0.d0
+        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
+      enddo
+      iguest=1 
+      apos=5.d-1; bpos=5.d-1; cpos=75.d-2
+c     NB for CO2 angx will not rotate anything due to symmetry
+c     and it's starting configuration along the x-axis
+      angx=90.d0; angy=90.d0; angz=0.d0
+      estep=0.d0
+      call insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol,overlap)
+
+      print *,estep
+      ik=0
+      do i=1,maxmls
+        eng=0.d0
+        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
+      enddo
+      iguest=2
+      imol=1
+      estep=0.d0
+      call deletion 
+     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
+     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,linitsurf,surftol)
+      print *, "DELETE" ,iguest,estep
+      call accept_move
+     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
+     &linitsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp)
+      ik=0
+      do i=1,maxmls
+        eng=0.d0
+        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
+      enddo
+      iguest=1
+      imol=1
+      estep=0.d0
+      call deletion 
+     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
+     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,linitsurf,surftol)
+      print *, "DELETE" ,iguest,estep
+      call accept_move
+     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
+     &linitsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp)
+      ik=0
+      do i=1,maxmls
+        eng=0.d0
+        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
+      enddo
+      iguest=1
+      imol=1
+      estep=0.d0
+      call deletion 
+     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
+     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,linitsurf,surftol)
+      print *, "DELETE" ,iguest,estep
+      call accept_move
+     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
+     &linitsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp)
+      ik=0
+      do i=1,maxmls
+        eng=0.d0
+        print *, "MOLECULE ",i,"ENERGY: ",energy(i)
+      enddo 
+
       eng = 0.d0 
       call revive
      &(idnode,totatm,levcfg,production,ntpguest,ntpmls,

@@ -3534,15 +3534,16 @@ c*****************************************************************************
 c
 c     subroutine evaluates whether to accept or reject 
 c     a gcmc move based on atomic distances
-c
+c     DEPRECATED! - PB 07/08/2017
 c*****************************************************************************
       implicit none
 
       logical loverlap
       real(8) overlap
-      integer natms,i,j
+      integer natms,i,j,jatm
       loverlap = .false.
 
+      print *, "DEBUG overlap_check in utility_pack.f!!"
       if (overlap.gt.0.d0)then
         do i = 1, natms
           do j = 1, gstlentry(i)
@@ -3642,12 +3643,11 @@ c*****************************************************************************
       integer itatms,atmadd,n,mol,at
       real(8) rsq,rmin,rclim,delr,rcut
       real(8),dimension(natms) :: newx,newy,newz
-   
+  
       rclim=(rcut+delr)**2
 c     initialize the counter array
-      do i=1,natms
-        gstlentry(i)=0
-      enddo 
+      gstlentry(:) = 0
+      gstlist(:,:) = 0 
 
       do i=1,natms
         ii=0

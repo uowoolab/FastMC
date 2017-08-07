@@ -462,7 +462,7 @@ c     calculate interaction energy using 3-point interpolation
       enddo
 c     DEBUG
 c      engsrp=0.d0
-c      vdwen=0.d0
+c      vdwen(:)=0.d0
 c     END DEBUG
       return
       end subroutine srfrce 
@@ -674,8 +674,8 @@ c             done again during guest insertions and deletions.
       endif
       deallocate(elrc_mol0)
 c     DEBUG
-c      elrc = 0.d0
-c      elrc_mol=0.d0
+      elrc = 0.d0
+      elrc_mol=0.d0
 c     END DEBUG
       
 c      if(idnode.eq.0) write(nrite,

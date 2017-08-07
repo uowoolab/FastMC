@@ -360,7 +360,7 @@ c     the move
      &/(alpha*alpha*volm)
             kmol=loc2(i,mol)
             ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
-     &-sic-qfixmol
+     &+sic+qfixmol
           enddo
         else
           eng1=engcpe
@@ -382,7 +382,11 @@ c     the move
       else
         write(*,*)"YOU DONE MESS'D UP!"
       endif
-
+c     DEBUG
+c      ewald1en(:) = 0.d0
+c      ewald3en(:) = 0.d0
+c      engcpe = 0.d0
+c     END DEBUG
       return
       end subroutine ewald1_guest  
 
@@ -762,6 +766,10 @@ c             write(*,*)engcpe
          endif
   
       enddo
+c     DEBUG
+c      engcpe = 0.d0
+c      ewald2en(:) = 0.d0
+c     END DEBUG
       return
 
       end subroutine ewald2
