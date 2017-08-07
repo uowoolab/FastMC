@@ -24,6 +24,7 @@
       integer, allocatable :: lfreezesite(:),lfzsite(:,:)
       integer, allocatable :: nummols(:),numatoms(:)
       real(8), dimension(9) :: cell
+      real(8), dimension(9) :: rcell
       real(8), dimension(9) :: ucell
       integer, allocatable :: lexatm(:,:),ltpsit(:,:)
       integer, allocatable :: ltype(:)
@@ -145,7 +146,7 @@ c     statistics file input channel
       save lentry,list
       save lfreezesite,lfzsite
       save nummols,numatoms,molnam
-      save ucell,cell,volum,nsite,chainstats,dbuff
+      save ucell,cell,rcell,volum,nsite,chainstats,dbuff
       save gstlentry,gstlist,locguest,locfram,statbuff
       save avgwindow, varwindow, sumwindowav,moldf,moltype
       save gstpress,angdist,node_avg,node_std,nodeweight
@@ -2986,7 +2987,7 @@ c     end of config file error exit
       end subroutine abort_config_read
 
       subroutine translate
-     &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz
+     &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,
      &a,b,c)
 c***********************************************************************
 c                                                                      *
@@ -3041,6 +3042,8 @@ c     the simulation.
       newx=newx+shiftx
       newy=newy+shifty
       newz=newz+shiftz
+
+      end subroutine translate
 
       subroutine random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
 c*****************************************************************************
@@ -3156,28 +3159,21 @@ c      enddo
       end subroutine random_ins
 
       subroutine random_disp
-     &(imcon,natms,mol,newx,newy,newz,delr,cell,rcell,rotangle,
-     &randa,randb,randc,rand1,rand2,rand3,rand4)
+     &(idnode,delr,randa,randb,randc)
 c*****************************************************************************
 c
 c     routine to randomly displace newx,newy,newz atoms
 c
 c*****************************************************************************
       implicit none
-      logical done
-      integer imcon,natms,mol,it,i
-      real(8), dimension(natms) :: newx,newy,newz
-c     these are the unit cell vectors, random moves
-c     will be done in the dimensions of the cell.
-c     only need to be calculated once at the beginning
-c     of the simulation.
-      real(8), dimension(9) :: cell,rcell 
-      real(8) comx,comy,comz,delr,tol,movx,movy,movz,det
-      real(8) randa,randb,randc,halfdelr,rotangle,x,y,z
-      real(8) ssx,ssy,ssz,xss,yss,zss,shiftx,shifty,shiftz
+      integer imcon,idnode
+      real(8) delr
+      real(8) randa,randb,randc,halfdelr
       real(8) rand1,rand2,rand3,rand4
-      done=.false.
 
+      randa=duni(idnode)
+      randb=duni(idnode)
+      randc=duni(idnode)
       halfdelr=delr*0.5d0
 c      tol=-3.d0/2.d0*delr+1.d-5
 c     generate random numbers in the a,b, and c directions
@@ -3185,65 +3181,12 @@ c      do while(.not.done)
       randa=(2.d0*randa-1.d0)*halfdelr
       randb=(2.d0*randb-1.d0)*halfdelr
       randc=(2.d0*randc-1.d0)*halfdelr
-c     some kind of tolerance here?
-c        if(randa+randb+randc.gt.tol)done=.true.
-
-c      enddo
-c      movx=randa*iabc(1)+randb*iabc(4)+randc*iabc(7)
-c      movy=randa*iabc(2)+randb*iabc(5)+randc*iabc(8)
-c      movz=randa*iabc(3)+randb*iabc(6)+randc*iabc(9)
-
-c     update the new coordinates with the shift vector
-c     used to be shifts along the cell vectors..
-      do i=1,natms
-        newx(i)=randa+newx(i)
-        newy(i)=randb+newy(i)
-        newz(i)=randc+newz(i)
-c        newx(i)=movx+newx(i)
-c        newy(i)=movy+newy(i)
-c        newz(i)=movz+newz(i)
-      enddo
-c     check pbc for com (keep the molecule intact)
-      call com(natms,mol,newx,newy,newz,comx,comy,comz)
-
-c     all this to make sure the COM lies within the boundary of 
-c     the simulation... sheeit.
-      x=comx
-      y=comy
-      z=comz
- 
-      ssx=(rcell(1)*x+rcell(4)*y+rcell(7)*z)
-      ssy=(rcell(2)*x+rcell(5)*y+rcell(8)*z)
-      ssz=(rcell(3)*x+rcell(6)*y+rcell(9)*z)
-          
-      xss=ssx-floor(ssx)
-      yss=ssy-floor(ssy)
-      zss=ssz-floor(ssz)
-       
-      x=(cell(1)*xss+cell(4)*yss+cell(7)*zss)
-      y=(cell(2)*xss+cell(5)*yss+cell(8)*zss)
-      z=(cell(3)*xss+cell(6)*yss+cell(9)*zss)
- 
-      shiftx=x-comx
-      shifty=y-comy
-      shiftz=z-comz
- 
-      comx=x
-      comy=y
-      comz=z
-      newx=newx+shiftx
-      newy=newy+shifty
-      newz=newz+shiftz
-
-      call random_rot(rotangle,newx,newy,newz,comx,comy,comz,natms,mol,
-     &rand1,rand2,rand3,rand4)
 
       return
       end subroutine random_disp
 
-
       subroutine random_jump
-     &(idnode,natms,mol,newx,newy,newz)
+     &(idnode,randa,randb,randc,rotangle)
 c*****************************************************************************
 c
 c     place molecule at a completely random position in the cell
@@ -3252,48 +3195,15 @@ c
 c*****************************************************************************
       implicit none
       logical done
-      integer natms, mol, i, idnode
-      real(8), dimension(natms) :: newx,newy,newz
-      real(8) comx,comy,comz
-      real(8) randa,randb,randc,jumpangle
-      real(8) rand1, rand2, rand3, rand4
-      real(8) xdisp, ydisp, zdisp
+      integer idnode
+      real(8) randa,randb,randc,rotangle
 
       randa=duni(idnode) 
       randb=duni(idnode) 
       randc=duni(idnode) 
 
-c rotate randomly up to 2 pies 
-c      jumpangle = 8.D0*datan(1.D0)*duni()
-      jumpangle = 8.D0*datan(1.D0)
-c random new position anywhere in fractional cell
-c      xduni=duni()
-c      yduni=duni()
-c      zduni=duni()
-      call cartesian(randa,randb,randc,xdisp,ydisp,zdisp)
-
-      call com(natms,mol,newx,newy,newz,comx,comy,comz)
-
-c make relative to com
-      xdisp = xdisp - comx
-      ydisp = ydisp - comy
-      zdisp = zdisp - comz
-
-c move molecule to new position
-      do i=1,natms
-        newx(i)=xdisp+newx(i)
-        newy(i)=ydisp+newy(i)
-        newz(i)=zdisp+newz(i)
-      enddo
-
-c rotate at the new position
-      call com(natms,mol,newx,newy,newz,comx,comy,comz)
-      rand1=duni(idnode) 
-      rand2=duni(idnode) 
-      rand3=duni(idnode) 
-      rand4=duni(idnode) 
-      call random_rot(jumpangle,newx,newy,newz,comx,comy,comz,natms,mol,
-     &rand1,rand2,rand3,rand4)
+c     rotate randomly up to 2 pies 
+      rotangle = 8.D0*datan(1.D0)
 
       return
       end subroutine random_jump
@@ -3406,7 +3316,7 @@ c
 c*****************************************************************************
       implicit none
       integer i,natms
-      real(8) q1,q2,q3,q4
+      real(8) q1,q2,q3,q4,comx,comy,comz
       real(8), dimension(natms) :: xxr,yyr,zzr,tmpx,tmpy,tmpz
       real(8), dimension(9) :: Q
 
@@ -3435,56 +3345,37 @@ c     taken from wikipedia entry "Rotation matrix"
         tmpz(i)=Q(7)*xxr(i)+Q(8)*yyr(i)+Q(9)*zzr(i)
       enddo
       do i=1,natms
-        xxr(i)=tmpx(i)
-        yyr(i)=tmpy(i)
-        zzr(i)=tmpz(i)
+        xxr(i)=tmpx(i)+comx
+        yyr(i)=tmpy(i)+comy
+        zzr(i)=tmpz(i)+comz
       enddo
 
       return
       end subroutine rotation
 
-
       subroutine random_rot
-     &(rotangle,newx,newy,newz,comx,comy,comz,natms,mol,
-     &rand1,rand2,rand3,rand4)
+     &(idnode,rotangle,q1,q2,q3,q4)
 c*****************************************************************************
 c
-c     routine to randomly rotate natms at the index ik
+c     routine to generate a random rotation quaternion 
 c
 c*****************************************************************************
       implicit none
-      logical done
-      integer i,natms,ik,mol
-      real(8), dimension(4) :: quatern
-      real(8) comx,comy,comz,rotangle,theta,beta1,beta2,beta3,norm
-      real(8) sintheta,q1,q2,q3,q4,lenq,u1,u2,u3,u1sqrt,u1m1sqrt
-      real(8), dimension(natms) :: newx,newy,newz,xtemp,ytemp,ztemp
+      integer idnode
+      real(8) rotangle,theta,beta1,beta2,beta3,norm
+      real(8) sintheta,q1,q2,q3,q4,u1,u2,u3
       real(8) rand1,rand2,rand3,rand4
-      done=.false.
- 
 c    setup quaternion which will uniformly sample the sphere
+      rand1=duni(idnode)
+      rand2=duni(idnode)
+      rand3=duni(idnode)
+      rand4=duni(idnode) 
         
-c      u1=duni()
-c      u2=duni()
-c      u3=duni()
-
-c      u1sqrt=sqrt(u1)
-c      u1m1sqrt=sqrt(1.d0-u1)
-c      q1=u1m1sqrt*sin(rotangle/2.d0*u2)
-c      q2=u1m1sqrt*cos(rotangle/2.d0*u2)
-c      q3=u1sqrt*sin(rotangle/2.d0*u3)
-c      q4=u1sqrt*cos(rotangle/2.d0*u3)
-
-c      call rotation(newx,newy,newz,natms,q1,q2,q3,q4) 
-c      theta=(2.d0*duni()-1.d0)*rotangle*0.5d0
       theta=rand1*rotangle
       beta1=2.d0*rand2-1.d0
       beta2=2.d0*rand3-1.d0
       beta3=2.d0*rand4-1.d0
 
-c      beta1=duni()
-c      beta2=duni()
-c      beta3=duni()
       sintheta=sin(theta/2.d0)
 
       norm=sqrt(beta1*beta1+beta2*beta2+beta3*beta3)
@@ -3498,19 +3389,8 @@ c     quaternion below
       q3=sintheta*u2
       q4=sintheta*u3
 
-      call rotation(newx,newy,newz,comx,comy,comz,natms,q1,q2,q3,q4)
-c      call rotationeuler(newx,newy,newz,natms,rotangle)
-c     com re-added to the xyz terms once the rotation is done
-
-      do i=1,natms
-        newx(i)=newx(i)+comx
-        newy(i)=newy(i)+comy
-        newz(i)=newz(i)+comz 
-      enddo
-
       return
       end subroutine random_rot
-
 
       subroutine com(natms,mol,newx,newy,newz,comx,comy,comz)
 c*****************************************************************************

@@ -56,7 +56,6 @@ c********************************************************************
       real(8) ckcold,cksold,qfixtmp,ckcpass2,ckspass2,eng1
       real(8) mixterm,sumsqd
       real(8), dimension(10) :: buffer
-      real(8), dimension(9) :: rcell
 
 
       data lconsw/.true./
@@ -316,8 +315,12 @@ c     add self interaction correction (sic) to the
 c     potential.
 c     the self interaction correction is not needed for
 c     translation since it is the same before and after
-c     the move 
-      engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp-qfix
+c     the move
+      if(lexisting)then
+        engsictmp=-engsictmp
+        qfix=-qfix
+      endif
+      engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsictmp+qfix
       do i=1,maxmls
         fkk=1.d0
         sic=0.d0
@@ -327,6 +330,10 @@ c     the move
         endif
         qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
      &/(alpha*alpha*volm)
+        if(lexisting)then
+          sic=-sic
+          qfixmol=-qfixmol
+        endif
         kmol=loc2(i,mol)
         ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
      &+sic+qfixmol
@@ -362,7 +369,6 @@ c********************************************************************
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
       real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,eng1
       real(8), dimension(10) :: buffer
-      real(8), dimension(9) :: rcell
 
 
       data safe/.true./,lconsw/.true./

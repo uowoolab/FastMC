@@ -674,8 +674,8 @@ c             done again during guest insertions and deletions.
       endif
       deallocate(elrc_mol0)
 c     DEBUG
-      elrc = 0.d0
-      elrc_mol=0.d0
+c      elrc = 0.d0
+c      elrc_mol=0.d0
 c     END DEBUG
       
 c      if(idnode.eq.0) write(nrite,
