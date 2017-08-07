@@ -32,7 +32,7 @@ c     look-up tables for real space part of ewald sum
       subroutine ewald1_guest
      &(imcon,engcpe,natms,iguest,volm,alpha,sumchg,
      &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,
-     &insert,delete)
+     &lexisting)
 c********************************************************************
 c                Subroutine to determine the                        *
 c                reciprocal part of the ewald                       *
@@ -42,7 +42,7 @@ c********************************************************************
       use ewald_module
       implicit none
       logical safe,lconsw
-      logical insert,delete,displace
+      logical lexisting
       integer idnode,kmax1,kmax2,kmax3,natms,pass
       integer iatm0,iatm1,i,j,limit,l,kkk,nmin
       integer mmin,ll,m,mm,n,nn,k,imcon,iguest,mol
@@ -66,9 +66,7 @@ c********************************************************************
 c    initialize the coulombic potential energy
       ewald1en(:) = 0.d0 
       engcpe=0.d0
-c    initialize ckssnew as the ckssum
-c      ckcsnew(:,:) = ckcsum(:,:)
-c      ckssnew(:,:) = ckssum(:,:)
+c    initialize ckssnew 
       ckcsnew(:,:) = 0.d0
       ckssnew(:,:) = 0.d0
 c    working parameters
@@ -271,26 +269,6 @@ c             summation
               ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
               ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
               ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
-c              if(insert)then
-cc               update molecule sum, then total sum
-c                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
-c                ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
-c                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
-c                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
-c                ckcs=ckcs+ckcold
-c                ckss=ckss+cksold
-
-c          deletions will subtract the sums of a guest from the
-c          existing summation
-c              elseif(delete)then
-cc               update molecule sum, then total sum
-c                ckcsnew(mol,kkk)=ckcsnew(mol,kkk)-ckcs
-c                ckssnew(mol,kkk)=ckssnew(mol,kkk)-ckss
-c                ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)-ckcs
-c                ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)-ckss
-c                ckcs=ckcold-ckcs
-c                ckss=cksold-ckss
-c              endif
 c             calculation of akk coefficients
 
               rrksq=1.d0/rksq
@@ -308,10 +286,8 @@ c             old squared values to give the delE for the
 c             reciprocal ewald sums
               mixterm = 2.d0*ckcs*ckcold + 2.d0*ckss*cksold
               sumsqd = ckcs*ckcs + ckss*ckss
-              if(delete)mixterm=-1.d0*mixterm
+              if(lexisting)mixterm=-1.d0*mixterm
               engcpe = engcpe + akk*(mixterm + sumsqd)
-c              engcpe=engcpe+akk*(ckcs*ckcs+ckss*ckss
-c     & -ckcold*ckcold-cksold*cksold)
 c             store sums of all mixtures as well
               do i=1,maxmls
                 fkk=2.d0*akk
@@ -320,8 +296,6 @@ c             store sums of all mixtures as well
                 ewald1en(kmol)=ewald1en(kmol)+
      &            fkk*(ckcsnew(mol,kkk)*ckcsum(i,kkk)+
      &            ckssnew(mol,kkk)*ckssum(i,kkk))
-c     &           -ckcsum(mol,kkk)*ckcsum(i,kkk) 
-c     &           -ckssum(mol,kkk)*ckssum(i,kkk))
               enddo  
 
             endif
@@ -340,48 +314,23 @@ c     correction for charged systems
      & (chgtmp/alpha)**2)/volm
 c     add self interaction correction (sic) to the 
 c     potential.
-c     in most cases lconsw=.true. probably deprecate the
-c     lconsw=.false. conditions
-      if(lconsw)then
 c     the self interaction correction is not needed for
 c     translation since it is the same before and after
 c     the move 
-        if(delete)then
-          eng1=engcpe
-          engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp-qfix
-          do i=1,maxmls
-            fkk=1.d0
-            sic=0.d0
-            if(i.eq.mol)then
-              fkk=0.5d0
-              sic=engsictmp
-            endif
-            qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
-     &/(alpha*alpha*volm)
-            kmol=loc2(i,mol)
-            ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
-     &+sic+qfixmol
-          enddo
-        else
-          eng1=engcpe
-          engcpe=2.d0*rvolm*r4pie0*engcpe/epsq+engsictmp+qfix
-          do i=1,maxmls
-            fkk=1.d0
-            sic=0.d0
-            if(i.eq.mol)then
-              fkk=0.5d0
-              sic=engsictmp
-            endif
-            qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
-     &/(alpha*alpha*volm)
-            kmol=loc2(i,mol)
-            ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
-     &+sic+qfixmol
-          enddo
+      engcpe=2.d0*rvolm*r4pie0*engcpe/epsq-engsictmp-qfix
+      do i=1,maxmls
+        fkk=1.d0
+        sic=0.d0
+        if(i.eq.mol)then
+          fkk=0.5d0
+          sic=engsictmp
         endif
-      else
-        write(*,*)"YOU DONE MESS'D UP!"
-      endif
+        qfixmol=-(fkk*pi*r4pie0/epsq)*(chgsum_mol(i)*chgtmp)
+     &/(alpha*alpha*volm)
+        kmol=loc2(i,mol)
+        ewald1en(kmol) = 2.d0*rvolm*r4pie0*ewald1en(kmol)/epsq
+     &+sic+qfixmol
+      enddo
 c     DEBUG
 c      ewald1en(:) = 0.d0
 c      ewald3en(:) = 0.d0

@@ -18,8 +18,8 @@ c     bunch of ewald arrays and parameters
       real(8), allocatable :: emc(:,:),ems(:,:)
       real(8), allocatable :: erc(:),fer(:)
       real(8), allocatable :: enc(:,:),ens(:,:)
-      real(8), allocatable :: ewald1en(:)
-      real(8), allocatable :: ewald2en(:)
+      real(8), allocatable :: ewald1en(:),ewald1entmp(:)
+      real(8), allocatable :: ewald2en(:),ewald2entmp(:)
       real(8), allocatable :: ewald3en(:)
       real(8), allocatable :: engsic(:)
       real(8), allocatable :: engsicorig(:)
@@ -30,13 +30,13 @@ c     bunch of ewald arrays and parameters
       save ckcsnew,ckssnew,chgsum_mol,chgsum_molorig
       save elc,els,emc,ems,erc,fer,enc,ens
       save ewald1en,ewald2en,ewald3en,engsic
-      save engsicorig
+      save engsicorig,ewald1entmp,ewald2entmp
       contains
       
       subroutine alloc_ewald_arrays
      &(idnode,maxmls,kmax1,kmax2,kmax3,rvdw,totatm,maxguest) 
       implicit none
-      integer, parameter :: nv=26
+      integer, parameter :: nv=27
       integer i,idnode,maxalloc,kmax1,kmax2,kmax3
       integer maxmls,totatm,maxguest,mxcmls
       integer, dimension(nv) :: fail
@@ -69,12 +69,14 @@ c     N choose 2 + last entry is storage for total sum
       allocate(erc(mxegrd),stat=fail(17))
       allocate(fer(mxegrd),stat=fail(18))
       allocate(ewald1en(mxcmls),stat=fail(19))
-      allocate(ewald2en(mxcmls),stat=fail(20))
-      allocate(ewald3en(maxmls),stat=fail(21))
-      allocate(engsic(mxcmls),stat=fail(23))
-      allocate(engsicorig(mxcmls),stat=fail(24))
-      allocate(chgsum_mol(maxmls),stat=fail(25))
-      allocate(chgsum_molorig(maxmls),stat=fail(26))
+      allocate(ewald1entmp(mxcmls),stat=fail(20))
+      allocate(ewald2en(mxcmls),stat=fail(21))
+      allocate(ewald2entmp(mxcmls),stat=fail(22))
+      allocate(ewald3en(maxmls),stat=fail(23))
+      allocate(engsic(mxcmls),stat=fail(24))
+      allocate(engsicorig(mxcmls),stat=fail(25))
+      allocate(chgsum_mol(maxmls),stat=fail(26))
+      allocate(chgsum_molorig(maxmls),stat=fail(27))
 
       do i=1,nv
         if(fail(i).gt.0)then
@@ -83,7 +85,9 @@ c     N choose 2 + last entry is storage for total sum
         endif
       enddo
       ewald1en(:) = 0.d0
+      ewald1entmp(:)=0.d0
       ewald2en(:) = 0.d0
+      ewald2entmp(:)=0.d0
       ewald3en(:) = 0.d0
       engsic(:) = 0.d0
       engsicorig(:) = 0.d0

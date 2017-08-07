@@ -2984,7 +2984,64 @@ c     end of config file error exit
 
       return
       end subroutine abort_config_read
-      
+
+      subroutine translate
+     &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz
+     &a,b,c)
+c***********************************************************************
+c                                                                      *
+c     routine to translate a guest in the cell to a specified position *
+c     in fractional coordinates.                                       *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer imcon,natms,mol,it,i
+      real(8), dimension(natms) :: newx,newy,newz
+c     these are the unit cell vectors, random moves
+c     will be done in the dimensions of the cell.
+c     only need to be calculated once at the beginning
+c     of the simulation.
+      real(8), dimension(9) :: cell,rcell 
+      real(8) comx,comy,comz,tol,movx,movy,movz,det
+      real(8) a,b,c,x,y,z
+      real(8) ssx,ssy,ssz,xss,yss,zss,shiftx,shifty,shiftz
+      do i=1,natms
+        newx(i)=a+newx(i)
+        newy(i)=b+newy(i)
+        newz(i)=c+newz(i)
+      enddo
+c     check pbc for com (keep the molecule intact)
+      call com(natms,mol,newx,newy,newz,comx,comy,comz)
+
+c     all this to make sure the COM lies within the boundary of 
+c     the simulation.
+      x=comx
+      y=comy
+      z=comz
+ 
+      ssx=(rcell(1)*x+rcell(4)*y+rcell(7)*z)
+      ssy=(rcell(2)*x+rcell(5)*y+rcell(8)*z)
+      ssz=(rcell(3)*x+rcell(6)*y+rcell(9)*z)
+          
+      xss=ssx-floor(ssx)
+      yss=ssy-floor(ssy)
+      zss=ssz-floor(ssz)
+       
+      x=(cell(1)*xss+cell(4)*yss+cell(7)*zss)
+      y=(cell(2)*xss+cell(5)*yss+cell(8)*zss)
+      z=(cell(3)*xss+cell(6)*yss+cell(9)*zss)
+ 
+      shiftx=x-comx
+      shifty=y-comy
+      shiftz=z-comz
+ 
+      comx=x
+      comy=y
+      comz=z
+      newx=newx+shiftx
+      newy=newy+shifty
+      newz=newz+shiftz
+
       subroutine random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
 c*****************************************************************************
 c
@@ -3076,7 +3133,7 @@ c     quaternion below
       q2=sintheta*u1
       q3=sintheta*u2
       q4=sintheta*u3
-      call rotation(newx,newy,newz,natms,q1,q2,q3,q4) 
+      call rotation(newx,newy,newz,comx,comy,comz,natms,q1,q2,q3,q4)
 c      call rotationeuler(newx,newy,newz,natms,2.d0*pi) 
 c     add the com to each atom in the guest
 
@@ -3097,33 +3154,6 @@ c      call radial_eval(imcon,totatm,insert,natms,newx,newy,newz,good)
 c      enddo
       return
       end subroutine random_ins
-
-      subroutine random_del(nmols)
-c*****************************************************************************
-c
-c     routine to randomly delete a guest from the cell 
-c
-c*****************************************************************************
-      implicit none
-      logical flag
-      integer nmols,randguest,nloc,i
-      real(8) rand
-
-      data randguest/0/,flag/.false./
-c     randdel should work like this: 
-c     first do an ewald calc for the atoms being deleted
-c     add to ewald1, which should've been calculated previously
-c     do vdw calc etc..
-c     move the xyz's to the end of
-c     molxxx,molyyy,molzzz and shift everything back by
-c     the number of atoms
-c     change nummols to nummols-1
-c     the deltaE will be -ve ewald2,vdw and the difference
-c     between ewald1 before and ewald1 after.
-
-      return
-      end subroutine random_del
-
 
       subroutine random_disp
      &(imcon,natms,mol,newx,newy,newz,delr,cell,rcell,rotangle,
@@ -3367,7 +3397,7 @@ c      endif
         zzr(i)=ztmp
       enddo
       end subroutine rotationeuler
-      subroutine rotation(xxr,yyr,zzr,natms,q1,q2,q3,q4)
+      subroutine rotation(xxr,yyr,zzr,comx,comy,comz,natms,q1,q2,q3,q4)
 c*****************************************************************************
 c
 c     quaternion rotation
@@ -3380,6 +3410,11 @@ c*****************************************************************************
       real(8), dimension(natms) :: xxr,yyr,zzr,tmpx,tmpy,tmpz
       real(8), dimension(9) :: Q
 
+      do i=1,natms
+        xxr(i)=xxr(i)-comx
+        yyr(i)=yyr(i)-comy
+        zzr(i)=zzr(i)-comz
+      enddo 
       do i=1,9
         Q(i)=0.d0
       enddo
@@ -3427,12 +3462,6 @@ c*****************************************************************************
       real(8) rand1,rand2,rand3,rand4
       done=.false.
  
-c     com is subtracted to rotate about it
-      do i=1,natms     
-        newx(i)=newx(i)-comx
-        newy(i)=newy(i)-comy
-        newz(i)=newz(i)-comz
-      enddo 
 c    setup quaternion which will uniformly sample the sphere
         
 c      u1=duni()
@@ -3469,7 +3498,7 @@ c     quaternion below
       q3=sintheta*u2
       q4=sintheta*u3
 
-      call rotation(newx,newy,newz,natms,q1,q2,q3,q4)
+      call rotation(newx,newy,newz,comx,comy,comz,natms,q1,q2,q3,q4)
 c      call rotationeuler(newx,newy,newz,natms,rotangle)
 c     com re-added to the xyz terms once the rotation is done
 
