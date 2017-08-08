@@ -120,6 +120,7 @@ c     DEBUG
       real(8) avgNF,NF,stdNF,surftol,surftolsq,guest_toten
       real(8) newewld2sum,newvdwsum
       real(8) griddim,grvol,randa,randb,randc,rand1,rand2,rand3,rand4
+      real(8) a,b,c,q1,q2,q3,q4 
       real(8), dimension(9) :: iabc
       real(8) delE_fwk, eng_before, eng_after
       integer m, indatm, indfwk, gstidx
@@ -845,9 +846,9 @@ c       the following is added in case of initial conditions
         ewald1en=0.d0
         ewald2en=0.d0
         vdwen=0.d0
-        chgsum_molorig=chgsum_mol
-        ckcsnew=0.d0
-        ckssnew=0.d0
+        chgsum_molorig(:)=chgsum_mol(:)
+        ckcsorig(:,:)=ckcsum(:,:)
+        ckssorig(:,:)=ckssum(:,:)
         delE=0.d0
 c***********************************************************************
 c    
@@ -903,9 +904,6 @@ c
 c***********************************************************************
         elseif(delete)then
           engsicorig=engsic
-          mol=locguest(iguest)
-          natms=numatoms(mol)
-          nmols=nummols(mol)
           linitsurf = .false.
          
 c       calculate the ewald sum of the mol you wish to delete
@@ -951,46 +949,32 @@ c
 c***********************************************************************
 
         elseif(displace)then
+          a=0.d0;b=0.d0;c=0.d0;q1=0.d0;q2=0.d0;q3=0.d0;q4=0.d0
           if(tran)then
             dis(iguest)=2
             tran_count = tran_count + 1
-            randa=duni(idnode)
-            randb=duni(idnode)
-            randc=duni(idnode)
-            rand1=0.d0
-            rand2=0.d0
-            rand3=0.d0
-            rand4=0.d0
-            dis_delr = tran_delr
-            dis_rotangle = 0.d0
+            call random_disp(idnode,tran_delr,a,b,c)
           elseif(rota)then
             dis(iguest)=3
             rota_count = rota_count + 1
-            randa=0.5d0
-            randb=0.5d0
-            randc=0.5d0
-            rand1=duni(idnode)
-            rand2=duni(idnode)
-            rand3=duni(idnode)
-            rand4=duni(idnode)
-            dis_delr = 0.d0
-            dis_rotangle = rota_rotangle
+c            a=0.5d0
+c            b=0.5d0
+c            c=0.5d0
+            call random_rot(idnode,rota_rotangle,q1,q2,q3,q4)
           else
             dis(iguest)=1
             disp_count=disp_count+1
-            randa=duni(idnode)
-            randb=duni(idnode)
-            randc=duni(idnode)
-            rand1=duni(idnode)
-            rand2=duni(idnode)
-            rand3=duni(idnode)
-            rand4=duni(idnode)
-            dis_delr = delrdisp
-            dis_rotangle = rotangle
+            call random_disp(idnode,delrdisp,a,b,c)
+            call random_rot(idnode,rotangle,q1,q2,q3,q4)
           endif
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
 
+          call displace_guest
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
+     &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
+     &iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
           accepted=.false.
           if (.not.loverlap)then
             if(estep.lt.0.d0)then
@@ -1014,15 +998,11 @@ c           check if the energy probability grid is requested,
 c           then one has to compute the standalone energy
 c           at the new position (requires ewald1 calc)
             if(lprobeng(iguest))then
-c             the ewald1sum should be the energy of inserting a guest
-c             in the new spot? shouldn't the elimination of the guest
-c             in the old spot be accounted for in the energy?
               call gstlrcorrect(idnode,imcon,iguest,keyfce,natms,
      &                            ntpatm,maxvdw,engunit,delrc,
      &                            rcut,volm,maxmls,.true.) 
-              guest_toten=
-     &             (ewld1old+ewld1eng+newewld2sum+
-     &              newvdwsum+delrc)/engunit
+              guest_toten=estep-delrc/engunit
+
             endif            
 c           tally surface molecules
             if((linitsurf).and.(.not.lnewsurf))then
@@ -1060,41 +1040,25 @@ c***********************************************************************
         elseif(jump)then
           jmp(iguest)=1
           jump_count=jump_count+1
-          delE=0.d0
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
 c         find which index the molecule "randchoice" is
           call get_guest(iguest,randchoice,mol,natms,nmols)
-          linitsurf=.false.
-          call guest_energy
-     &(imcon,idnode,keyfce,iguest,randchoice,alpha,rcut,delr,drewd,
-     &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,.true.)
-          ewld2sum=-ewld2sum
-          vdwsum=-vdwsum
-          ewld1old=(-ewld1eng+ewald3en(mol))
-          ewald1en(:)=0.d0
-          ewald2en(:)=0.d0
-          vdwen(:)=0.d0
 
           call random_jump
-     &(idnode,randa,randb,randc,rotangle)
-          lnewsurf=.false.
-          call guest_energy
-     &(imcon,idnode,keyfce,iguest,randchoice,alpha,rcut,delr,drewd,
-     &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,lnewsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,.false.)
-          
-          ewld2sum = ewld2sum + newewld2sum
-          vdwsum = vdwsum + newvdwsum
+     &(idnode,a,b,c,jumpangle)
+          call random_rot(idnode,jumpangle,q1,q2,q3,q4)
+
+          call displace_guest
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
+     &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
+     &iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+
           accepted=.false.
           if (.not.loverlap)then
             gpress=gstfuga(iguest)
             ngsts=nummols(mol)
-
-            estep=(ewld1eng+ewld2sum+vdwsum)/engunit
 
             if(estep.lt.0.d0)then
               accepted=.true.
@@ -1132,6 +1096,8 @@ c           tally surface molecules
               surfacemols(mol) = surfacemols(mol) + 1
             endif
           else
+            ckcsum=ckcsorig
+            ckssum=ckssorig
             call reject_move
      &(idnode,iguest,0,insert,delete,jump,swap)
           endif
@@ -3261,27 +3227,27 @@ c***********************************************************************
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
       enddo
-c      iguest=2
-c      apos=0.5d0; bpos=0.5d0; cpos=0.3d0
-c      angx=0.d0; angy=90.d0; angz=0.d0
-c      call insert_guest
-c     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
-c     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
-c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-c     &delrc,estep,sumchg,surftol,overlap)
-c
-c      print *,"Insertion: ",iguest,estep
-c      do i=1,maxmls
-c        print *, "ENERGY ",i,energy(i)
-c      enddo
-c
+      iguest=2
+      apos=0.5d0; bpos=0.5d0; cpos=0.3d0
+      angx=0.d0; angy=90.d0; angz=0.d0
+      call insert_guest
+     &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
+     &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
+     &delrc,estep,sumchg,surftol,overlap)
+
+      print *,"Insertion: ",iguest,estep
+      do i=1,maxmls
+        print *, "ENERGY ",i,energy(i)
+      enddo
+
 c      iguest=2
 c      imol=1
 c      call deletion 
 c     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
 c     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
 c     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
-c
+
 c      call accept_move
 c     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
 c     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
@@ -3291,15 +3257,15 @@ c      do i=1,maxmls
 c        print *, "ENERGY ",i,energy(i)
 c      enddo
       iguest=1; imol=1
-      call random_disp
-     &(idnode,delr,a,b,c)
-      rotangle=1.d0
-      call random_rot
-     &(idnode,rotangle,q1,q2,q3,q4)
-c      a=8.6487233638763428D-002; b=1.2627959251403809D-002
-c      c=-0.44716173410415649     
-c      q1=0.98492337977298094;q2=0.14237730906944379      
-c      q3=5.5257573619741013D-002; q4=-8.1248005491650552D-002
+c      call random_disp
+c     &(idnode,delr,a,b,c)
+c      rotangle=1.d0
+c      call random_rot
+c     &(idnode,rotangle,q1,q2,q3,q4)
+      a=8.6487233638763428D-002; b=1.2627959251403809D-002
+      c=-0.44716173410415649     
+      q1=0.98492337977298094;q2=0.14237730906944379      
+      q3=5.5257573619741013D-002; q4=-8.1248005491650552D-002
 
       call displace_guest
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
@@ -3330,6 +3296,20 @@ c      q3=5.5257573619741013D-002; q4=-8.1248005491650552D-002
         print *, "ENERGY ",i,energy(i)
       enddo
 
+c      iguest=2; imol=1
+c      call deletion 
+c     &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
+c     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+c
+c      call accept_move
+c     &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
+c     &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp)
+c      print *, "Deletion: ",iguest,imol,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
       eng = 0.d0 
       call revive
      &(idnode,totatm,levcfg,production,ntpguest,ntpmls,
