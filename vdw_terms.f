@@ -762,7 +762,6 @@ c             this extra calc could slow things down..
                 delrc_mol0(kt)=delrc_mol0(kt)+twopi*(sic+self)
      & /volm**2
               enddo
-c              delrc_mol0(:)=0.d0
               delrc_mol(:)=delrc_mol(:)+volm*eadd*delrc_mol0(:)
               
             enddo
