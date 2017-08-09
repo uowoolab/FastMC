@@ -8,7 +8,8 @@ OPTIM=
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging
-DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
+#DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
+DEBUG = -g 
 # no debugging
 #DEBUG=
 
