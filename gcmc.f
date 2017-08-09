@@ -154,7 +154,7 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcdisf/0.3333333/
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
-      integer, parameter, dimension(3) :: revision = (/1, 3, 5 /)
+      integer, parameter, dimension(3) :: revision = (/1, 4, 0 /)
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
