@@ -1288,8 +1288,6 @@ c         store original framework configuration if the move is rejected
           origmolyyy = molyyy
           origmolzzz = molzzz
 
-          origelrc = elrc
-          origelrc_mol=elrc_mol
           engsicorig = engsic
 c         store original surface molecule counts in case the move 
 c         is rejected
@@ -1485,8 +1483,6 @@ c         store original framework configuration if the move is rejected
 
 c         store original ewald1 sums in case the move is rejected
           engsicorig=engsic
-          ckcsorig = ckcsum
-          ckssorig = ckssum
           chgsum_molorig=chgsum_mol
           origtotatm = totatm 
           origsurfmols = surfacemols
@@ -1629,11 +1625,8 @@ c           Rolling <NF>
               chainstats(istat+6) = NF
 c           Sampling the Henry's coefficient (This requires an
 c              energy calculation between the guest and framework
-c              only. This can be done, but will require a major
-c              overhaul of the energy calculations at each step
-c              namely, will need to split the energy between
-c              framework - guest and guest - guest.
-c              tricky with the ewald sums.
+c              only.) Widom insertion is better for this purpos
+c              as it more evenly samples configuration space.
               rollstat=9*(i-1)
 c              if((ins(i).eq.1).and.(accepted))then
 cc             Rolling <exp(-E/kT)>
@@ -2358,7 +2351,8 @@ c              aa = ltpsit(mol,i)
                 do j=1,lentry(i)
                   rsqdf(j)=xdf(j)**2+ydf(j)**2+zdf(j)**2
 c                 check if a surface atom
-                  call surface_check(i,j,surftol,loverlap,latmsurf)
+                  call surface_check(i,j,surftol,overlap,
+     &loverlap,latmsurf)
                 enddo
                 chg=atmcharge(i)
                 sittyp=ltype(i)
@@ -2508,7 +2502,7 @@ c***********************************************************************
       real(8) chg,engsrp,engunit,sumchg,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,chgtmp
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
-      real(8) delrc,estep,sig,surftol,req,surftolsq
+      real(8) delrc,estep,sig,surftol,req
       real(8) overlap
 c c   calculate the ewald sums ewald1 and ewald2(only for new mol)
 c c   store ewald1 and 2 separately for the next step.
@@ -2553,7 +2547,7 @@ c     do vdw and ewald2 energy calculations for the new atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          call surface_check(i,l,surftol,loverlap,latmsurf)
+          call surface_check(i,l,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lnewsurf=.true.
         enddo
         if (loverlap)exit 
@@ -2630,7 +2624,7 @@ c***********************************************************************
       real(8) chg,engsrp,engunit,engsictmp,chgtmp
       real(8) ewld2sum,ewld3sum,vdwsum,sumchg
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
-      real(8) delrc,estep,sig,surftol,req,surftolsq
+      real(8) delrc,estep,sig,surftol,req
       
       latmsurf=.false.
       ewld2sum=0.d0
@@ -2690,7 +2684,7 @@ c***********************************************************************
       real(8) chg,engsrp,engunit,chgtmp,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum
       real(8) ewld1eng,ewld2eng,vdweng,sumchg
-      real(8) estep,sig,surftol,req,surftolsq
+      real(8) estep,sig,surftol,req
       
       mol=locguest(iguest)
       natms=numatoms(mol)
@@ -2735,7 +2729,7 @@ c     do vdw and ewald2 energy calculations for the atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          call surface_check(i,l,surftol,loverlap,latmsurf)
+          call surface_check(i,l,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lsurf=.true.
         enddo
         if(loverlap)exit
@@ -2948,7 +2942,7 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
-      subroutine surface_check(iatm,j,surftol,loverlap,latmsurf)
+      subroutine surface_check(iatm,j,surftol,overlap,loverlap,latmsurf)
 c***********************************************************************
 c
 c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
@@ -2960,7 +2954,7 @@ c***********************************************************************
       implicit none
       logical latmsurf,loverlap
       integer aa,ab,ivdw,iatm,j,jatm
-      real(8) ak,sig,req,surftol
+      real(8) ak,sig,req,surftol,surftolsq,overlap
       latmsurf=.false.
 
       jatm=ilist(j)
