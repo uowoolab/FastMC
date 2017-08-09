@@ -804,6 +804,7 @@ c 'ewald' is already read in initscan
      &'*** warning the averaging window was not specified in the
      & CONTROL file, defaulting to ',nwind,' windows.'
       endif
+      nwind=mcsteps/nwind
       if((ngst.ne.ntpguest))call error(idnode,2312)      
       if(.not.ltemp)then
         call error(idnode,380)

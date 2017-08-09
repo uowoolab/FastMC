@@ -165,7 +165,7 @@ c     coinciding between the CONTROL file and the FIELD file.
       evdw=0.d0
       overlap=0.d0
 c     surface tolerance default set to -1 angstroms (off)
-      surftol=-1.d0
+      surftol=0.d0
       ntpatm=0
       mxatm=0
       mxegrd=0
@@ -1008,11 +1008,9 @@ c           at the new position (requires ewald1 calc)
 c           tally surface molecules
             if((linitsurf).and.(.not.lnewsurf))then
               surfacemols(mol) = surfacemols(mol) - 1
-              if (surfacemols(mol).lt.0)then
-                surfacemols(mol) = 0
-              endif
+              if (surfacemols(mol).lt.0)surfacemols(mol) = 0
             elseif((.not.linitsurf).and.(lnewsurf))then
-                surfacemols(mol) = surfacemols(mol) + 1
+              surfacemols(mol) = surfacemols(mol) + 1
             endif
             if(tran)then
               accept_tran = accept_tran + 1
@@ -1090,9 +1088,7 @@ c         find which index the molecule "randchoice" is
 c           tally surface molecules
             if((linitsurf).and.(.not.lnewsurf))then
               surfacemols(mol) = surfacemols(mol) - 1
-              if (surfacemols(mol).lt.0)then
-                surfacemols(mol) = 0
-              endif
+              if (surfacemols(mol).lt.0)surfacemols(mol) = 0
             elseif((.not.linitsurf).and.(lnewsurf))then
               surfacemols(mol) = surfacemols(mol) + 1
             endif
@@ -1329,7 +1325,6 @@ c           molecule choice to swap on each
               guesty(jguest,iatm)=newy(iatm) - comy
               guestz(jguest,iatm)=newz(iatm) - comz
             enddo
-            linitsurfj = .false.
             call get_guest(iguest, ichoice, imol, natms, nmols)
             call com(natms,imol,newx,newy,newz,comshiftx,
      &comshifty,comshiftz)
@@ -1343,7 +1338,6 @@ c           START SWITCH OF GUESTI AND GUESTJ
 c           Delete it, since shifting it to the new position would
 c           create infinite energies.
 c************************************************************************
-            linitsurf=.false.
             estep = 0.d0
             call deletion 
      &(imcon,idnode,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,
@@ -1365,7 +1359,6 @@ c************************************************************************
      &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
             estepj=-estep
-            lnewsurfj=.false.
             do iatm=1,natms
               newx(iatm) = guestx(jguest,iatm) + comshiftx
               newy(iatm) = guesty(jguest,iatm) + comshifty
@@ -1380,19 +1373,10 @@ c************************************************************************
             estepj=estepj+estep
             call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estep,
-     &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
+     &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
 
-            if((linitsurfj).and.(.not.lnewsurfj))then
-              surfacemols(jmol) = surfacemols(jmol) - 1
-              if (surfacemols(jmol).lt.0)then
-                surfacemols(jmol) = 0
-              endif
-            elseif((.not.linitsurfj).and.(lnewsurfj))then
-              surfacemols(jmol) = surfacemols(jmol) + 1
-            endif
             call get_guest(iguest,ichoice,imol,natms,nmols)
-            lnewsurf=.false.
             do iatm=1,natms
               newx(iatm) = guestx(iguest,iatm) + comx
               newy(iatm) = guesty(iguest,iatm) + comy
@@ -1407,16 +1391,8 @@ c************************************************************************
             estepi=estepi+estep
             call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
-     &.false.,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
+     &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp)
-            if((linitsurf).and.(.not.lnewsurf))then
-                surfacemols(imol) = surfacemols(imol) - 1
-                if (surfacemols(imol).lt.0)then
-                    surfacemols(imol) = 0
-                endif
-            elseif((.not.linitsurf).and.(lnewsurf))then
-                surfacemols(imol) = surfacemols(imol) + 1
-            endif
 c************************************************************************
 c           END OF SWITCH
 c************************************************************************
@@ -1664,7 +1640,7 @@ c           Rolling <NF> for window
           if((mod(prodcount,nwind).eq.0).or.(.not.lgchk))then
 c         store averages for standard deviations
 c         reset windows to zero
-            avcount = avcount + 1 
+            avcount = avcount + 1
             weight = dble(rollcount) / dble(nwind)
             do i=1,ntpguest
               istat = 1+(i-1)*16
@@ -2351,8 +2327,9 @@ c              aa = ltpsit(mol,i)
                 do j=1,lentry(i)
                   rsqdf(j)=xdf(j)**2+ydf(j)**2+zdf(j)**2
 c                 check if a surface atom
-                  call surface_check(i,j,surftol,overlap,
-     &loverlap,latmsurf)
+                  call surface_check
+     &(i,j,mol,surftol,overlap,loverlap,latmsurf)
+                  if(latmsurf)lmolsurf=.true.
                 enddo
                 chg=atmcharge(i)
                 sittyp=ltype(i)
@@ -2367,8 +2344,8 @@ c               calc vdw interactions
                 vdwsum=vdwsum+vdweng
               endif
             enddo
+            if(lmolsurf)surfacemols(mol)=surfacemols(mol)+1
           enddo
-          if(lmolsurf)surfacemols(mol)=surfacemols(mol)+1
         endif
       enddo
 c      print *,"EWALD1 ",ewald1sum/engunit,-ewald3eng/engunit
@@ -2508,7 +2485,8 @@ c c   calculate the ewald sums ewald1 and ewald2(only for new mol)
 c c   store ewald1 and 2 separately for the next step.
 c c   calculate vdw interaction (only for new mol)
       mol=locguest(iguest)
-       
+      
+      lnewsurf=.false. 
       latmsurf=.false.
       loverlap = .false.
       natms=numatoms(mol)
@@ -2532,7 +2510,6 @@ c     of an additional guest
 c     do vdw and ewald2 energy calculations for the new atoms
       do i=1,natms
         ik=0
-        aa = ltpsit(mol,i)
         do j=1,gstlentry(i)
           ik=ik+1
           jatm=gstlist(i,j)
@@ -2547,7 +2524,8 @@ c     do vdw and ewald2 energy calculations for the new atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          call surface_check(i,l,surftol,overlap,loverlap,latmsurf)
+          call surface_check
+     &(i,l,mol,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lnewsurf=.true.
         enddo
         if (loverlap)exit 
@@ -2614,7 +2592,7 @@ c     deletes a particle from the framework
 c
 c***********************************************************************
       implicit none
-      logical linitsurf,latmsurf,loverlap
+      logical linitsurf,loverlap
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
@@ -2626,7 +2604,6 @@ c***********************************************************************
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
       real(8) delrc,estep,sig,surftol,req
       
-      latmsurf=.false.
       ewld2sum=0.d0
       vdwsum=0.d0
       delE(:)=0.d0
@@ -2692,7 +2669,6 @@ c***********************************************************************
       ewld2sum=0.d0
       vdwsum=0.d0
       lsurf=.false.
-      latmsurf=.false.
       loverlap=.false.
       ewald1en(:)=0.d0
       ewald2en(:)=0.d0
@@ -2712,7 +2688,6 @@ c     get the long range contributions of this guest
       
 c     do vdw and ewald2 energy calculations for the atoms
       do i=1,natms
-        aa = ltpsit(mol,i)
         itatm=ind(i)
         ik=0 
         do j=1,gstlentry(i)
@@ -2729,7 +2704,8 @@ c     do vdw and ewald2 energy calculations for the atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
-          call surface_check(i,l,surftol,overlap,loverlap,latmsurf)
+          call surface_check
+     &(i,l,mol,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lsurf=.true.
         enddo
         if(loverlap)exit
@@ -2834,9 +2810,7 @@ c     update ewald1 sums
         chgsum_mol(mol)=chgsum_mol(mol)+chgtmp
         sumchg = sumchg+chgtmp
 c       tally surface molecules
-        if(lsurf)then
-          surfacemols(mol) = surfacemols(mol) + 1
-        endif
+        if(lsurf)surfacemols(mol) = surfacemols(mol) + 1
 c       update atomic coordinates
 c       & increment type counters
         do i=1,natms
@@ -2869,9 +2843,7 @@ c       with this after
         sumchg = sumchg-chgtmp
         mm=natms*nummols(mol)
 c       update surface molecules
-        if(lsurf)then
-          surfacemols(mol) = surfacemols(mol) - 1
-        endif
+        if(lsurf)surfacemols(mol) = surfacemols(mol) - 1
 c       update atomic coordinates
 c       & decrement counters
         iatm=0
@@ -2942,7 +2914,8 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
-      subroutine surface_check(iatm,j,surftol,overlap,loverlap,latmsurf)
+      subroutine surface_check
+     &(iatm,j,mol,surftol,overlap,loverlap,latmsurf)
 c***********************************************************************
 c
 c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
@@ -2953,14 +2926,14 @@ c
 c***********************************************************************
       implicit none
       logical latmsurf,loverlap
-      integer aa,ab,ivdw,iatm,j,jatm
+      integer aa,ab,ivdw,iatm,j,jatm,mol
       real(8) ak,sig,req,surftol,surftolsq,overlap
       latmsurf=.false.
 
       jatm=ilist(j)
       if(lfreezesite(jatm).eq.0)return
 
-      aa = ltype(iatm) 
+      aa = ltpsit(mol,iatm)
       ab = ltype(jatm)
       if(aa.gt.ab)then
         ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
@@ -3087,7 +3060,6 @@ c      print *, "ESTEP :", estep - delrc/engunit
      &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,
      &a,b,c)
       call rotation(newx,newy,newz,comx,comy,comz,natms,q1,q2,q3,q4)
-      lnewsurf=.false.
       call guest_energy
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,

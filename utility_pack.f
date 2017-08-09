@@ -3452,7 +3452,6 @@ c*****************************************************************************
       integer natms,i,j,jatm
       loverlap = .false.
 
-      print *, "DEBUG overlap_check in utility_pack.f!!"
       if (overlap.gt.0.d0)then
         do i = 1, natms
           do j = 1, gstlentry(i)
@@ -3492,18 +3491,20 @@ c        rounding is ***
 c      call round(duni(),rande,2)
 c     distance check for the neighbours of each guest atom.
       edummy=eng
-c     first if statement prevents exp overflow
+c     first two if statements prevent exp overflow
       if (-1*beta*edummy.gt.700.d0)then
-        test=dexp(700.d0)
+        test=exp(700.d0)
+      elseif(beta*edummy.gt.700.d0)then
+        test=exp(-700.d0)
       elseif(displace)then
-        test=dexp(-1.d0*beta*edummy)
+        test=exp(-1.d0*beta*edummy)
       elseif(insert)then
-        test=volm*ipress/((ingsts+1)*boltz*temp)*dexp(-1.d0*beta*edummy)
+        test=volm*ipress/((ingsts+1)*boltz*temp)*exp(-1.d0*beta*edummy)
       elseif(delete)then
         if(abs(ipress).lt.1.d-7)then
             test = 1.d0
         else
-            test=ingsts*boltz*temp/(volm*ipress)*dexp(-1.d0*beta*edummy)
+            test=ingsts*boltz*temp/(volm*ipress)*exp(-1.d0*beta*edummy)
         endif
       elseif(swap)then
         jpress=gstfuga(jguest)
@@ -3512,7 +3513,7 @@ c     first if statement prevents exp overflow
 c       ingsts and jngsts have been prematurely decremented and
 c       incremented respectively in gcmc.f
         test=jpress*(ingsts+1.d0)
-     &/((jngsts)*ipress)*dexp(-1.d0*beta*edummy)
+     &/((jngsts)*ipress)*exp(-1.d0*beta*edummy)
       endif
       if(rande.lt.test)then
          accepted=.true.
