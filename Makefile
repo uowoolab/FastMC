@@ -2,14 +2,12 @@
 
 
 # Any optimisation flags?
-OPTIM=
-#OPTIM=
-
+OPTIM = -O
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging
 #DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
-DEBUG = -g 
+DEBUG = 
 # no debugging
 #DEBUG=
 

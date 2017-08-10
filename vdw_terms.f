@@ -496,15 +496,15 @@ c      use config_module
 
       twopi=2.0d0*pi
       
-      elrc_mol0(:)=0.d0
-      elrc_mol(:)=0.d0
+      elrc_mol0=0.d0
+      elrc_mol=0.d0
 c     initalise counter arrays
-      numtyp(:)=0
-      numfrz(:)=0
-      numfrz_mol(:,:)=0
-      numtyp_mol(:,:)=0
-      numfrz_gstmol(:,:)=0
-      numtyp_gstmol(:,:)=0
+      numtyp=0
+      numfrz=0
+      numfrz_mol=0
+      numtyp_mol=0
+      numfrz_gstmol=0
+      numtyp_gstmol=0
 
 c     populate guest counters for
 c     a single molecule.
@@ -711,8 +711,6 @@ c***************************************************************************
 
 c     long range corrections to energy and pressure
       mol=locguest(iguest)
-      delrc=0.d0
-      delrc_mol=0.d0
       if(imcon.ne.0.and.imcon.ne.6.and.ntpvdw.gt.0) then 
         
         if(mod(keyfce,2).eq.0) then

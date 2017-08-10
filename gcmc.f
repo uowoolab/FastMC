@@ -238,11 +238,6 @@ c     open main output file.
      & griddim, gridfactor)
 
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
-c      write(*,"('maxmls:',i6,' mxatm: ',i6,' mxatyp: ',i6,' volm: ',
-c     & f9.3,' kmax2: ', i6, ' kmax3: ',i6,' mxebuf: ',i6,' mxewld: ',
-c     & i6,' ntpguest: ',i6,' rcut: ',f6.3,' rvdw: ',f6.3,' delr: ',
-c     & f6.3)")maxmls,mxatm,mxatyp,volm,kmax2,kmax3,mxebuf,mxewld,
-c     & ntpguest,rcut,rvdw,delr
       call alloc_config_arrays
      & (idnode,mxnode,maxmls,mxatm,mxatyp,volm,ntpguest,rcut,rvdw,delr)
 
@@ -536,8 +531,9 @@ c     create ewald interpolation arrays
 c     populate ewald3 arrays
       call single_point
      &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
-     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,
-     &maxvdw,engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
+     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,
+     &dlrpot,ntpatm,maxvdw,engunit,spenergy,vdwsum,ecoul,dlpeng,
+     &maxmls,surftol)
       if(idnode.eq.0)then
 c        write(nrite,'(/,/,a35,f22.6)')'Configurational energy:
 c     & ',spenergy
@@ -652,7 +648,7 @@ c     start delrdisp as delr (read from the CONTROL file)
       call timchk(0,timelp)
 c     DEBUG
 c      call test
-c     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,
+c     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
 c     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
 c     &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg,overlap)
 c      call error(idnode,0)
@@ -842,14 +838,13 @@ c       the following is added in case of initial conditions
           rota = .false.
           switch = .false.
         endif
-        oldeng = 0.d0
-        ewald1en=0.d0
-        ewald2en=0.d0
-        vdwen=0.d0
-        chgsum_molorig(:)=chgsum_mol(:)
-        ckcsorig(:,:)=ckcsum(:,:)
-        ckssorig(:,:)=ckssum(:,:)
-        delE=0.d0
+c        ewald1en=0.d0
+c        ewald2en=0.d0
+c        vdwen=0.d0
+c        chgsum_molorig=chgsum_mol
+c        ckcsorig=ckcsum
+c        ckssorig=ckssum
+c        delE=0.d0
 c***********************************************************************
 c    
 c       Insertion
@@ -890,7 +885,7 @@ c         END DEBUG
             call accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
           else
             call reject_move
      &(idnode,iguest,0,insert,delete,displace,swap)
@@ -934,7 +929,7 @@ c         the following occurs if the move is accepted.
             call accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,
      &linitsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
           else
             call reject_move
      &(idnode,iguest,0,insert,delete,displace,swap)
@@ -972,7 +967,7 @@ c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
 
           call displace_guest
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,newld,
      &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
      &iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
@@ -994,7 +989,7 @@ c         END DEBUG
             call accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 c           check if the energy probability grid is requested,
 c           then one has to compute the standalone energy
 c           at the new position (requires ewald1 calc)
@@ -1049,7 +1044,7 @@ c         find which index the molecule "randchoice" is
           call random_rot(idnode,jumpangle,q1,q2,q3,q4)
 
           call displace_guest
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,newld,
      &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
      &iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
@@ -1075,7 +1070,7 @@ c         find which index the molecule "randchoice" is
             call accept_move
      &(imcon,idnode,iguest,insert,delete,jump,estep,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
             if(lprobeng(iguest))then
               call gstlrcorrect(idnode,imcon,iguest,keyfce,natms,
      &                          ntpatm,maxvdw,engunit,delrc,
@@ -1346,7 +1341,7 @@ c************************************************************************
             call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,-estep,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
             estepi=-estep
             call get_guest(jguest,jchoice,jmol,natms,nmols)
             estep=0.d0
@@ -1357,7 +1352,7 @@ c************************************************************************
             call accept_move
      &(imcon,idnode,jguest,.false.,.true.,.false.,-estep,
      &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
             estepj=-estep
             do iatm=1,natms
               newx(iatm) = guestx(jguest,iatm) + comshiftx
@@ -1374,7 +1369,7 @@ c************************************************************************
             call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estep,
      &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 
             call get_guest(iguest,ichoice,imol,natms,nmols)
             do iatm=1,natms
@@ -1392,7 +1387,7 @@ c************************************************************************
             call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
      &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 c************************************************************************
 c           END OF SWITCH
 c************************************************************************
@@ -1488,7 +1483,7 @@ c         delete first guest
           call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,-estepi,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 c         insert second guest
           jmol=locguest(jguest)
           jnatms=numatoms(jmol)
@@ -1513,7 +1508,7 @@ c         insert second guest
           call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,
      &lnewsurf,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 
 c         acceptance criteria
           accepted=.false.
@@ -2252,8 +2247,8 @@ c*****************************************************************************
       end subroutine hisarchive
       subroutine single_point
      &(imcon,idnode,keyfce,alpha,drewd,rcut,delr,totatm,totfram,ntpfram,
-     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,
-     &maxvdw,engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
+     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,
+     &ntpatm,maxvdw,engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
 c*****************************************************************************
 c
 c     does a single point energy calculation over all atoms in the
@@ -2461,7 +2456,7 @@ c             out when computing most interactions.
       subroutine insertion
      &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,sumchg,chgtmp,engsictmp,
+     &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      &loverlap,lnewsurf,surftol,overlap)
 c***********************************************************************
 c
@@ -2474,18 +2469,18 @@ c***********************************************************************
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
-      integer jatm,ka,aa,ak,ab,l
+      integer jatm,ka,aa,ak,ab,l,mxcmls,maxmls
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
       real(8) chg,engsrp,engunit,sumchg,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,chgtmp
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
       real(8) delrc,estep,sig,surftol,req
       real(8) overlap
-c c   calculate the ewald sums ewald1 and ewald2(only for new mol)
-c c   store ewald1 and 2 separately for the next step.
-c c   calculate vdw interaction (only for new mol)
+c     calculate the ewald sums ewald1 and ewald2(only for new mol)
+c     store ewald1 and 2 separately for the next step.
+c     calculate vdw interaction (only for new mol)
       mol=locguest(iguest)
-      
+      mxcmls=maxmls*(maxmls-1)/2 + maxmls
       lnewsurf=.false. 
       latmsurf=.false.
       loverlap = .false.
@@ -2493,12 +2488,13 @@ c c   calculate vdw interaction (only for new mol)
       nmols=nummols(mol)
       ewld2sum=0.d0
       vdwsum=0.d0
-c       
-      ind(:) = 0 
-      ewald1en(:)=0.d0
-      ewald2en(:)=0.d0
-      vdwen(:)=0.d0
-      delE(:)=0.d0
+      ind = 0 
+      do ik=1,mxcmls
+        ewald1en(ik)=0.d0
+        ewald2en(ik)=0.d0
+        vdwen(ik)=0.d0
+        delE(ik)=0.d0
+      enddo
       call guestlistgen
      &(imcon,iguest,totatm,rcut,delr,
      &natms,newx,newy,newz)
@@ -2780,7 +2776,7 @@ c       reset engsic
       subroutine accept_move
      &(imcon,idnode,iguest,insert,delete,displace,estep,
      &lsurf,delrc,totatm,choice,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 c***********************************************************************
 c
 c     updates arrays for the rejection according to the type
@@ -2788,7 +2784,7 @@ c     of move.
 c
 c***********************************************************************
       implicit none
-      integer idnode,iguest,natms,mol,i,mm,totatm,choice,at
+      integer idnode,iguest,natms,mol,i,mm,totatm,choice,at,k,newld
       integer ntpfram,imcon,ntpmls,ntpguest,maxmls,kk,ka,iatm
       logical insert,delete,displace,lsurf
       real(8) estep,delrc,sumchg,chgtmp,engsictmp
@@ -2803,8 +2799,16 @@ c     update energy arrays
       enddo
 c     update ewald1 sums
       if(insert)then
-        ckcsum(:,:) = ckcsum(:,:)+ckcsnew(:,:)
-        ckssum(:,:) = ckssum(:,:)+ckssnew(:,:)
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)+ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
+          ckcsnew(mol,k)=0.d0
+          ckssnew(mol,k)=0.d0
+          ckcsnew(maxmls+1,k)=0.d0
+          ckssnew(maxmls+1,k)=0.d0
+        enddo
         mm=natms*nummols(mol)
         engsic(kk)=engsic(kk)+engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)+chgtmp
@@ -2836,8 +2840,16 @@ c       with this after
         call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
         choice = nummols(mol)
       elseif(delete)then
-        ckcsum(:,:) = ckcsum(:,:)-ckcsnew(:,:)
-        ckssum(:,:) = ckssum(:,:)-ckssnew(:,:)
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)-ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)-ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)-ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)-ckssnew(maxmls+1,k)
+          ckcsnew(mol,k)=0.d0
+          ckssnew(mol,k)=0.d0
+          ckcsnew(maxmls+1,k)=0.d0
+          ckssnew(maxmls+1,k)=0.d0
+        enddo
         engsic(kk)=engsic(kk)-engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
         sumchg = sumchg-chgtmp
@@ -2869,8 +2881,17 @@ c       update nummols,totatm, then condense everything to 1d arrays
         call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
 c        call images(imcon,totatm,cell,xxx,yyy,zzz)
       elseif(displace)then
-        ckcsum = ckcsum+ckcsnew
-        ckssum = ckssum+ckssnew
+c       this sums over all kpoints, should keep as one loop
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)+ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
+          ckcsnew(mol,k)=0.d0
+          ckssnew(mol,k)=0.d0
+          ckcsnew(maxmls+1,k)=0.d0
+          ckssnew(maxmls+1,k)=0.d0
+        enddo
         mm=0
         do i=at,at-1+natms
           mm=mm+1
@@ -3001,12 +3022,12 @@ c     add the com to each atom in the guest
       call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
      &lnewsurf,delrc,totatm,idum,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
 
       end subroutine insert_guest
 
       subroutine displace_guest
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,newld,
      &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
      &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
@@ -3020,20 +3041,27 @@ c***********************************************************************
       implicit none
       logical loverlap,linitsurf,lnewsurf
       integer imcon,idnode,keyfce,totatm,ntpguest,ntpfram,maxmls,ntpatm
-      integer maxvdw,kmax1,kmax2,kmax3,levcfg,iguest,imol,i,mol
-      integer nmols,natms,ik
+      integer maxvdw,kmax1,kmax2,kmax3,levcfg,iguest,imol,i,mol,newld
+      integer nmols,natms,ik,mxcmls
       real(8) alpha,rcut,delr,drewd,volm,epsq,enunit,overlap,surftol
       real(8) dlrpot,sumchg,comx,comy,comz,q1,q2,q3,q4,a,b,c
       real(8) estep,enginit,engunit,ewld3sum
       call get_guest(iguest,imol,mol,natms,nmols)
 c     Calculate the energy for the chosen guest in
 c     its orginal place
-      delE(:)=0.d0
-      ewald1en(:)=0.d0
-      ewald2en(:)=0.d0
-      vdwen(:)=0.d0
-      ckcsorig=ckcsum
-      ckssorig=ckssum
+      mxcmls=maxmls*(maxmls-1)/2 + maxmls
+      do ik=1,mxcmls
+        delE(ik)=0.d0
+        ewald1en(ik)=0.d0
+        ewald2en(ik)=0.d0
+        vdwen(ik)=0.d0
+      enddo
+      do ik=1,newld
+        ckcsorig(mol,ik)=ckcsum(mol,ik)
+        ckssorig(mol,ik)=ckcsum(mol,ik) 
+        ckcsorig(maxmls,ik)=ckcsum(maxmls,ik)
+        ckssorig(maxmls,ik)=ckcsum(maxmls,ik) 
+      enddo
       call guest_energy
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
@@ -3050,12 +3078,17 @@ c      print *, "DELRC :", delrc/engunit
 c      print *, "ESTEP :", estep - delrc/engunit
 
       enginit=estep
-      ewald1entmp = ewald1en
-      ewald2entmp = ewald2en
-      vdwentmp = vdwen
-      ckcsum=ckcsum-ckcsnew
-      ckssum=ckssum-ckssnew
-
+      do ik=1,mxcmls
+        ewald1entmp(ik) = ewald1en(ik)
+        ewald2entmp(ik) = ewald2en(ik)
+        vdwentmp(ik) = vdwen(ik)
+      enddo
+      do ik=1,newld
+        ckcsum(mol,ik)=ckcsum(mol,ik)-ckcsnew(mol,ik)
+        ckssum(mol,ik)=ckssum(mol,ik)-ckssnew(mol,ik)
+        ckcsum(maxmls+1,ik)=ckcsum(maxmls+1,ik)-ckcsnew(maxmls+1,ik)
+        ckssum(maxmls+1,ik)=ckssum(maxmls+1,ik)-ckssnew(maxmls+1,ik)
+      enddo
       call translate
      &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,
      &a,b,c)
@@ -3071,16 +3104,13 @@ c      print *, "VDW   :", vdwsum/engunit
 c      print *, "DELRC :", delrc/engunit
 c      print *, "ESTEP :", estep + delrc/engunit 
 c     total up the energy contributions.
-      vdwen=vdwen-vdwentmp
-      ewald1en=ewald1en-ewald1entmp
-      ewald2en=ewald2en-ewald2entmp
       estep=estep-enginit
-
       do i=1, maxmls
-        ewld3sum=0.d0
         ik=loc2(mol,i)
         if(i.ne.mol)delE(i)=delE(i)+
-     &(ewald1en(ik)+ewald2en(ik)-ewld3sum+vdwen(ik))
+     &(ewald1en(ik)-ewald1entmp(ik)
+     &+ewald2en(ik)-ewald2entmp(ik)
+     &+vdwen(ik)-vdwentmp(ik))
      &/engunit
       enddo
       delE(mol)=delE(mol)+
@@ -3090,7 +3120,7 @@ c     total up the energy contributions.
       end subroutine displace_guest
 
       subroutine test
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
      &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg,overlap)
 c***********************************************************************
@@ -3101,7 +3131,7 @@ c***********************************************************************
       implicit none
       logical loverlap,lnewsurf,linitsurf
       integer imcon,idnode,iguest,keyfce,totatm,ntpguest
-      integer kmax1,kmax2,kmax3,ntpatm,maxvdw
+      integer kmax1,kmax2,kmax3,ntpatm,maxvdw,newld
       real(8) alpha,rcut,delr,drewd,volm,epsq,engunit
       integer i,ntpfram,randchoice,maxmls,ntpmls
       integer mol,natms,levcfg,imol
@@ -3140,14 +3170,14 @@ c***********************************************************************
      &(idnode,rotangle,q1,q2,q3,q4)
 
       call displace_guest
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,newld,
      &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,levcfg,overlap,surftol,linitsurf,lnewsurf,loverlap,
      &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
       call accept_move
      &(imcon,idnode,iguest,.false.,.false.,.true.,estep,
      &lnewsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
       print *, "Displacement: ",iguest,imol,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3162,7 +3192,7 @@ c***********************************************************************
       call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
      &lnewsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp)
+     &sumchg,engsictmp,chgtmp,newld)
       print *, "Deletion: ",iguest,imol,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)

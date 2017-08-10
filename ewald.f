@@ -63,11 +63,11 @@ c********************************************************************
       twopi=2.d0*pi
 
 c    initialize the coulombic potential energy
-      ewald1en(:) = 0.d0 
+c      ewald1en = 0.d0 
       engcpe=0.d0
 c    initialize ckssnew 
-      ckcsnew(:,:) = 0.d0
-      ckssnew(:,:) = 0.d0
+c      ckcsnew(:,:) = 0.d0
+c      ckssnew(:,:) = 0.d0
 c    working parameters
       mol=locguest(iguest)
       rvolm=twopi/volm
@@ -264,10 +264,10 @@ c             ckcsum,and ckssum
               cksold=ckssum(maxmls+1,kkk)
 c             insertions will add an additional sum to the existing
 c             summation
-              ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
-              ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
-              ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
-              ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
+              ckcsnew(mol,kkk)=ckcs
+              ckssnew(mol,kkk)=ckss
+              ckcsnew(maxmls+1,kkk)=ckcs
+              ckssnew(maxmls+1,kkk)=ckss
 c             calculation of akk coefficients
 
               rrksq=1.d0/rksq
