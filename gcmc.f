@@ -647,11 +647,11 @@ c     start delrdisp as delr (read from the CONTROL file)
       rota_rotangle = rotangle
       call timchk(0,timelp)
 c     DEBUG
-      call test
-     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
-     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
-     &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg,overlap)
-      call error(idnode,0)
+c      call test
+c     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
+c     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
+c     &engunit,ntpfram,ntpmls,maxmls,outdir,cfgname,levcfg,overlap)
+c      call error(idnode,0)
 c     END DEBUG
       do while(lgchk)
         gcmccount=gcmccount+1
@@ -969,6 +969,10 @@ c            c=0.5d0
             ckssorig(mol,ik)=ckssum(mol,ik) 
             ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
             ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+            ckcsnew(mol,ik)=0.d0
+            ckssnew(mol,ik)=0.d0
+            ckcsnew(maxmls+1,ik)=0.d0
+            ckssnew(maxmls+1,ik)=0.d0
           enddo
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
@@ -991,7 +995,7 @@ c         choose a molecule from the list
           endif
 c         DEBUG
 c          accepted=.true.
-          accepted=.false.
+c          accepted=.false.
 c         END DEBUG
           if(accepted)then
             call accept_move
@@ -1028,8 +1032,10 @@ c           tally surface molecules
               ckssum(mol,ik)=ckssorig(mol,ik) 
               ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
               ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-              ckcsnew(mol,ik)=0.d0
-              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckcsnew(mol,ik)=0.d0
+c              ckssnew(mol,ik)=0.d0
+c              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckssnew(maxmls+1,ik)=0.d0
             enddo
             call reject_move
      &(idnode,iguest,0,insert,delete,displace,swap)
@@ -1051,6 +1057,16 @@ c***********************************************************************
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
 c         find which index the molecule "randchoice" is
+          do ik=1,newld
+            ckcsorig(mol,ik)=ckcsum(mol,ik) 
+            ckssorig(mol,ik)=ckssum(mol,ik) 
+            ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
+            ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+            ckcsnew(mol,ik)=0.d0
+            ckssnew(mol,ik)=0.d0
+            ckcsnew(maxmls+1,ik)=0.d0
+            ckssnew(maxmls+1,ik)=0.d0
+          enddo
           call get_guest(iguest,randchoice,mol,natms,nmols)
 
           call random_jump
@@ -1108,7 +1124,9 @@ c           tally surface molecules
               ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
               ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
               ckcsnew(mol,ik)=0.d0
+              ckssnew(mol,ik)=0.d0
               ckcsnew(maxmls+1,ik)=0.d0 
+              ckssnew(maxmls+1,ik)=0.d0
             enddo
             call reject_move
      &(idnode,iguest,0,insert,delete,jump,swap)
@@ -1341,6 +1359,20 @@ c         store original framework configuration if the move is rejected
               origmolyyy(jmol,kk) = molyyy(jmol,kk)
               origmolzzz(jmol,kk) = molzzz(jmol,kk)
             enddo
+            do ik=1,newld
+              ckcsorig(imol,ik)=ckcsum(imol,ik) 
+              ckssorig(imol,ik)=ckssum(imol,ik) 
+              ckcsorig(jmol,ik)=ckcsum(jmol,ik) 
+              ckssorig(jmol,ik)=ckssum(jmol,ik) 
+              ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
+              ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+c              ckcsnew(imol,ik)=0.d0
+c              ckssnew(imol,ik)=0.d0
+c              ckcsnew(jmol,ik)=0.d0
+c              ckssnew(jmol,ik)=0.d0
+c              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckssnew(maxmls+1,ik)=0.d0
+            enddo
             call get_guest(jguest, jchoice, jmol, natms, nmols)
             call com(natms,jmol,newx,newy,newz,comx,comy,comz)
             do iatm=1,natms
@@ -1447,6 +1479,9 @@ c         perform energy evaluation
               accepted=.false.
             endif
           endif
+c         DEBUG
+          accepted=.false.
+c         END DEBUG
           if(accepted)then
             accept_switch=accept_switch+1
             call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
@@ -1473,9 +1508,12 @@ c           restore original ewald1 sums if step is rejected
               ckssum(jmol,ik)=ckssorig(jmol,ik) 
               ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
               ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-              ckcsnew(imol,ik)=0.d0
-              ckcsnew(jmol,ik)=0.d0
-              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckcsnew(imol,ik)=0.d0
+c              ckssnew(imol,ik)=0.d0
+c              ckcsnew(jmol,ik)=0.d0
+c              ckssnew(jmol,ik)=0.d0
+c              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckssnew(maxmls+1,ik)=0.d0
             enddo
             elrc=origelrc
             elrc_mol=origelrc_mol
@@ -1523,6 +1561,20 @@ c         store original framework configuration if the move is rejected
             origmolxxx(jmol,ik)=molxxx(jmol,ik)
             origmolyyy(jmol,ik)=molyyy(jmol,ik)
             origmolzzz(jmol,ik)=molzzz(jmol,ik)
+          enddo
+          do ik=1,newld
+            ckcsorig(imol,ik)=ckcsum(imol,ik) 
+            ckssorig(imol,ik)=ckssum(imol,ik) 
+            ckcsorig(jmol,ik)=ckcsum(jmol,ik) 
+            ckssorig(jmol,ik)=ckssum(jmol,ik) 
+            ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
+            ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+c            ckcsnew(imol,ik)=0.d0
+c            ckssnew(imol,ik)=0.d0
+c            ckcsnew(jmol,ik)=0.d0
+c            ckssnew(jmol,ik)=0.d0
+c            ckcsnew(maxmls+1,ik)=0.d0
+c            ckssnew(maxmls+1,ik)=0.d0 
           enddo
           swp(iguest) = 1
           swp(jguest) = 1     
@@ -1597,9 +1649,12 @@ c           restore original ewald1 sums if step is rejected
               ckssum(jmol,ik)=ckssorig(jmol,ik) 
               ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
               ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-              ckcsnew(imol,ik)=0.d0
-              ckcsnew(jmol,ik)=0.d0
-              ckcsnew(maxmls+1,ik)=0.d0 
+c              ckcsnew(imol,ik)=0.d0
+c              ckssnew(imol,ik)=0.d0
+c              ckcsnew(jmol,ik)=0.d0
+c              ckssnew(jmol,ik)=0.d0
+c              ckcsnew(maxmls+1,ik)=0.d0
+c              ckssnew(maxmls+1,ik)=0.d0 
             enddo
             chgsum_mol(imol)=chgsum_molorig(imol)
             chgsum_mol(jmol)=chgsum_molorig(jmol)
@@ -2623,7 +2678,7 @@ c     program run.  Assumes constant bond distances.
       chgtmp=0.d0
       call ewald1_guest
      &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
-     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,
+     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
      &.false.)
       ewld3sum=ewald3en(mol)
       estep= estep+ 
@@ -2761,7 +2816,7 @@ c***********************************************************************
 c     get the long range contributions of this guest
       call ewald1_guest
      &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
-     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,
+     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
      &lexisting)
       
 c     do vdw and ewald2 energy calculations for the atoms
@@ -2886,10 +2941,10 @@ c     update ewald1 sums
           ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
           ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
           ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
-          ckcsnew(mol,k)=0.d0
-          ckssnew(mol,k)=0.d0
-          ckcsnew(maxmls+1,k)=0.d0
-          ckssnew(maxmls+1,k)=0.d0
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
         enddo
         mm=natms*nummols(mol)
         engsic(kk)=engsic(kk)+engsictmp
@@ -2927,10 +2982,10 @@ c       with this after
           ckssum(mol,k) = ckssum(mol,k)-ckssnew(mol,k)
           ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)-ckcsnew(maxmls+1,k)
           ckssum(maxmls+1,k) = ckssum(maxmls+1,k)-ckssnew(maxmls+1,k)
-          ckcsnew(mol,k)=0.d0
-          ckssnew(mol,k)=0.d0
-          ckcsnew(maxmls+1,k)=0.d0
-          ckssnew(maxmls+1,k)=0.d0
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
         enddo
         engsic(kk)=engsic(kk)-engsictmp
         chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
@@ -2969,10 +3024,10 @@ c       this sums over all kpoints, should keep as one loop
           ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
           ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
           ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
-          ckcsnew(mol,k)=0.d0
-          ckssnew(mol,k)=0.d0
-          ckcsnew(maxmls+1,k)=0.d0
-          ckssnew(maxmls+1,k)=0.d0
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
         enddo
         mm=0
         do i=at,at-1+natms
@@ -3156,6 +3211,10 @@ c      print *, "ESTEP :", estep - delrc/engunit
         ckssum(mol,ik)=ckssum(mol,ik)-ckssnew(mol,ik)
         ckcsum(maxmls+1,ik)=ckcsum(maxmls+1,ik)-ckcsnew(maxmls+1,ik)
         ckssum(maxmls+1,ik)=ckssum(maxmls+1,ik)-ckssnew(maxmls+1,ik)
+c        ckcsnew(mol,ik)=0.d0
+c        ckssnew(mol,ik)=0.d0
+c        ckcsnew(maxmls+1,ik)=0.d0 
+c        ckssnew(maxmls+1,ik)=0.d0
       enddo
       call translate
      &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,

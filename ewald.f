@@ -31,7 +31,7 @@ c     look-up tables for real space part of ewald sum
 
       subroutine ewald1_guest
      &(imcon,engcpe,natms,iguest,volm,alpha,sumchg,
-     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,
+     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
      &lexisting)
 c********************************************************************
 c                Subroutine to determine the                        *
@@ -46,7 +46,7 @@ c********************************************************************
       integer idnode,kmax1,kmax2,kmax3,natms,pass
       integer iatm0,iatm1,i,j,limit,l,kkk,nmin
       integer mmin,ll,m,mm,n,nn,k,imcon,iguest,mol
-      integer maxmls,kmol
+      integer maxmls,kmol,newld,ik
       real(8) engcpe,volm,epsq,alpha,sic,sumchg,qfix,chgtmp
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsictmp,ssx
       real(8) engsicmol,qfixmol
@@ -66,10 +66,14 @@ c    initialize the coulombic potential energy
 c      ewald1en = 0.d0 
       engcpe=0.d0
 c    initialize ckssnew 
-c      ckcsnew(:,:) = 0.d0
-c      ckssnew(:,:) = 0.d0
 c    working parameters
       mol=locguest(iguest)
+      do ik=1,newld
+        ckcsnew(mol,ik) = 0.d0
+        ckssnew(mol,ik) = 0.d0
+        ckcsnew(maxmls+1,ik) = 0.d0
+        ckssnew(maxmls+1,ik) = 0.d0
+      enddo
       rvolm=twopi/volm
       ralph=-0.25d0/alpha**2
 
@@ -264,10 +268,10 @@ c             ckcsum,and ckssum
               cksold=ckssum(maxmls+1,kkk)
 c             insertions will add an additional sum to the existing
 c             summation
-              ckcsnew(mol,kkk)=ckcs
-              ckssnew(mol,kkk)=ckss
-              ckcsnew(maxmls+1,kkk)=ckcs
-              ckssnew(maxmls+1,kkk)=ckss
+              ckcsnew(mol,kkk)=ckcsnew(mol,kkk)+ckcs
+              ckssnew(mol,kkk)=ckssnew(mol,kkk)+ckss
+              ckcsnew(maxmls+1,kkk)=ckcsnew(maxmls+1,kkk)+ckcs
+              ckssnew(maxmls+1,kkk)=ckssnew(maxmls+1,kkk)+ckss
 c             calculation of akk coefficients
 
               rrksq=1.d0/rksq
