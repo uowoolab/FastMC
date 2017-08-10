@@ -1480,7 +1480,7 @@ c         perform energy evaluation
             endif
           endif
 c         DEBUG
-          accepted=.false.
+c          accepted=.false.
 c         END DEBUG
           if(accepted)then
             accept_switch=accept_switch+1
@@ -1488,6 +1488,7 @@ c         END DEBUG
 
           else
             do ik=1,maxmls
+              delE(ik)=0.d0
               energy(ik)=origenergy(ik)
               surfacemols(ik)=origsurfmols(ik)
             enddo
