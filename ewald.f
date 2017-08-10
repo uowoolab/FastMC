@@ -374,8 +374,8 @@ c********************************************************************
       data safe/.true./,lconsw/.true./
       twopi=2.d0*pi
 c    initialize the coulombic potential energy
-      ckcsum=0.d0
-      ckssum=0.d0
+c      ckcsum=0.d0
+c      ckssum=0.d0
       engcpe=0.d0
       jj=0
 c    working parameters
@@ -402,7 +402,6 @@ c     we can optimize the ewald at each step if we
 c     dont re-calculate this each time.  insertions
 c     and deletions would cause difficulty..
       engsicold=0.d0
-      engsic(:)=0.d0
       do n=1,mxatm
         mol=moltype(n)
         tchge=atmcharge(n)**2

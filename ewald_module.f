@@ -38,7 +38,7 @@ c     bunch of ewald arrays and parameters
       implicit none
       integer, parameter :: nv=27
       integer i,idnode,maxalloc,kmax1,kmax2,kmax3
-      integer maxmls,totatm,maxguest,mxcmls
+      integer maxmls,totatm,maxguest,mxcmls,ik,kk
       integer, dimension(nv) :: fail
       real(8) rvdw
       mxcmls=(maxmls)*(maxmls-1)/2+maxmls
@@ -84,15 +84,55 @@ c     N choose 2 + last entry is storage for total sum
           call error(idnode, 1002)
         endif
       enddo
-      ewald1en(:) = 0.d0
-      ewald1entmp(:)=0.d0
-      ewald2en(:) = 0.d0
-      ewald2entmp(:)=0.d0
-      ewald3en(:) = 0.d0
-      engsic(:) = 0.d0
-      engsicorig(:) = 0.d0
-      chgsum_mol(:) = 0.d0
-      chgsum_molorig(:) = 0.d0
+      do ik=1,mxcmls
+        ewald1en(ik)=0.d0
+        ewald1entmp(ik)=0.d0
+        ewald2en(ik) = 0.d0
+        ewald2entmp(ik)=0.d0
+        engsic(ik) = 0.d0
+        engsicorig(ik) = 0.d0
+      enddo
+      do ik=1,maxmls 
+        ewald3en(ik) = 0.d0
+        chgsum_mol(ik) = 0.d0
+        chgsum_molorig(ik) = 0.d0
+      enddo
+      do kk=1,mxebuf
+        do ik=1,maxmls
+          ckcsum(ik,kk)=0.d0
+          ckssum(ik,kk)=0.d0
+          ckcsnew(ik,kk)=0.d0
+          ckssnew(ik,kk)=0.d0
+          ckcsorig(ik,kk)=0.d0
+          ckssorig(ik,kk)=0.d0
+        enddo
+        ckcsum(maxmls+1,kk)=0.d0
+        ckssum(maxmls+1,kk)=0.d0
+        ckcsnew(maxmls+1,kk)=0.d0
+        ckssnew(maxmls+1,kk)=0.d0
+        ckcsorig(maxmls+1,kk)=0.d0
+        ckssorig(maxmls+1,kk)=0.d0
+      enddo
+      do ik=1,maxalloc
+        elc(ik,0:1)=0.d0
+        els(ik,0:1)=0.d0
+        ckc(ik)=0.d0
+        cks(ik)=0.d0
+        clm(ik)=0.d0
+        slm(ik)=0.d0
+        do kk=1,kmax2
+          emc(ik,kk)=0.d0
+          ems(ik,kk)=0.d0
+        enddo
+        do kk=1,kmax3
+          enc(ik,kk)=0.d0
+          ens(ik,kk)=0.d0
+        enddo
+      enddo
+      do ik=1,mxegrd
+        erc(ik)=0.d0
+        fer(ik)=0.d0
+      enddo
       end subroutine alloc_ewald_arrays
 
       end module ewald_module

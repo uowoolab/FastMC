@@ -708,7 +708,7 @@ c***************************************************************************
       real(8) denprd,delrc,natyp,nbtyp,nafrz,nbfrz
       real(8) nctyp,ndtyp,ncfrz,ndfrz
       twopi=2.0d0*pi
-
+      delrc=0.d0
 c     long range corrections to energy and pressure
       mol=locguest(iguest)
       if(imcon.ne.0.and.imcon.ne.6.and.ntpvdw.gt.0) then 

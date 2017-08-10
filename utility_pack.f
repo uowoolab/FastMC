@@ -1025,9 +1025,9 @@ c     probably put all this initialization stuff in a separate
 c     module
       do i=1,mxnode
         nodeweight(i)=0.d0
-        do j=1,ntpguest
-          node_avg(i,1:9) = 0.d0
-          node_std(i,1:9) = 0.d0
+        do j=1,ntpguest*9
+          node_avg(i,j) = 0.d0
+          node_std(i,j) = 0.d0
         enddo
       enddo
       do i = 1, ntpguest
@@ -1044,16 +1044,20 @@ c     module
       enddo
 c     initialize the stat arrays
       chainstats(:)=0.d0
-      ins(:) = 0.d0
-      del(:) = 0.d0
-      dis(:) = 0.d0
-      jmp(:) = 0.d0
-      flx(:) = 0.d0
-      swp(:) = 0.d0
-      swi(:) = 0.d0
-      energy(:) = 0.d0
-      origenergy(:) = 0.d0
-      delE(:) = 0.d0
+      do i=1,ntpguest
+        ins(i) = 0.d0
+        del(i) = 0.d0
+        dis(i) = 0.d0
+        jmp(i) = 0.d0
+        flx(i) = 0.d0
+        swp(i) = 0.d0
+        swi(i) = 0.d0
+      enddo
+      do i=1,maxmls+1
+        energy(i) = 0.d0
+        origenergy(i) = 0.d0
+        delE(i) = 0.d0
+      enddo
       return
       end subroutine alloc_config_arrays
 
@@ -2844,6 +2848,10 @@ c        i=40
 c        j=100
 c        k=66 
 c        l=36 
+c        i=49  
+c        j=43 
+c        k=81 
+c        l=144
 c       END DEBUG
 
 c       This is in case we find the same problem arises
