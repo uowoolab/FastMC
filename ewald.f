@@ -68,6 +68,7 @@ c      ewald1en = 0.d0
 c    initialize ckssnew 
 c    working parameters
       mol=locguest(iguest)
+      mixterm=0.d0
       do ik=1,newld
         ckcsnew(mol,ik) = 0.d0
         ckssnew(mol,ik) = 0.d0
@@ -287,8 +288,8 @@ c             squared values for the above calculated sums
 c             the new squared values are subtracted from the
 c             old squared values to give the delE for the 
 c             reciprocal ewald sums
-              mixterm = 2.d0*ckcs*ckcold + 2.d0*ckss*cksold
               sumsqd = ckcs*ckcs + ckss*ckss
+              mixterm = 2.d0*ckcs*ckcold + 2.d0*ckss*cksold
               if(lexisting)mixterm=-1.d0*mixterm
               engcpe = engcpe + akk*(mixterm + sumsqd)
 c             store sums of all mixtures as well

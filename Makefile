@@ -2,7 +2,9 @@
 
 
 # Any optimisation flags?
-OPTIM = -O3
+# cray agressive optimization
+OPTIM = -O aggress
+#OPTIM = -O3 
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging
@@ -28,6 +30,7 @@ all:
 	@echo "[1m>> Please specify the target:[0m"
 	@echo
 	@echo "[1;32m * [0mserial"
+	@echo "[1;32m * [0mcray"
 	@echo "[1;32m * [0mgfortran"
 	@echo "[1;32m * [0mparallel"
 	@echo
@@ -36,10 +39,12 @@ all:
 gfortran:
 	${MAKE} FC="gfortran" \
 	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
-
+cray:
+	${MAKE} FC="ftn -f fixed" \
+	FFLAGS="${OPTIM}" EXE="gcmc-edison.x" ${SERIAL}
 serial:
 	${MAKE} FC="ifort" \
-	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
+	FFLAGS="${OPTIM}" EXE="gcmc-edison.x" ${SERIAL}
 
 parallel:
 	${MAKE} FC="mpifort" \

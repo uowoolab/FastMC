@@ -614,7 +614,7 @@ c******************************************************************
      &  (idnode,iguest,0,.true.,.false.,.false.,.false.)
             if(.not.loverlap)then
               if(lprobeng(iguest))then
-                call storeenprob(iguest,0,rucell,ngrida,
+                call storeenprob(iguest,0,rucell,ntpguest,ngrida,
      &            ngridb,ngridc,estep)
               endif
               H_const=dexp(-1.d0*estep/kboltz/temp)
@@ -1775,8 +1775,8 @@ c           compute C_v and Q_st for the windowed averages
           if((lprob).and.(.not.lwidom))then
             call storeprob(ntpguest,rucell,ngrida,ngridb,ngridc)
             if((lprobeng(iguest)).and.(accepted))then
-                call storeenprob(iguest,randchoice,rucell,ngrida,
-     &ngridb,ngridc,guest_toten)
+                call storeenprob(iguest,randchoice,rucell,ntpguest,
+     &ngrida,ngridb,ngridc,guest_toten)
             endif
           endif
         endif
@@ -2693,9 +2693,8 @@ c     &vdwen(i)/engunit,
 c     &delrc_tmp
 c        endif
       enddo
-      delE(mol)=delE(mol)+
-     &  estep
-c     &  (ewld1eng+ewld2sum+ewld3sum+vdwsum+delrc)/engunit
+      delE(mol)=delE(mol)+estep
+
       end subroutine insertion
       
       subroutine deletion 
@@ -2708,7 +2707,7 @@ c     deletes a particle from the framework
 c
 c***********************************************************************
       implicit none
-      logical linitsurf,loverlap
+      logical linitsurf,loverlap,latmsurf
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
@@ -2725,17 +2724,68 @@ c***********************************************************************
       
 c     find which index the molecule "choice" is
       call get_guest(iguest,choice,mol,natms,nmols)
-
-      call guest_energy
-     &(imcon,idnode,keyfce,iguest,choice,alpha,rcut,delr,drewd,
-     &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,.true.)
-
-c     delrc_mol is initialized to 0.d0 in guest_energy routine, so
-c     gstlrcorrect must come after.
+      linitsurf=.false.
+      loverlap=.false.
+      mxcmls=maxmls*(maxmls-1)/2 + maxmls
+      do ik=1,mxcmls
+        delE(ik)=0.d0
+        ewald1en(ik)=0.d0
+        ewald2en(ik)=0.d0
+        vdwen(ik)=0.d0
+        delrc_mol(ik)=0.d0
+      enddo
       call gstlrcorrect(idnode,imcon,iguest,keyfce,natms,ntpatm,maxvdw,
-     &engunit,delrc,rcut,volm,maxmls,.true.) 
+     &engunit,delrc,rcut,volm,maxmls,.true.)
+
+      call guestlistgen
+     &(imcon,iguest,totatm,rcut,delr,
+     &natms,newx,newy,newz)
+      estep=0.d0
+      chgtmp=0.d0
+      engsictmp=0.d0
+
+c     get the long range contributions of this guest
+      call ewald1_guest
+     &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
+     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
+     &.true.)
+      
+c     do vdw and ewald2 energy calculations for the atoms
+      do i=1,natms
+        itatm=ind(i)
+        ik=0 
+        do j=1,gstlentry(i)
+          ik=ik+1
+          jatm=gstlist(i,j)
+          ilist(j)=jatm
+          moldf(j)=moltype(jatm)
+          xdf(ik)=newx(i)-xxx(jatm)
+          ydf(ik)=newy(i)-yyy(jatm)
+          zdf(ik)=newz(i)-zzz(jatm)
+        enddo
+        
+        call images(imcon,ik,cell,xdf,ydf,zdf)
+        do l=1,gstlentry(i)
+          rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
+c         check if a surface atom
+          call surface_check
+     &(i,l,mol,surftol,overlap,loverlap,latmsurf)
+          if(latmsurf)linitsurf=.true.
+        enddo
+        if(loverlap)exit
+        chg=atmcharge(itatm)
+        sittyp=ltype(itatm)
+        call ewald2
+     & (chg,gstlentry(i),ewld2eng,mol,maxmls,
+     &  drewd,rcut,epsq)
+        ewld2sum=ewld2sum+ewld2eng
+c       calc vdw interactions
+        call srfrce
+     & (sittyp,gstlentry(i),mol,maxmls,vdweng,rcut,dlrpot)
+        vdwsum=vdwsum+vdweng
+      enddo
+      ewld3sum=ewald3en(mol)
+      estep = (-ewld1eng + ewld2sum + vdwsum - ewld3sum)/engunit
 
 c     calculate the pairwise intramolecular coulombic correction
 c     (calculated at the begining - assumes constant bond distance)

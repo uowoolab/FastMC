@@ -480,7 +480,7 @@ c*********************************************************************
       end subroutine alloc_prob_arrays
 
       subroutine storeenprob
-     &(iguest,imol,rcell,ngrida,ngridb,ngridc,energy)
+     &(iguest,imol,rcell,ntpguest,ngrida,ngridb,ngridc,energy)
 c*********************************************************************
 c
 c      subroutine to store energy in a grid
@@ -3564,10 +3564,10 @@ c*****************************************************************************
   
       rclim=(rcut+delr)**2
 c     initialize the counter array
-      gstlentry(:) = 0
-      gstlist(:,:) = 0 
-
+c      do i=1,natms
+c      enddo
       do i=1,natms
+        gstlentry(i) = 0
         ii=0
        
         do j=1,totatm
