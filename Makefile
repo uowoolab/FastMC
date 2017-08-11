@@ -2,7 +2,7 @@
 
 
 # Any optimisation flags?
-OPTIM = -O
+OPTIM = -O3
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging

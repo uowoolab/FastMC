@@ -969,10 +969,6 @@ c            c=0.5d0
             ckssorig(mol,ik)=ckssum(mol,ik) 
             ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
             ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
-            ckcsnew(mol,ik)=0.d0
-            ckssnew(mol,ik)=0.d0
-            ckcsnew(maxmls+1,ik)=0.d0
-            ckssnew(maxmls+1,ik)=0.d0
           enddo
 c         choose a molecule from the list
           randchoice=floor(duni(idnode)*nmols)+1
@@ -1062,10 +1058,6 @@ c         find which index the molecule "randchoice" is
             ckssorig(mol,ik)=ckssum(mol,ik) 
             ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
             ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
-            ckcsnew(mol,ik)=0.d0
-            ckssnew(mol,ik)=0.d0
-            ckcsnew(maxmls+1,ik)=0.d0
-            ckssnew(maxmls+1,ik)=0.d0
           enddo
           call get_guest(iguest,randchoice,mol,natms,nmols)
 
@@ -1123,10 +1115,6 @@ c           tally surface molecules
               ckssum(mol,ik)=ckssorig(mol,ik) 
               ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
               ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-              ckcsnew(mol,ik)=0.d0
-              ckssnew(mol,ik)=0.d0
-              ckcsnew(maxmls+1,ik)=0.d0 
-              ckssnew(maxmls+1,ik)=0.d0
             enddo
             call reject_move
      &(idnode,iguest,0,insert,delete,jump,swap)
