@@ -3,8 +3,8 @@
 
 # Any optimisation flags?
 # cray agressive optimization
-OPTIM = -O aggress
-#OPTIM = -O3 
+#OPTIM = -O aggress
+OPTIM = -O2 
 # ifort debugging
 #DEBUG = -g -traceback -debug extended
 # gfortran debugging
@@ -41,10 +41,10 @@ gfortran:
 	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
 cray:
 	${MAKE} FC="ftn -f fixed" \
-	FFLAGS="${OPTIM}" EXE="gcmc-edison.x" ${SERIAL}
+	FFLAGS="${OPTIM}" EXE="gcmc-cray.x" ${SERIAL}
 serial:
 	${MAKE} FC="ifort" \
-	FFLAGS="${OPTIM}" EXE="gcmc-edison.x" ${SERIAL}
+	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
 
 parallel:
 	${MAKE} FC="mpifort" \
