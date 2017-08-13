@@ -103,7 +103,8 @@ c*************************************************************
       real(8) engsrp,rand,randmov,chg,rande,delta,req,sig
       real(8) stdQst,stdCv,rotangle,delrc,junk,stdevcv,stdevq
       real(8) tzero,timelp,engunit,rvdw,press,temp,beta
-      real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,init,gpress
+      real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,gpress
+      real(8) init
       real(8) ewld1eng,ewld2eng
 c     DEBUG
       real(8) pewld1,pewld2,pelrc,pvdw
@@ -316,7 +317,7 @@ c     FLEX
       if(n_fwk.gt.0)then
           allocate(fwksumbuff(n_fwk))
           call flex_init(idnode, mxatm, imcon, ntpmls, maxmls,
-     &totatm, rcut, celprp, ntpguest, volm)
+     &totatm, rcut, celprp, ntpguest, volm, mxnode)
       endif
 c Normalise the move frequencies
       mcmvnorm = mcinsf+mcdelf+mcdisf+mcjmpf+mcflxf+mcswpf+mctraf+mcrotf
@@ -373,7 +374,7 @@ c Now we normalise
      &'rotation:',rota_ratio
 
       if(.not.lspe)then
-        call sleep(idnode+1)
+        if(idnode.gt.0)call sleep(idnode+1)
         init=duni(idnode)
 
 c     initialize jobcontrol file
@@ -2532,30 +2533,29 @@ c       NB This part doesn't work currently. It doesn't matter
 c       since the framework atoms are fixed and the ewald1 energy
 c       will not change. the SIC for this is constant. But this 
 c       is driving me NUTS.
+        iatm=0
         if(.not.lguest)then
           do imol=1,nmols
-            do iatm=1,natms
+            do i=1,natms
+              iatm=iatm+1
+              jatm=iatm
               ik=0
-              lfrzi=(lfzsite(mol,iatm).ne.0)
+              lfrzi=(lfzsite(mol,i).ne.0)
               do jmol=imol,nmols
 c               do not count the last interaction 
 c               it is iatm=jatm=natms
-c                if((jmol.eq.imol).and.(iatm.eq.natms))cycle
-                if(jmol.eq.imol)then
-                  katm=iatm+1
-                else
-                  katm=1
-                endif
-                do jatm=katm,natms
-                  lfrzj=(lfzsite(mol,jatm).ne.0)
+                katm=1
+                if (imol.eq.jmol)katm=iatm+1
+                do j=katm,natms
+                  jatm=jatm+1 
+                  lfrzj=(lfzsite(mol,j).ne.0)
 c                 this is the same atom in the same image
-                  if((iatm.eq.jatm).and.(imol.eq.jmol))cycle
                   if((lfrzi).and.(lfrzj))then
                     ik=ik+1
                     jlist(ik)=jatm
-                    xdf(ik)=molxxx(imol,iatm)-molxxx(jmol,jatm)
-                    ydf(ik)=molyyy(imol,iatm)-molyyy(jmol,jatm)
-                    zdf(ik)=molzzz(imol,iatm)-molzzz(jmol,jatm)
+                    xdf(ik)=molxxx(mol,iatm)-molxxx(mol,jatm)
+                    ydf(ik)=molyyy(mol,iatm)-molyyy(mol,jatm)
+                    zdf(ik)=molzzz(mol,iatm)-molzzz(mol,jatm)
                   endif
                 enddo
               enddo
@@ -3030,22 +3030,29 @@ c          ckssnew(maxmls+1,k)=0.d0
         chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
         sumchg = sumchg-chgtmp
         mm=natms*nummols(mol)
+c        mm=choice*natms
 c       update surface molecules
         if(lsurf)surfacemols(mol) = surfacemols(mol) - 1
 c       update atomic coordinates
 c       & decrement counters
         iatm=0
+c       This loops over all other molecules after the
+c       deleted molecule to shift them back.
         do i=at,mm
           iatm=iatm+1
           molxxx(mol,i)=molxxx(mol,i+natms)
           molyyy(mol,i)=molyyy(mol,i+natms)
           molzzz(mol,i)=molzzz(mol,i+natms)
-          ka=ltpsit(mol,iatm)
-          numtyp(ka)=numtyp(ka)-1
-          numtyp_mol(mol,ka)=numtyp_mol(mol,ka)-1
-          if(lfzsite(mol,iatm).ne.0)then
-            numfrz(ka)=numfrz(ka)-1
-            numfrz_mol(mol,ka)=numfrz_mol(mol,ka)-1
+c         make sure we are only decrementing the 
+c         site counts for the single molecule deleted.
+          if(iatm.le.natms)then
+            ka=ltpsit(mol,iatm)
+            numtyp(ka)=numtyp(ka)-1
+            numtyp_mol(mol,ka)=numtyp_mol(mol,ka)-1
+            if(lfzsite(mol,iatm).ne.0)then
+              numfrz(ka)=numfrz(ka)-1
+              numfrz_mol(mol,ka)=numfrz_mol(mol,ka)-1
+            endif
           endif
         enddo
 

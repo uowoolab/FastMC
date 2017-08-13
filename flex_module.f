@@ -49,7 +49,7 @@ c Temporary stores when flexing
       contains
 
       subroutine flex_init(idnode, natms, imcon, ntpmls, maxmls,
-     &totatm, rcut, celprp, ntpguest, volm)
+     &totatm, rcut, celprp, ntpguest, volm, mxnode)
 
 c***********************************************************************
 c     
@@ -68,7 +68,7 @@ c intent :: in
 
 c local
       integer fwknum, statemaxmls, statemaxalloc
-      integer k, l, m, indatm, indfwk, gstidx
+      integer k, l, m, indatm, indfwk, gstidx, mxnode
       logical isguest
 
 c these should be the same size as the incoming data
@@ -94,7 +94,7 @@ c these should be the same size as the incoming data
 c read in all the frameworks
       do fwknum=1,n_fwk
         call readfwk (idnode,fwknum,imcon,ntpmls,maxmls,
-     &totatm,rcut,celprp)
+     &totatm,rcut,celprp,mxnode)
         call readfwkfld (idnode,fwknum)
         fwk_counts(fwknum) = 0
       enddo
@@ -154,7 +154,7 @@ c set the correct volume
 
       subroutine readfwk
      &(idnode,fwk_id,imcon,ntpmls,maxmls,
-     &totatm,rcut,celprp)
+     &totatm,rcut,celprp,mxnode)
 c*************************************************************************
 c
 c     Read framework files; slightly modified from readconfig to 

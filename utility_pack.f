@@ -1466,12 +1466,12 @@ c     x    abs(cell(5)-cell(9)).lt.1.d-6)) call error(idnode,130)
           yyy(i)=yyy(i)-cell(1)*floor(aaa*yyy(i))
           zzz(i)=zzz(i)-cell(1)*floor(aaa*zzz(i))
           
-          if((abs(sxx(i))+abs(syy(i))+abs(szz(i))).ge.
+          if((abs(xxx(i))+abs(yyy(i))+abs(zzz(i))).ge.
      x      (0.75d0*cell(1)))then
             
-            xxx(i)=sxx(i)-0.5d0*sign(cell(1),sxx(i))
-            yyy(i)=syy(i)-0.5d0*sign(cell(1),syy(i))
-            zzz(i)=szz(i)-0.5d0*sign(cell(1),szz(i))
+            xxx(i)=xxx(i)-0.5d0*sign(cell(1),xxx(i))
+            yyy(i)=yyy(i)-0.5d0*sign(cell(1),yyy(i))
+            zzz(i)=zzz(i)-0.5d0*sign(cell(1),zzz(i))
             
           endif
           
@@ -1494,12 +1494,12 @@ c     x    call error(idnode,140)
           yyy(i)=yyy(i)-cell(1)*floor(aaa*yyy(i))
           zzz(i)=zzz(i)-cell(9)*floor(bbb*zzz(i))
           
-          if((abs(sxx(i))+abs(syy(i))+abs(rt2*szz(i))).ge.
+          if((abs(xxx(i))+abs(yyy(i))+abs(rt2*zzz(i))).ge.
      x      cell(1))then
             
-            xxx(i)=sxx(i)-0.5d0*sign(cell(1),sxx(i))
-            yyy(i)=syy(i)-0.5d0*sign(cell(1),syy(i))
-            zzz(i)=szz(i)-0.5d0*sign(cell(9),szz(i))
+            xxx(i)=xxx(i)-0.5d0*sign(cell(1),xxx(i))
+            yyy(i)=yyy(i)-0.5d0*sign(cell(1),yyy(i))
+            zzz(i)=zzz(i)-0.5d0*sign(cell(9),zzz(i))
             
           endif
           
@@ -1550,10 +1550,10 @@ c     x    call error(idnode,135)
           yyy(i)=yyy(i)-bbb*floor(ccc*yyy(i))
           zzz(i)=zzz(i)-cell(9)*floor(ddd*zzz(i))
           
-          if((abs(syy(i))+abs(rt3*sxx(i))).ge.bbb)then
+          if((abs(yyy(i))+abs(rt3*xxx(i))).ge.bbb)then
             
-            xxx(i)=sxx(i)-rt3*sign(aaa,sxx(i))
-            yyy(i)=syy(i)-sign(aaa,syy(i))
+            xxx(i)=xxx(i)-rt3*sign(aaa,xxx(i))
+            yyy(i)=yyy(i)-sign(aaa,yyy(i))
             
           endif
           
@@ -2630,6 +2630,101 @@ c     Uuo atomic number 118 has the same mass range as Uus (117)
       return
       end function atmnumber
 
+      real(8) function duni(idnode)
+ 
+c*********************************************************************
+c     
+c     random number generator based on the universal
+c     random number generator of marsaglia, zaman and tsang
+c     (stats and prob. lett. 8 (1990) 35-39.) it must be
+c     called once to initialise parameters u,c,cd,cm
+c     
+c*********************************************************************
+
+      implicit none
+
+      logical new
+      integer i,j,k,l,m,ii,jj,ir,jr,idnode
+      integer,dimension(8) :: values
+      real(4) s,t,c,cd,cm,uni
+      real(4), dimension(97) :: u
+
+      data new/.true./
+
+      save u,c,cd,cm,uni,ir,jr,new
+CVAM
+CVAM      call VTBEGIN(134, ierr)
+CVAM
+
+      if(new)then
+
+c       initial values of i,j,k must be in range 1 to 178 (not all 1)
+c       initial value of l must be in range 0 to 168.
+
+        call date_and_time(values=values)
+c       note, these date_and_time values can be 0
+        i=mod(values(8)*3, 177) + 1
+        j=mod(values(7)*23, 177) + 1
+        k=mod(values(8)*5, 177) + 1
+        l=mod(values(7)*3, 168)
+c       DEBUG
+c        i=40  
+c        j=100
+c        k=66 
+c        l=36 
+c        i=49  
+c        j=43 
+c        k=81 
+c        l=144
+c       END DEBUG
+
+c       This is in case we find the same problem arises
+c        write(nrite,"(/,'values for date and time', 9i6,/)")values
+        if(idnode.eq.0)write(nrite,"(/,'i,j,k,l values for duni()', 4i5,
+     &/)")i,j,k,l
+        ir=97
+        jr=33
+        new=.false.
+
+        do ii=1,97
+          s=0.0
+          t=0.5
+          do jj=1,24
+            m=mod(mod(i*j,179)*k,179)
+            i=j
+            j=k
+            k=m
+            l=mod(53*l+1,169)
+            if(mod(l*m,64).ge.32)s=s+t
+            t=0.5*t
+          enddo
+          u(ii)=s
+        enddo
+        c =  362436.0/16777216.0
+        cd= 7654321.0/16777216.0
+        cm=16777213.0/16777216.0
+        duni=0.d0
+      else
+
+c       calculate random number
+        uni=u(ir)-u(jr)
+        if(uni.lt.0.0)uni=uni+1.0
+        u(ir)=uni
+        ir=ir-1
+        if(ir.eq.0)ir=97
+        jr=jr-1
+        if(jr.eq.0)jr=97
+        c=c-cd
+        if(c.lt.0.0)c=c+cm
+        uni=uni-c
+        if(uni.lt.0.0)uni=uni+1.0
+        duni=dble(uni)
+      endif
+CVAM
+CVAM     call VTEND(134, ierr)
+CVAM
+      end function duni
+
       integer function loc2(i,j)
 
 c*********************************************************************
@@ -2803,103 +2898,6 @@ c*********************************************************************
 
       return
       end function intstr3
-
-      function duni(idnode)
- 
-c*********************************************************************
-c     
-c     random number generator based on the universal
-c     random number generator of marsaglia, zaman and tsang
-c     (stats and prob. lett. 8 (1990) 35-39.) it must be
-c     called once to initialise parameters u,c,cd,cm
-c     
-c*********************************************************************
-
-      implicit none
-
-    
-      logical new
-      integer i,j,k,l,m,ii,jj,ir,jr,idnode
-      integer,dimension(8) :: values
-      real(4) s,t,u,c,cd,cm,uni
-      real(8) duni
-      dimension u(97)
-
-      data new/.true./
-
-      save u,c,cd,cm,uni,ir,jr,new
-CVAM
-CVAM      call VTBEGIN(134, ierr)
-CVAM
-
-      if(new)then
-
-c      initial values of i,j,k must be in range 1 to 178 (not all 1)
-c      initial value of l must be in range 0 to 168.
-
-        call date_and_time(values=values)
-c       note, these date_and_time values can be 0
-        i=mod(values(8)*3, 177) + 1
-        j=mod(values(7)*23, 177) + 1
-        k=mod(values(8)*5, 177) + 1
-        l=mod(values(7)*3, 168)
-c       DEBUG
-c        i=40  
-c        j=100
-c        k=66 
-c        l=36 
-c        i=49  
-c        j=43 
-c        k=81 
-c        l=144
-c       END DEBUG
-
-c       This is in case we find the same problem arises
-c        write(nrite,"(/,'values for date and time', 9i6,/)")values
-        if(idnode.eq.0)write(nrite,"(/,'i,j,k,l values for duni()', 4i5,
-     &/)")i,j,k,l
-        ir=97
-        jr=33
-        new=.false.
-
-        do 200 ii=1,97
-          s=0.0
-          t=0.5
-          do 100 jj=1,24
-            m=mod(mod(i*j,179)*k,179)
-            i=j
-            j=k
-            k=m
-            l=mod(53*l+1,169)
-            if(mod(l*m,64).ge.32)s=s+t
-            t=0.5*t
-  100     continue
-          u(ii)=s
-  200   continue
-        c =  362436.0/16777216.0
-        cd= 7654321.0/16777216.0
-        cm=16777213.0/16777216.0
-      else
-
-c      calculate random number
-       uni=u(ir)-u(jr)
-       if(uni.lt.0.0)uni=uni+1.0
-       u(ir)=uni
-       ir=ir-1
-       if(ir.eq.0)ir=97
-       jr=jr-1
-       if(jr.eq.0)jr=97
-       c=c-cd
-       if(c.lt.0.0)c=c+cm
-       uni=uni-c
-       if(uni.lt.0.0)uni=uni+1.0
-       duni=dble(uni)
-      endif
-CVAM
-CVAM     call VTEND(134, ierr)
-CVAM
-      return
-      end function duni
 
       subroutine abort_field_read(kode,idnode,nfield)
 

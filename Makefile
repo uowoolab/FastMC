@@ -4,14 +4,14 @@
 # Any optimisation flags?
 # cray agressive optimization
 #OPTIM = -O aggress
-OPTIM = -O2 
-# ifort debugging
-#DEBUG = -g -traceback -debug extended
+OPTIM =
+
+# debugging
+DEBUG =
 # gfortran debugging
 #DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
-DEBUG = 
-# no debugging
-#DEBUG=
+# intel fortran debugging
+#DEBUG = -debug extended -g -check all -traceback
 
 SERIAL=ser
 PARALLEL=par
@@ -49,9 +49,6 @@ serial:
 parallel:
 	${MAKE} FC="mpifort" \
 	FFLAGS="${OPTIM}" EXE="gcmc-par.x" ${PARALLEL}
-debug:
-	${MAKE} FC="gfortran" \
-	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
 
 # stuff that does the compilations
 ser: ${OBJSER}
