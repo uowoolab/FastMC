@@ -1009,8 +1009,8 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(T_crit(ntpguest),stat=fail(78))
       allocate(P_crit(ntpguest),stat=fail(79))
       allocate(K_fug(ntpguest, ntpguest),stat=fail(80))
-      allocate(surfacemols(ntpguest), stat=fail(81))
-      allocate(origsurfmols(ntpguest), stat=fail(82))
+      allocate(surfacemols(maxmls), stat=fail(81))
+      allocate(origsurfmols(maxmls), stat=fail(82))
       allocate(moltype(maxalloc), stat=fail(83))
       allocate(moldf(maxalloc), stat=fail(84))
       do i=1,na
@@ -2668,14 +2668,10 @@ c       note, these date_and_time values can be 0
         k=mod(values(8)*5, 177) + 1
         l=mod(values(7)*3, 168)
 c       DEBUG
-c        i=40  
-c        j=100
-c        k=66 
-c        l=36 
-c        i=49  
-c        j=43 
-c        k=81 
-c        l=144
+c        i=25  
+c        j=89 
+c        k=100
+c        l=150
 c       END DEBUG
 
 c       This is in case we find the same problem arises
