@@ -3,15 +3,15 @@
 
 # Any optimisation flags?
 # cray agressive optimization
-OPTIM = -O aggress
-#OPTIM =
+#OPTIM = -O aggress
+OPTIM =
 
 # debugging
-DEBUG =
+#DEBUG =
 # gfortran debugging
 #DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
 # intel fortran debugging
-#DEBUG = -debug extended -g -check all -traceback
+DEBUG = -debug extended -g -check all -traceback
 
 SERIAL=ser
 PARALLEL=par
@@ -29,7 +29,7 @@ OBJSER = parse_module.o setup_module.o serial.o utility_pack.o \
 all:
 	@echo "[1m>> Please specify the target:[0m"
 	@echo
-	@echo "[1;32m * [0mserial"
+	@echo "[1;32m * [0mintel"
 	@echo "[1;32m * [0mcray"
 	@echo "[1;32m * [0mgfortran"
 	@echo "[1;32m * [0mparallel"
@@ -42,7 +42,7 @@ gfortran:
 cray:
 	${MAKE} FC="ftn -f fixed" \
 	FFLAGS="${OPTIM}" EXE="gcmc-cray.x" ${SERIAL}
-serial:
+intel:
 	${MAKE} FC="ifort" \
 	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
 

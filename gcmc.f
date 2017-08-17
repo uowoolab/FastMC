@@ -155,7 +155,7 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcdisf/0.3333333/
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
-      integer, parameter, dimension(3) :: revision = (/1, 4, 0 /)
+      integer, parameter, dimension(3) :: revision = (/1, 4, 2 /)
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
@@ -1464,10 +1464,8 @@ c         perform energy evaluation
             call energy_eval
      &(estepi+estepj,rande,statvolm,iguest,0,temp,beta,
      &displace,insert,delete,swap,accepted)
-            if(loverlap)then
-              accepted=.false.
-            endif
           endif
+          if(loverlap)accepted=.false.
 c         DEBUG
 c          accepted=.false.
 c         END DEBUG
@@ -2451,7 +2449,7 @@ c                 check if a surface atom
                 
                 call ewald2
      &          (chg,lentry(i),ewald2eng,mol,maxmls,
-     &          drewd,rcut,epsq)
+     &          drewd,rcut,epsq,overlap,loverlap)
                 ewald2sum=ewald2sum+ewald2eng
 c               calc vdw interactions
                 call srfrce
@@ -2643,16 +2641,17 @@ c         check if a surface atom
           call surface_check
      &(i,l,mol,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lnewsurf=.true.
+          if(loverlap)return
         enddo
-        if (loverlap)exit 
 c       figure out which index contains charges and ltype arrays
 c       that match the guest...
         chg=atmchg(mol,i)
         sittyp=ltpsit(mol,i)
-
+        if(loverlap)print *,"how did I get here??",overlap
 c       calc ewald2 interactions
         call ewald2
-     & (chg,gstlentry(i),ewld2eng,mol,maxmls,drewd,rcut,epsq)
+     & (chg,gstlentry(i),ewld2eng,mol,maxmls,drewd,rcut,epsq,
+     & overlap,loverlap)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions 
 
@@ -2694,7 +2693,7 @@ c     &delrc_tmp
 c        endif
       enddo
       delE(mol)=delE(mol)+estep
-
+      return
       end subroutine insertion
       
       subroutine deletion 
@@ -2772,12 +2771,11 @@ c         check if a surface atom
      &(i,l,mol,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)linitsurf=.true.
         enddo
-        if(loverlap)exit
         chg=atmcharge(itatm)
         sittyp=ltype(itatm)
         call ewald2
      & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq)
+     &  drewd,rcut,epsq,overlap,loverlap)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions
         call srfrce
@@ -2879,13 +2877,13 @@ c         check if a surface atom
           call surface_check
      &(i,l,mol,surftol,overlap,loverlap,latmsurf)
           if(latmsurf)lsurf=.true.
+          if(loverlap)return
         enddo
-        if(loverlap)exit
         chg=atmcharge(itatm)
         sittyp=ltype(itatm)
         call ewald2
      & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq)
+     &  drewd,rcut,epsq,overlap,loverlap)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions
         call srfrce
