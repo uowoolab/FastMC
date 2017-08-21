@@ -1142,6 +1142,9 @@ c     dummy entry
         elseif (kode.eq.2316) then
           write(nrite, '(/,/,/,1x,a)')
      &      'error - Terminated from Wang-Landau sampling'
+        elseif (kode.eq.2317) then
+          write(nrite,'(/,/,1x,a)')
+     &      'error - failed allocation of Wang-Landau arrays'
         else
           write(nrite,'(/,/,1x,a)')
      x      'error - unnamed error found'
