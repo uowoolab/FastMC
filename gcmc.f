@@ -45,6 +45,7 @@ c*************************************************************
       use vdw_module
       use flex_module
       use ewald_module
+      use mc_moves
 
       implicit none
 
@@ -609,7 +610,7 @@ c******************************************************************
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,gcmccount)
+     & loverlap,lnewsurf,surftol,overlap,newld)
             gcmccount = gcmccount + 1
             call reject_move
      &  (idnode,iguest,0,.true.,.false.,.false.,.false.)
@@ -866,7 +867,7 @@ c         calculate vdw interaction (only for new mol)
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,gcmccount)
+     & loverlap,lnewsurf,surftol,overlap,newld)
           accepted=.false.
 
           if (.not.loverlap)then
@@ -1413,7 +1414,7 @@ c************************************************************************
      & (imcon,idnode,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurfj,surftol,overlap,gcmccount)
+     & loverlap,lnewsurfj,surftol,overlap,newld)
             estepj=estepj+estep
             call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estep,
@@ -1431,7 +1432,7 @@ c************************************************************************
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,gcmccount)
+     & loverlap,lnewsurf,surftol,overlap,newld)
             estepi=estepi+estep
             call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
@@ -1595,7 +1596,7 @@ c         insert second guest
      & (imcon,idnode,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estepj,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,gcmccount)
+     & loverlap,lnewsurf,surftol,overlap,newld)
           jchoice=0
           call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,
@@ -2575,7 +2576,7 @@ c             out when computing most interactions.
      &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     &loverlap,lnewsurf,surftol,overlap,step)
+     &loverlap,lnewsurf,surftol,overlap,newld)
 c***********************************************************************
 c
 c     inserts a particle in the framework and computes the 
@@ -2585,9 +2586,9 @@ c***********************************************************************
       implicit none
       logical loverlap,lnewsurf,latmsurf
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
-      integer totatm,sittyp,idnode,ntpatm,maxvdw
+      integer totatm,sittyp,idnode,ntpatm,maxvdw,newld
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
-      integer jatm,ka,aa,ak,ab,l,mxcmls,maxmls,step
+      integer jatm,ka,aa,ak,ab,l,mxcmls,maxmls
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
       real(8) chg,engsrp,engunit,sumchg,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,chgtmp
@@ -2638,17 +2639,9 @@ c     do vdw and ewald2 energy calculations for the new atoms
 
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
-c         check if a surface atom
-c          if((gstfuga(iguest).gt.1407000.d0).and.
-c     &(gstfuga(iguest).lt.1407010.d0))then
-c            if(step.eq.431686)print*,"OUTSIDE",
-c     &i,gstlentry(i),l,ilist(l),rsqdf(l),overlap,(rsqdf(l).lt.overlap)
-c          endif
           call surface_check
      &(i,l,mol,surftol,overlap,loverlap,latmsurf)
 
-c          if((step.eq.431686).or.(step.eq.557798))print*,
-c     &gstfuga(iguest),i,gstlentry(i),l,rsqdf(l),loverlap
           if(latmsurf)lnewsurf=.true.
           if(loverlap)return
         enddo
@@ -3124,47 +3117,12 @@ c***********************************************************************
       enddo
 
       end subroutine get_guest
-      subroutine surface_check
-     &(iatm,j,mol,surftol,overlap,loverlap,latmsurf)
-c***********************************************************************
-c
-c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
-c     This assumes that a 'surface' atom is frozen, and that
-c     the array populated with the squared distance between neighbour
-c     atoms is populated correctly for 'jatm'.
-c
-c***********************************************************************
-      implicit none
-      logical latmsurf,loverlap
-      integer aa,ab,ivdw,iatm,j,jatm,mol
-      real(8) ak,sig,req,surftol,surftolsq,overlap
-      latmsurf=.false.
-
-      jatm=ilist(j)
-
-      aa = ltpsit(mol,iatm)
-      ab = ltype(jatm)
-      if(aa.gt.ab)then
-        ak=(aa*(aa-1.d0)*0.5d0+ab+0.5d0)
-      else
-        ak=(ab*(ab-1.d0)*0.5d0+aa+0.5d0)
-      endif
-      ivdw=lstvdw(int(ak))
-      sig = prmvdw(ivdw,2)
-      req = sig
-c      req = sig*(2.d0**(1.d0/6.d0))
-      surftolsq = (surftol+req)**2
-      if ((rsqdf(j).lt.surftolsq).and.
-     &(lfreezesite(jatm).eq.1))latmsurf=.true.
-      if (rsqdf(j).lt.overlap)loverlap=.true.
-      return
-      end subroutine surface_check
 
       subroutine insert_guest
      &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,ntpfram,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &ntpmls,delrc,estep,sumchg,surftol,overlap)
+     &ntpmls,delrc,estep,sumchg,surftol,overlap,newld)
 c***********************************************************************
 c                                                                      *
 c     insert a guest molecule at a given lattice coordinate (COM)      *
@@ -3175,7 +3133,7 @@ c***********************************************************************
       logical loverlap,lnewsurf
       integer imcon,idnode,iguest,natms,mol,keyfce
       integer totatm,ntpguest,kmax1,kmax2,kmax3,idum
-      integer ntpatm,maxvdw,i,ntpmls,maxmls,ntpfram
+      integer ntpatm,maxvdw,i,ntpmls,maxmls,ntpfram,newld
       real(8) apos,bpos,cpos,angx,angy,angz,xc,yc,zc
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot
       real(8) engunit,delrc,estep,sumchg,surftol
@@ -3206,7 +3164,7 @@ c     add the com to each atom in the guest
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,gcmccount)
+     & loverlap,lnewsurf,surftol,overlap,newld)
 
       call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
@@ -3334,7 +3292,7 @@ c***********************************************************************
      &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,ntpfram,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &ntpmls,delrc,estep,sumchg,surftol,overlap)
+     &ntpmls,delrc,estep,sumchg,surftol,overlap,newld)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3346,7 +3304,7 @@ c***********************************************************************
      &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,ntpfram,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &ntpmls,delrc,estep,sumchg,surftol,overlap)
+     &ntpmls,delrc,estep,sumchg,surftol,overlap,newld)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3358,7 +3316,7 @@ c***********************************************************************
      &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,ntpfram,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &ntpmls,delrc,estep,sumchg,surftol,overlap)
+     &ntpmls,delrc,estep,sumchg,surftol,overlap,newld)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)

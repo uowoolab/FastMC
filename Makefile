@@ -20,12 +20,12 @@ PARALLEL=par
 OBJPAR = parse_module.o basic_comms.o utility_pack.o error.o \
 		 vdw_module.o vdw_terms.o nlist_builders.o \
 		 ewald_module.o ewald.o flex_module.o readinputs.o \
-		 wang_landau_module.o wang_landau.o gcmc.o
+		 mc_moves.o wang_landau_module.o wang_landau.o gcmc.o
 
 OBJSER = parse_module.o setup_module.o serial.o utility_pack.o \
 		 error.o vdw_module.o vdw_terms.o nlist_builders.o \
 		 ewald_module.o ewald.o flex_module.o readinputs.o \
-		 wang_landau_module.o wang_landau.o gcmc.o
+		 mc_moves.o wang_landau_module.o wang_landau.o gcmc.o
 
 # must choose a version to compile
 all:
