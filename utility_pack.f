@@ -3604,6 +3604,39 @@ c      enddo
       return
       end subroutine guestlistgen
 
+      subroutine get_guest(iguest, choice, mol, natms, nmols)
+c***********************************************************************
+c
+c     Grabs a guest from a specified index and populates the 
+c     newx newy and newz arrays.
+c
+c***********************************************************************
+      implicit none
+      integer atmadd,iatm,iguest,choice,at,natms,nmols
+      integer mol,imol,i
+
+      mol=locguest(iguest)
+      natms=numatoms(mol)
+      nmols=nummols(mol)
+      atmadd=0
+      if(iguest.gt.1)then
+        do i=1,iguest-1
+          imol=locguest(i)
+          atmadd=atmadd+numatoms(imol)*nummols(imol)
+        enddo
+      endif
+      at=(choice-1)*natms+1
+      iatm=0
+      do i=at,at-1+natms
+        iatm=iatm+1 
+        ind(iatm)=atmadd+i
+        newx(iatm)=molxxx(mol,i)
+        newy(iatm)=molyyy(mol,i)
+        newz(iatm)=molzzz(mol,i)
+      enddo
+
+      end subroutine get_guest
+
       subroutine guest_exclude(ntpmls,ntpguest)
 c************************************************************************
 c                                                                       * 

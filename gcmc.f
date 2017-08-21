@@ -914,7 +914,7 @@ c       ewald1,ewald2,vdw of the mol you wish to delete
      &(imcon,idnode,keyfce,iguest,randchoice,alpha,rcut,delr,drewd,
      &maxmls,totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
      &ntpatm,maxvdw,engunit,delrc,estep,linitsurf,surftol,sumchg,
-     &engsictmp,chgtmp)
+     &engsictmp,chgtmp,overlap,newld)
 
           gpress=gstfuga(iguest)
           ngsts=nummols(mol)
@@ -1387,7 +1387,8 @@ c************************************************************************
             call deletion 
      &(imcon,idnode,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
             call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,-estep,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
@@ -1398,7 +1399,8 @@ c************************************************************************
             call deletion 
      &(imcon,idnode,keyfce,jguest,jchoice,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
             call accept_move
      &(imcon,idnode,jguest,.false.,.true.,.false.,-estep,
      &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpmls,ntpguest,maxmls,
@@ -1572,7 +1574,8 @@ c         delete first guest
           call deletion 
      &(imcon,idnode,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estepi,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estepi,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
           call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,-estepi,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpmls,ntpguest,maxmls,
@@ -2573,208 +2576,6 @@ c             out when computing most interactions.
       return
       end subroutine excluding_ewald_charges
       
-      subroutine deletion 
-     &(imcon,idnode,keyfce,iguest,choice,alpha,rcut,delr,drewd,maxmls,
-     &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
-c***********************************************************************
-c
-c     deletes a particle from the framework 
-c
-c***********************************************************************
-      implicit none
-      logical linitsurf,loverlap,latmsurf
-      integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
-      integer totatm,sittyp,idnode,ntpatm,maxvdw
-      integer k,mol,ntpguest,natms,nmols,iguest,ivdw
-      integer jatm,ka,aa,ak,ab,l,itatm,choice,atmadd
-      integer iatm,at,imol,maxmls,step
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
-      real(8) chg,engsrp,engunit,engsictmp,chgtmp
-      real(8) ewld2sum,ewld3sum,vdwsum,sumchg
-      real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
-      real(8) delrc,estep,sig,surftol,req
-      
-      ewld2sum=0.d0
-      vdwsum=0.d0
-      step=0
-c     find which index the molecule "choice" is
-      call get_guest(iguest,choice,mol,natms,nmols)
-      linitsurf=.false.
-      loverlap=.false.
-      mxcmls=maxmls*(maxmls-1)/2 + maxmls
-      do ik=1,mxcmls
-        delE(ik)=0.d0
-        ewald1en(ik)=0.d0
-        ewald2en(ik)=0.d0
-        vdwen(ik)=0.d0
-        delrc_mol(ik)=0.d0
-      enddo
-      call gstlrcorrect(idnode,imcon,iguest,keyfce,natms,ntpatm,maxvdw,
-     &engunit,delrc,rcut,volm,maxmls,.true.)
-
-      call guestlistgen
-     &(imcon,iguest,totatm,rcut,delr,
-     &natms,newx,newy,newz)
-      estep=0.d0
-      chgtmp=0.d0
-      engsictmp=0.d0
-
-c     get the long range contributions of this guest
-      call ewald1_guest
-     &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
-     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
-     &.true.)
-      
-c     do vdw and ewald2 energy calculations for the atoms
-      do i=1,natms
-        itatm=ind(i)
-        ik=0 
-        do j=1,gstlentry(i)
-          ik=ik+1
-          jatm=gstlist(i,j)
-          ilist(j)=jatm
-          moldf(j)=moltype(jatm)
-          xdf(ik)=newx(i)-xxx(jatm)
-          ydf(ik)=newy(i)-yyy(jatm)
-          zdf(ik)=newz(i)-zzz(jatm)
-        enddo
-        
-        call images(imcon,ik,cell,xdf,ydf,zdf)
-        do l=1,gstlentry(i)
-          rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
-c         check if a surface atom
-          call surface_check
-     &(i,l,mol,surftol,overlap,loverlap,latmsurf)
-          if(latmsurf)linitsurf=.true.
-        enddo
-        chg=atmcharge(itatm)
-        sittyp=ltype(itatm)
-        call ewald2
-     & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq)
-        ewld2sum=ewld2sum+ewld2eng
-c       calc vdw interactions
-        call srfrce
-     & (sittyp,gstlentry(i),mol,maxmls,vdweng,rcut,dlrpot)
-        vdwsum=vdwsum+vdweng
-      enddo
-      ewld3sum=ewald3en(mol)
-      estep = (-ewld1eng + ewld2sum + vdwsum - ewld3sum)/engunit
-
-c     calculate the pairwise intramolecular coulombic correction
-c     (calculated at the begining - assumes constant bond distance)
-c      estep= estep+ 
-c     &     (ewld1eng-ewld2sum+ewld3sum-vdwsum-delrc)/engunit
-      estep=estep-delrc/engunit
-      do i=1, maxmls
-        ik=loc2(mol,i)
-        delrc_tmp=delrc_mol(ik)
-        if(i.ne.mol)delE(i)=delE(i)-
-     &(ewald1en(ik)+ewald2en(ik)+vdwen(ik)+delrc_tmp)
-     &/engunit
-      enddo
-      delE(mol)=delE(mol)-
-     &  estep
-c      print *, delrc_mol(2), delrc_mol(3), delrc_mol(5),delrc_mol(8)
-c      print *, ewald1en(2), ewald1en(3), ewald1en(5), ewald1en(8)
-c      print *, ewald2en(2), ewald2en(3), ewald2en(5), ewald2en(8)
-c      print *, vdwen(2), vdwen(3), vdwen(5), vdwen(8)
-c      delE=-1.d0*delE
-      end subroutine deletion
-      subroutine guest_energy
-     &(imcon,idnode,keyfce,iguest,choice,alpha,rcut,delr,drewd,
-     &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,lsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,lexisting)
-c***********************************************************************
-c
-c     compute the energy of a guest in it's current position
-c
-c***********************************************************************
-      implicit none
-      logical lsurf,loverlap,latmsurf,lexisting
-      integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
-      integer totatm,sittyp,idnode,ntpatm,maxvdw
-      integer k,mol,ntpguest,natms,nmols,iguest,ivdw
-      integer jatm,ka,aa,ak,ab,l,itatm,choice
-      integer maxmls,mxcmls,step
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
-      real(8) chg,engsrp,engunit,chgtmp,engsictmp
-      real(8) ewld2sum,ewld3sum,vdwsum
-      real(8) ewld1eng,ewld2eng,vdweng,sumchg
-      real(8) estep,sig,surftol,req
-      step=0
-      mol=locguest(iguest)
-      natms=numatoms(mol)
-      nmols=nummols(mol)
-      ewld2sum=0.d0
-      vdwsum=0.d0
-      lsurf=.false.
-      loverlap=.false.
-      mxcmls=maxmls*(maxmls-1)/2 + maxmls
-      do ik=1,mxcmls
-        delE(ik)=0.d0
-        ewald1en(ik)=0.d0
-        ewald2en(ik)=0.d0
-        vdwen(ik)=0.d0
-        delrc_mol(ik)=0.d0
-      enddo
-      call guestlistgen
-     &(imcon,iguest,totatm,rcut,delr,
-     &natms,newx,newy,newz)
-      estep=0.d0
-      chgtmp=0.d0
-      engsictmp=0.d0
-
-c     get the long range contributions of this guest
-      call ewald1_guest
-     &(imcon,ewld1eng,natms,iguest,volm,alpha,sumchg,
-     &chgtmp,engsictmp,kmax1,kmax2,kmax3,epsq,maxmls,newld,
-     &lexisting)
-      
-c     do vdw and ewald2 energy calculations for the atoms
-      do i=1,natms
-        itatm=ind(i)
-        ik=0 
-        do j=1,gstlentry(i)
-          ik=ik+1
-          jatm=gstlist(i,j)
-          ilist(j)=jatm
-          moldf(j)=moltype(jatm)
-          xdf(ik)=newx(i)-xxx(jatm)
-          ydf(ik)=newy(i)-yyy(jatm)
-          zdf(ik)=newz(i)-zzz(jatm)
-        enddo
-        
-        call images(imcon,ik,cell,xdf,ydf,zdf)
-        do l=1,gstlentry(i)
-          rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
-c         check if a surface atom
-          call surface_check
-     &(i,l,mol,surftol,overlap,loverlap,latmsurf)
-          if(latmsurf)lsurf=.true.
-          if(loverlap)return
-        enddo
-        chg=atmcharge(itatm)
-        sittyp=ltype(itatm)
-        call ewald2
-     & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq)
-        ewld2sum=ewld2sum+ewld2eng
-c       calc vdw interactions
-        call srfrce
-     & (sittyp,gstlentry(i),mol,maxmls,vdweng,rcut,dlrpot)
-        vdwsum=vdwsum+vdweng
-      enddo
-      ewld3sum=ewald3en(mol)
-      if(lexisting)then
-        estep = (-ewld1eng + ewld2sum + vdwsum - ewld3sum)/engunit
-      else
-        estep = (ewld1eng + ewld2sum + vdwsum - ewld3sum)/engunit
-      endif
-      return
-      end subroutine guest_energy
       subroutine reject_move
      &(idnode,iguest,jguest,insert,delete,displace,swap)
 c***********************************************************************
@@ -2961,39 +2762,6 @@ c          ckssnew(maxmls+1,k)=0.d0
       endif
 
       end subroutine accept_move
-      subroutine get_guest(iguest, choice, mol, natms, nmols)
-c***********************************************************************
-c
-c     Grabs a guest from a specified index and populates the 
-c     newx newy and newz arrays.
-c
-c***********************************************************************
-      implicit none
-      integer atmadd,iatm,iguest,choice,at,natms,nmols
-      integer mol,imol,i
-
-      mol=locguest(iguest)
-      natms=numatoms(mol)
-      nmols=nummols(mol)
-      atmadd=0
-      if(iguest.gt.1)then
-        do i=1,iguest-1
-          imol=locguest(i)
-          atmadd=atmadd+numatoms(imol)*nummols(imol)
-        enddo
-      endif
-      at=(choice-1)*natms+1
-      iatm=0
-      do i=at,at-1+natms
-        iatm=iatm+1 
-        ind(iatm)=atmadd+i
-        newx(iatm)=molxxx(mol,i)
-        newy(iatm)=molyyy(mol,i)
-        newz(iatm)=molzzz(mol,i)
-      enddo
-
-      end subroutine get_guest
-
       subroutine insert_guest
      &(imcon,idnode,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,ntpfram,volm,
@@ -3048,7 +2816,6 @@ c     add the com to each atom in the guest
      &sumchg,engsictmp,chgtmp,newld)
 
       end subroutine insert_guest
-
       subroutine displace_guest
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,newld,
      &ntpguest,ntpfram,maxmls,ntpatm,maxvdw,volm,kmax1,kmax2,kmax3,
@@ -3077,8 +2844,8 @@ c     its orginal place
       call guest_energy
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,.true.)
+     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,newld,
+     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,.true.)
       ewld3sum=ewald3en(mol)
 c      print *, "EWALD1:", (-ewld1eng-ewld3sum)/engunit
 c      print *, "EWALD2:", ewld2sum/engunit
@@ -3109,8 +2876,8 @@ c        ckssnew(maxmls+1,ik)=0.d0
       call guest_energy
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,
      &totatm,ntpguest,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,lnewsurf,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,estep,.false.)
+     &ntpatm,maxvdw,engunit,vdwsum,ewld2sum,ewld1eng,lnewsurf,newld,
+     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,.false.)
 c      print *, "EWALD1:", (-ewld1eng-ewld3sum)/engunit
 c      print *, "EWALD2:", ewld2sum/engunit
 c      print *, "VDW   :", vdwsum/engunit
@@ -3131,6 +2898,7 @@ c     total up the energy contributions.
 
       return
       end subroutine displace_guest
+
 
       subroutine test
      &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
@@ -3230,7 +2998,8 @@ c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
       call deletion 
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
       call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
      &lnewsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
@@ -3244,7 +3013,8 @@ c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
       call deletion 
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
       call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
      &lnewsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
@@ -3257,7 +3027,8 @@ c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
       call deletion 
      &(imcon,idnode,keyfce,iguest,imol,alpha,rcut,delr,drewd,maxmls,
      &totatm,ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp)
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
       call accept_move
      &(imcon,idnode,iguest,.false.,.true.,.false.,estep,
      &lnewsurf,delrc,totatm,imol,ntpfram,ntpmls,ntpguest,maxmls,
