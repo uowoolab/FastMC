@@ -3,15 +3,15 @@
 
 # Any optimisation flags?
 # cray agressive optimization
-#OPTIM = -O aggress
-OPTIM =
+OPTIM = -O aggress
+#OPTIM =
 
 # debugging
-#DEBUG =
+DEBUG =
 # gfortran debugging
 #DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
 # intel fortran debugging
-DEBUG = -debug extended -g -check all -traceback
+#DEBUG = -debug extended -g -check all -traceback
 
 SERIAL=ser
 PARALLEL=par

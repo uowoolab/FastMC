@@ -609,7 +609,7 @@ c******************************************************************
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap)
+     & loverlap,lnewsurf,surftol,overlap,gcmccount)
             gcmccount = gcmccount + 1
             call reject_move
      &  (idnode,iguest,0,.true.,.false.,.false.,.false.)
@@ -866,7 +866,7 @@ c         calculate vdw interaction (only for new mol)
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap)
+     & loverlap,lnewsurf,surftol,overlap,gcmccount)
           accepted=.false.
 
           if (.not.loverlap)then
@@ -1413,7 +1413,7 @@ c************************************************************************
      & (imcon,idnode,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurfj,surftol,overlap)
+     & loverlap,lnewsurfj,surftol,overlap,gcmccount)
             estepj=estepj+estep
             call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estep,
@@ -1431,7 +1431,7 @@ c************************************************************************
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap)
+     & loverlap,lnewsurf,surftol,overlap,gcmccount)
             estepi=estepi+estep
             call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
@@ -1595,7 +1595,7 @@ c         insert second guest
      & (imcon,idnode,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estepj,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap)
+     & loverlap,lnewsurf,surftol,overlap,gcmccount)
           jchoice=0
           call accept_move
      &(imcon,idnode,jguest,.true.,.false.,.false.,estepj,
@@ -2371,7 +2371,7 @@ c*****************************************************************************
       integer i,ii,ik,j,jj,p,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,newld,sittyp,idnode,ntpatm,maxvdw,totfram
       integer k,mol,ntpguest,natms,nmols,ntpfram,maxmls
-      integer aa,ab,jatm,ivdw,iatm,ntpmls
+      integer aa,ab,jatm,ivdw,iatm,ntpmls,step,iguest
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr,ecoul,evdw
       real(8) engsic,chg,engsrp,engunit,ecoulg,evdwg
       real(8) ewald1sum,ewald2sum,ewald3sum,vdwsum
@@ -2397,7 +2397,8 @@ c     long range correction to short range forces.
 c     this initializes arrays, a different subroutine
 c     is called during the gcmc simulation
 c     "gstlrcorrect"
-
+      step=0
+      iguest=1
       call lrcorrect(idnode,imcon,keyfce,totatm,ntpatm,maxvdw,
      &engunit,rcut,volm,maxmls,ntpguest)
 
@@ -2449,7 +2450,7 @@ c                 check if a surface atom
                 
                 call ewald2
      &          (chg,lentry(i),ewald2eng,mol,maxmls,
-     &          drewd,rcut,epsq,overlap,loverlap)
+     &          drewd,rcut,epsq)
                 ewald2sum=ewald2sum+ewald2eng
 c               calc vdw interactions
                 call srfrce
@@ -2574,7 +2575,7 @@ c             out when computing most interactions.
      &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     &loverlap,lnewsurf,surftol,overlap)
+     &loverlap,lnewsurf,surftol,overlap,step)
 c***********************************************************************
 c
 c     inserts a particle in the framework and computes the 
@@ -2586,7 +2587,7 @@ c***********************************************************************
       integer i,ik,j,kmax1,kmax2,kmax3,imcon,keyfce
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
-      integer jatm,ka,aa,ak,ab,l,mxcmls,maxmls
+      integer jatm,ka,aa,ak,ab,l,mxcmls,maxmls,step
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
       real(8) chg,engsrp,engunit,sumchg,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,chgtmp
@@ -2638,8 +2639,16 @@ c     do vdw and ewald2 energy calculations for the new atoms
         do l=1,gstlentry(i)
           rsqdf(l)=xdf(l)**2+ydf(l)**2+zdf(l)**2
 c         check if a surface atom
+c          if((gstfuga(iguest).gt.1407000.d0).and.
+c     &(gstfuga(iguest).lt.1407010.d0))then
+c            if(step.eq.431686)print*,"OUTSIDE",
+c     &i,gstlentry(i),l,ilist(l),rsqdf(l),overlap,(rsqdf(l).lt.overlap)
+c          endif
           call surface_check
      &(i,l,mol,surftol,overlap,loverlap,latmsurf)
+
+c          if((step.eq.431686).or.(step.eq.557798))print*,
+c     &gstfuga(iguest),i,gstlentry(i),l,rsqdf(l),loverlap
           if(latmsurf)lnewsurf=.true.
           if(loverlap)return
         enddo
@@ -2647,11 +2656,10 @@ c       figure out which index contains charges and ltype arrays
 c       that match the guest...
         chg=atmchg(mol,i)
         sittyp=ltpsit(mol,i)
-        if(loverlap)print *,"how did I get here??",overlap
 c       calc ewald2 interactions
         call ewald2
-     & (chg,gstlentry(i),ewld2eng,mol,maxmls,drewd,rcut,epsq,
-     & overlap,loverlap)
+     & (chg,gstlentry(i),ewld2eng,mol,maxmls,
+     &  drewd,rcut,epsq)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions 
 
@@ -2711,7 +2719,7 @@ c***********************************************************************
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
       integer jatm,ka,aa,ak,ab,l,itatm,choice,atmadd
-      integer iatm,at,imol,maxmls
+      integer iatm,at,imol,maxmls,step
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
       real(8) chg,engsrp,engunit,engsictmp,chgtmp
       real(8) ewld2sum,ewld3sum,vdwsum,sumchg
@@ -2720,7 +2728,7 @@ c***********************************************************************
       
       ewld2sum=0.d0
       vdwsum=0.d0
-      
+      step=0
 c     find which index the molecule "choice" is
       call get_guest(iguest,choice,mol,natms,nmols)
       linitsurf=.false.
@@ -2775,7 +2783,7 @@ c         check if a surface atom
         sittyp=ltype(itatm)
         call ewald2
      & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq,overlap,loverlap)
+     &  drewd,rcut,epsq)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions
         call srfrce
@@ -2821,13 +2829,13 @@ c***********************************************************************
       integer totatm,sittyp,idnode,ntpatm,maxvdw
       integer k,mol,ntpguest,natms,nmols,iguest,ivdw
       integer jatm,ka,aa,ak,ab,l,itatm,choice
-      integer maxmls,mxcmls
+      integer maxmls,mxcmls,step
       real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
       real(8) chg,engsrp,engunit,chgtmp,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum
       real(8) ewld1eng,ewld2eng,vdweng,sumchg
       real(8) estep,sig,surftol,req
-      
+      step=0
       mol=locguest(iguest)
       natms=numatoms(mol)
       nmols=nummols(mol)
@@ -2883,7 +2891,7 @@ c         check if a surface atom
         sittyp=ltype(itatm)
         call ewald2
      & (chg,gstlentry(i),ewld2eng,mol,maxmls,
-     &  drewd,rcut,epsq,overlap,loverlap)
+     &  drewd,rcut,epsq)
         ewld2sum=ewld2sum+ewld2eng
 c       calc vdw interactions
         call srfrce
@@ -3133,7 +3141,6 @@ c***********************************************************************
       latmsurf=.false.
 
       jatm=ilist(j)
-      if(lfreezesite(jatm).eq.0)return
 
       aa = ltpsit(mol,iatm)
       ab = ltype(jatm)
@@ -3147,7 +3154,8 @@ c***********************************************************************
       req = sig
 c      req = sig*(2.d0**(1.d0/6.d0))
       surftolsq = (surftol+req)**2
-      if (rsqdf(j).lt.surftolsq)latmsurf=.true.
+      if ((rsqdf(j).lt.surftolsq).and.
+     &(lfreezesite(jatm).eq.1))latmsurf=.true.
       if (rsqdf(j).lt.overlap)loverlap=.true.
       return
       end subroutine surface_check
@@ -3198,7 +3206,7 @@ c     add the com to each atom in the guest
      & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap)
+     & loverlap,lnewsurf,surftol,overlap,gcmccount)
 
       call accept_move
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,

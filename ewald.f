@@ -661,7 +661,7 @@ c     potential.
       end subroutine ewald1
 
       subroutine ewald2(chg,natm,engcpe,mol,maxmls,
-     &drewd,rcut,epsq,overlap,loverlap)
+     &drewd,rcut,epsq)
 c********************************************************************
 c                Subroutine to determine the                        *
 c                real part of the ewald                             *
@@ -671,10 +671,6 @@ c********************************************************************
       use utility_pack
 
       implicit none
-      ! DEBUG
-      logical loverlap
-      real(8) overlap
-      ! END DEBUG
       integer m,n,i,ik,jatm,natm,ll,l1,l2,mol,idxij
       integer jmol,maxmls,kmol
       real(8) engcpe,drewd,epsq,rcut
@@ -704,10 +700,7 @@ c     if chgprd is zero, ignore
            rsq=rsqdf(i)
            if(rcsq.gt.rsq)then
              rrr=sqrt(rsq)
-
              ll=int(rrr*rdrewd)
-             if(ll.lt.1)print*,rsq,rrr,i,rdrewd
-             if(ll.lt.1)print*,overlap,loverlap
              l1=ll+1
              l2=ll+2
              ppp=rrr*rdrewd-dble(ll)

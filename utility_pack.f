@@ -2668,10 +2668,10 @@ c       note, these date_and_time values can be 0
         k=mod(values(8)*5, 177) + 1
         l=mod(values(7)*3, 168)
 c       DEBUG
-        i=25  
-        j=89 
-        k=100
-        l=150
+c        i=25  
+c        j=89 
+c        k=100
+c        l=150
 c       END DEBUG
 
 c       This is in case we find the same problem arises
