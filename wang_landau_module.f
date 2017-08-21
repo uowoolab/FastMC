@@ -17,7 +17,7 @@ c     to carry out a Wang-Landau simulation.
 c     
 c************************************************************************
       implicit none
-      integer idnode, nhist
+      integer idnode,i,nhist
       integer, parameter :: nwl=1
       integer, dimension(nwl) :: fail
 
