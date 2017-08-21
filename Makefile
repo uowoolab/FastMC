@@ -3,8 +3,8 @@
 
 # Any optimisation flags?
 # cray agressive optimization
-OPTIM = -O aggress
-#OPTIM =
+#OPTIM = -O aggress
+OPTIM =
 
 # debugging
 DEBUG =
