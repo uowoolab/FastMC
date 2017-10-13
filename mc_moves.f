@@ -370,5 +370,192 @@ c      print *, ewald2en(2), ewald2en(3), ewald2en(5), ewald2en(8)
 c      print *, vdwen(2), vdwen(3), vdwen(5), vdwen(8)
 c      delE=-1.d0*delE
       end subroutine deletion
+      subroutine accept_move
+     &(imcon,idnode,iguest,insert,delete,displace,estep,
+     &lsurf,delrc,totatm,choice,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+c***********************************************************************
+c
+c     updates arrays for the rejection according to the type
+c     of move.
+c
+c***********************************************************************
+      implicit none
+      integer idnode,iguest,natms,mol,i,mm,totatm,choice,at,k,newld
+      integer ntpfram,imcon,ntpmls,ntpguest,maxmls,kk,ka,iatm
+      logical insert,delete,displace,lsurf
+      real(8) estep,delrc,sumchg,chgtmp,engsictmp
+c      ewaldaverage = ewaldaverage + abs(ewld1eng+ewld3sum)/engunit
+      mol = locguest(iguest)
+      kk = loc2(mol,mol)
+      natms = numatoms(mol)
+      at=(choice-1)*natms+1
+c     update energy arrays
+      do i=1,maxmls
+         energy(i)=energy(i)+delE(i)
+      enddo
+c     update ewald1 sums
+      if(insert)then
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)+ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
+        enddo
+        mm=natms*nummols(mol)
+        engsic(kk)=engsic(kk)+engsictmp
+        chgsum_mol(mol)=chgsum_mol(mol)+chgtmp
+        sumchg = sumchg+chgtmp
+c       tally surface molecules
+        if(lsurf)surfacemols(mol) = surfacemols(mol) + 1
+c       update atomic coordinates
+c       & increment type counters
+        do i=1,natms
+          molxxx(mol,mm+i)=newx(i)
+          molyyy(mol,mm+i)=newy(i)
+          molzzz(mol,mm+i)=newz(i)
+          ka=ltpsit(mol,i)
+          numtyp(ka)=numtyp(ka)+1
+          numtyp_mol(mol,ka)=numtyp_mol(mol,ka)+1
+          if(lfzsite(mol,i).ne.0)then
+            numfrz(ka)=numfrz(ka)+1
+            numfrz_mol(mol,ka)=numfrz_mol(mol,ka)+1
+          endif
+        enddo
+c       update long range correction
+        elrc=elrc+delrc
+        elrc_mol(:)=elrc_mol(:)+delrc_mol(:)
+c       update nummols,totatm, then condense everything to 1d arrays
+        nummols(mol)=nummols(mol)+1
+c       update the choice variable in case the user does something
+c       with this after
+        totatm=totatm+natms
+        call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
+        choice = nummols(mol)
+      elseif(delete)then
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)-ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)-ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)-ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)-ckssnew(maxmls+1,k)
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
+        enddo
+        engsic(kk)=engsic(kk)-engsictmp
+        chgsum_mol(mol)=chgsum_mol(mol)-chgtmp
+        sumchg = sumchg-chgtmp
+        mm=natms*nummols(mol)
+c        mm=choice*natms
+c       update surface molecules
+        if(lsurf)surfacemols(mol) = surfacemols(mol) - 1
+c       update atomic coordinates
+c       & decrement counters
+        iatm=0
+c       This loops over all other molecules after the
+c       deleted molecule to shift them back.
+        do i=at,mm
+          iatm=iatm+1
+          molxxx(mol,i)=molxxx(mol,i+natms)
+          molyyy(mol,i)=molyyy(mol,i+natms)
+          molzzz(mol,i)=molzzz(mol,i+natms)
+c         make sure we are only decrementing the 
+c         site counts for the single molecule deleted.
+          if(iatm.le.natms)then
+            ka=ltpsit(mol,iatm)
+            numtyp(ka)=numtyp(ka)-1
+            numtyp_mol(mol,ka)=numtyp_mol(mol,ka)-1
+            if(lfzsite(mol,iatm).ne.0)then
+              numfrz(ka)=numfrz(ka)-1
+              numfrz_mol(mol,ka)=numfrz_mol(mol,ka)-1
+            endif
+          endif
+        enddo
+
+c       update nummols,totatm, then condense everything to 1d arrays
+        elrc=elrc-delrc
+        elrc_mol(:)=elrc_mol(:)-delrc_mol(:)
+        nummols(mol)=nummols(mol)-1
+        totatm=totatm-natms
+        call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
+c        call images(imcon,totatm,cell,xxx,yyy,zzz)
+      elseif(displace)then
+c       this sums over all kpoints, should keep as one loop
+        do k=1,newld
+          ckcsum(mol,k) = ckcsum(mol,k)+ckcsnew(mol,k)
+          ckssum(mol,k) = ckssum(mol,k)+ckssnew(mol,k)
+          ckcsum(maxmls+1,k) = ckcsum(maxmls+1,k)+ckcsnew(maxmls+1,k)
+          ckssum(maxmls+1,k) = ckssum(maxmls+1,k)+ckssnew(maxmls+1,k)
+c          ckcsnew(mol,k)=0.d0
+c          ckssnew(mol,k)=0.d0
+c          ckcsnew(maxmls+1,k)=0.d0
+c          ckssnew(maxmls+1,k)=0.d0
+        enddo
+        mm=0
+        do i=at,at-1+natms
+          mm=mm+1
+          molxxx(mol,i)=newx(mm)
+          molyyy(mol,i)=newy(mm)
+          molzzz(mol,i)=newz(mm)
+        enddo
+        call condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
+      endif
+
+      end subroutine accept_move
+      
+      subroutine reject_move
+     &(idnode,iguest,jguest,insert,delete,displace,swap)
+c***********************************************************************
+c
+c     updates arrays for the rejection according to the type
+c     of move.
+c
+c***********************************************************************
+      implicit none
+      integer idnode, iguest, natms, mol, i, ka
+      integer jguest,jnatms,jmol
+      logical insert,delete,displace,swap
+
+      mol = locguest(iguest)
+      natms = numatoms(mol)
+      delE(:)=0.d0
+      if (insert) then
+c       reset engsic
+        engsic = engsicorig
+      else if (delete)then 
+c       reset engsic
+        engsic = engsicorig
+      elseif(swap)then
+        jmol=locguest(jguest)
+        jnatms = numatoms(jmol)
+        engsic=engsicorig
+        elrc_mol=origelrc_mol
+
+        do i=1,natms
+          ka=ltpsit(mol,i)
+          numtyp(ka)=numtyp(ka)+1
+          numtyp_mol(mol,ka)=numtyp_mol(mol,ka)+1
+          if(lfzsite(mol,i).ne.0)then
+            numfrz(ka)=numfrz(ka)+1
+            numfrz_mol(mol,ka)=numfrz_mol(mol,ka)+1
+          endif
+        enddo
+        do i=1,jnatms
+          ka=ltpsit(jmol,i)
+          numtyp(ka)=numtyp(ka)-1
+          numtyp_mol(jmol,ka)=numtyp_mol(jmol,ka)-1
+          if(lfzsite(jmol,i).ne.0)then
+            numfrz(ka)=numfrz(ka)-1
+            numfrz_mol(jmol,ka)=numfrz_mol(jmol,ka)-1
+          endif
+        enddo
+      endif 
+
+      end subroutine reject_move
 
       end module mc_moves
