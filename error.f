@@ -1145,6 +1145,9 @@ c     dummy entry
         elseif (kode.eq.2317) then
           write(nrite,'(/,/,1x,a)')
      &      'error - failed allocation of Wang-Landau arrays'
+        elseif (kode.eq.2318) then
+          write(nrite,'(/,/,1x,a)')
+     &      'error - max guest is less than min guest setting'
         else
           write(nrite,'(/,/,1x,a)')
      x      'error - unnamed error found'

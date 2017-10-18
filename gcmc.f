@@ -830,9 +830,8 @@ c update rotation moves on n00s
      &rota_rotangle=rota_rotangle*0.95d0
           endif
         endif
-
 c       the following is added in case of initial conditions
-        if (nmols.eq.0)then
+        if ((nmols.eq.0).or.(nmols.lt.mn_guest(iguest)))then
           insert=.true.
           delete=.false.
           displace=.false.
@@ -843,6 +842,19 @@ c       the following is added in case of initial conditions
           rota = .false.
           switch = .false.
         endif
+        if(mx_guest(iguest).gt.0)then
+          if(nmols.gt.mx_guest(iguest))then
+            insert=.false.
+            delete=.true.
+            displace=.false.
+            jump = .false.
+            flex = .false.
+            swap = .false.
+            tran = .false.
+            rota = .false.
+            switch = .false.
+        endif
+
 c        ewald1en=0.d0
 c        ewald2en=0.d0
 c        vdwen=0.d0
@@ -880,6 +892,7 @@ c         calculate vdw interaction (only for new mol)
             call energy_eval
      &(estep,rande,statvolm,iguest,0,temp,beta,
      &displace,insert,delete,swap,accepted)
+            if(ngsts.lt.mn_guest(iguest))accepted=.true.
           endif
 c         DEBUG
 c          accepted=.true.
@@ -929,6 +942,8 @@ c       ewald1,ewald2,vdw of the mol you wish to delete
      &(-estep,rande,statvolm,iguest,0,temp,beta,
      &displace,insert,delete,swap,accepted)
          
+          if((mx_guest(iguest).gt.0).and.(ngsts.gt.mx_guest(iguest)))
+     &accepted=.true.
 c         the following occurs if the move is accepted.
           if(accepted)then
             accept_del=accept_del+1
