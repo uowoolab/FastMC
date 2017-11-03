@@ -853,6 +853,7 @@ c       the following is added in case of initial conditions
             tran = .false.
             rota = .false.
             switch = .false.
+          endif
         endif
 
 c        ewald1en=0.d0

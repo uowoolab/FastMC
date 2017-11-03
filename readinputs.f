@@ -753,7 +753,8 @@ c 'ewald' is already read in initscan
     
 
       do i=1,ntpguest
-        if(mx_guest(i).lt.mn_guest(i))then
+        if((mx_guest(i).gt.0).and.
+     &  (mx_guest(i).lt.mn_guest(i)))then
           call error(idnode,2318)
         endif
       enddo 
