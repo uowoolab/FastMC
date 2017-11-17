@@ -168,9 +168,9 @@ c     END DEBUG
      &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
      &lnewsurf,delrc,totatm,0,ntpfram,ntpmls,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp,newld)
-     else
-       call reject_move
-     &(idnode,iguest,0,insert,delete,displace,swap)
+      else
+        call reject_move
+     &(idnode,iguest,0,.true.,.false.,.false.,.false.)
       endif
       end subroutine mc_insert
 
