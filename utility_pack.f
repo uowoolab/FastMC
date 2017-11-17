@@ -23,6 +23,7 @@
       integer, allocatable :: locfram(:),moldf(:),moltype(:)
       integer, allocatable :: lfreezesite(:),lfzsite(:,:)
       integer, allocatable :: nummols(:),numatoms(:)
+      integer, allocatable :: guest_insert(:)  
       real(8), dimension(9) :: cell
       real(8), dimension(9) :: rcell
       real(8), dimension(9) :: ucell
@@ -158,7 +159,7 @@ c     statistics file input channel
       save numtyp,numfrz,dens,ind,newx,newy,newz
       save nprob,nprobsites,lprobsites,grid
       save delE, energy, total_pressure, gstfuga, gstmolfract
-      save origenergy
+      save origenergy,guest_insert
       save Acc_factor, P_crit, T_crit, K_fug
       save origsurfmols,surfacemols,lprobeng
       contains
@@ -910,7 +911,7 @@ c      avgwindow(9) = <exp(-E/kb/T)>
 c
 c*********************************************************************
       implicit none
-      integer, parameter :: na = 84 
+      integer, parameter :: na = 85 
       integer maxmls,mxatm,maxalloc,iatm,ntpguest,i,kk,j,k
       integer mxatyp,idnode,mxnode,mxcmls
       real(8) density,ratio,cut,volm,rcut,rvdw,delr
@@ -1013,6 +1014,7 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(origsurfmols(maxmls), stat=fail(82))
       allocate(moltype(maxalloc), stat=fail(83))
       allocate(moldf(maxalloc), stat=fail(84))
+      allocate(guest_insert(ntpguest), stat=fail(85))
       do i=1,na
         if(fail(i).gt.0)then
             if(idnode.eq.0)write(nrite,'(10i5)')fail(i)
@@ -1045,6 +1047,7 @@ c     module
 c     initialize the stat arrays
       chainstats(:)=0.d0
       do i=1,ntpguest
+        guest_insert(i)=0
         ins(i) = 0.d0
         del(i) = 0.d0
         dis(i) = 0.d0

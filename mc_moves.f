@@ -3,7 +3,6 @@
       use ewald_module
       use vdw_module
       use utility_pack
-
       implicit none
 
       contains
@@ -15,7 +14,7 @@ c
 c     Checks if the given atom 'iatm' is near a surface atom 'jatm'.
 c     This assumes that a 'surface' atom is frozen, and that
 c     the array populated with the squared distance between neighbour
-c     atoms is populated correctly for 'jatm'.
+c     atoms (rsqdf) is correctly indexed for 'jatm'.
 c
 c***********************************************************************
       implicit none
@@ -43,6 +42,137 @@ c      req = sig*(2.d0**(1.d0/6.d0))
       if (rsqdf(j).lt.overlap)loverlap=.true.
       return
       end subroutine surface_check
+
+      subroutine insert_guests
+     &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,nguests,rcut,delr,
+     &sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,kmax1,kmax2,
+     &kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,ntpmls)
+c*****************************************************************************
+c
+c     routine that inserts guests to a desired number. 
+c     Overlap checks are done to ensure that the particles are in 
+c     a reasonable position. The energies of each guest insertion
+c     are computed, but not used when keeping or discarding a particle.
+c 
+c     A maxiter counter is set to ensure that the loop doesn't continue
+c     forever. If one reaches this counter, the program will exit with
+c     an error. (currently set to 10,000 times the number of guests to
+c     insert)
+c
+c     NB: none of this is coupled to an ensemble. 
+c
+c*****************************************************************************
+      implicit none
+      logical loverlap,lnewsurf
+      integer idnode,imcon,ntpguest,iguest,nguests,keyfce
+      integer maxfactor,maxiter,mol,nmol,iter,natms,totatm
+      integer kmax1,kmax2,kmax3,ntpatm,maxvdw,maxmls,newld
+      integer idum,ntpfram,ntpmls
+      real(8) rcut,delr,surftol,estep,sumchg,overlap,alpha
+      real(8) drewd,volm,epsq,dlrpot,engunit,delrc,chgtmp
+      real(8) engsictmp
+      maxfactor=1000
+      maxiter=maxfactor*nguests
+      mol=locguest(iguest)
+      nmol=nummols(mol)
+      natms=numatoms(mol)
+      iter=0
+      ! just return if the user doesn't know what they are doing.
+      if(nmol.ge.nguests)return
+      write(nrite,"(1x,'Inserting ',i6,' guests of type ',i3)")
+     &guest_insert(iguest),iguest
+
+      do while(nmol.lt.nguests)
+        ! exit if the number of attempts exceeds the maximum number
+        ! of allowed iterations.
+        if(iter.ge.maxiter)call error(idnode, 2320)
+        call random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
+        ! add guest
+        estep=0.d0
+        engsicorig = engsic
+        call insertion
+     &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,loverlap,
+     &lnewsurf,surftol,overlap,newld)
+        ! if overlap, do nothing
+        if(.not.loverlap)then
+          call accept_move
+     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
+     &lnewsurf,delrc,totatm,idum,ntpfram,ntpmls,ntpguest,
+     &maxmls,sumchg,engsictmp,chgtmp,newld)
+        else
+          engsic = engsicorig
+        endif
+        ! update the molecule count
+        nmol=nummols(mol)
+        iter=iter+1
+      enddo 
+      write(nrite,"(1x,'Successful Insertion of ',i6,
+     &' guests of type ',i3)")
+     &nummols(mol),iguest
+      write(nrite,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
+     &iter,dble(nummols(mol))/dble(iter) * 100.d0
+      end subroutine insert_guests
+
+      subroutine mc_insert
+     &(idnode,imcon,iguest,totatm,rcut,delr,engsic,ins_count,alpha,
+     &drewd,ntpguest,ntpfram,ntpmls,ntpatm,volm,statvolm,kmax1,kmax2,
+     &kmax3,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,overlap,
+     &accepted,temp,beta,accept_ins)
+c***********************************************************************
+c
+c     keeps track of all the associated arrays  'insertion' subroutine to a grand canonical ensemble
+c     energy of an additional particle.
+c
+c***********************************************************************
+      implicit none
+      logical lnewsurf,loverlap,accepted
+      integer iguest,idnode,imcon,natms,totatm,mol,nmol
+      integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
+      integer ntpatm,maxvdw,maxmls,newld,accept_ins
+      integer ntpfram,ntpmls
+      real(8) rcut,delr,engsic,engsicorig,estep,alpha,drewd,volm
+      real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
+      real(8) surftol,overlap,rande,gpress,statvolm,temp,beta
+      mol=locguest(iguest)
+      nmol=nummols(mol)
+      natms=numatoms(mol)
+
+      lnewsurf = .false.
+      engsicorig=engsic
+      ins(iguest)=1
+      ins_count=ins_count+1
+      call random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
+      estep = 0.d0
+      call insertion
+     & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+     & loverlap,lnewsurf,surftol,overlap,newld)
+      accepted=.false.
+
+      if(.not.loverlap)then
+        gpress=gstfuga(iguest)
+        rande=duni(idnode)
+        call energy_eval
+     &(estep,rande,statvolm,iguest,0,temp,beta,
+     &.false.,.true.,.false.,.false.,accepted)
+      endif
+c     DEBUG
+c      accepted=.true.
+c     END DEBUG
+      if(accepted)then
+        accept_ins=accept_ins+1
+        call accept_move
+     &(imcon,idnode,iguest,.true.,.false.,.false.,estep,
+     &lnewsurf,delrc,totatm,0,ntpfram,ntpmls,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+     else
+       call reject_move
+     &(idnode,iguest,0,insert,delete,displace,swap)
+      endif
+      end subroutine mc_insert
 
       subroutine insertion
      &(imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,

@@ -1141,10 +1141,23 @@ c     dummy entry
      & greater than 1.'
         elseif (kode.eq.2316) then
           write(nrite, '(/,/,/,1x,a)')
-     &      'error - Terminated from Wang-Landau sampling'
+     &      'error - General termination from Wang-Landau routine'
         elseif (kode.eq.2317) then
           write(nrite,'(/,/,1x,a)')
      &      'error - failed allocation of Wang-Landau arrays'
+        elseif (kode.eq.2318) then
+          write(nrite,'(/,/,1x,a,a)')
+     &      'error - too many guests specified in input. Wang-Landau',
+     &      ' currently only works with 1 guest'
+        elseif (kode.eq.2319) then
+          write(nrite,'(/,/,1x,a,a)')
+     &      'error - the wl_precision coefficient set in the CONTROL',
+     &      ' file must be greater than 1'
+        elseif (kode.eq.2320) then
+          write(nrite,'(/,/,1x,a,/,4x,a,/,4x,a)')
+     &      'error - could not insert the number of guests requested.',
+     &      'Try changing the maxfactor value in utility_pack.f to a',
+     &      'larger value and recompiling.'
         else
           write(nrite,'(/,/,1x,a)')
      x      'error - unnamed error found'

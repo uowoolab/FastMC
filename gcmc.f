@@ -105,7 +105,7 @@ c*************************************************************
       real(8) stdQst,stdCv,rotangle,delrc,junk,stdevcv,stdevq
       real(8) tzero,timelp,engunit,rvdw,press,temp,beta
       real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,gpress
-      real(8) init
+      real(8) init,wlprec
       real(8) ewld1eng,ewld2eng
 c     DEBUG
       real(8) pewld1,pewld2,pelrc,pvdw
@@ -156,7 +156,7 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcdisf/0.3333333/
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
-      integer, parameter, dimension(3) :: revision = (/1, 4, 2 /)
+      integer, parameter, dimension(3) :: revision = (/1, 4, 4 /)
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
@@ -165,7 +165,8 @@ c     coinciding between the CONTROL file and the FIELD file.
       guest_toten=0.d0
       ecoul=0.d0
       evdw=0.d0
-      overlap=0.d0
+c     default overlap to 2.0 Angstroms instead of 0.
+      overlap=2.d0
 c     surface tolerance default set to -1 angstroms (off)
       surftol=0.d0
       ntpatm=0
@@ -180,6 +181,8 @@ c     surface tolerance default set to -1 angstroms (off)
 c     averaging window to calculate errors
       nwind=100000
 
+c     Default wang-landau DOS filling coefficient is e. 
+      wlprec = dexp(1.d0)
 c scoping issues
       delrc = 0
 
@@ -307,7 +310,7 @@ c     produce unit cell for folding purposes
      &swap_max, mcswif,mctraf, mcrotf,
      &disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
      &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
-     &lwanglandau)
+     &lwanglandau,wlprec)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -316,8 +319,8 @@ c     rsqdf array
 
 c     FLEX
       if(n_fwk.gt.0)then
-          allocate(fwksumbuff(n_fwk))
-          call flex_init(idnode, mxatm, imcon, ntpmls, maxmls,
+        allocate(fwksumbuff(n_fwk))
+        call flex_init(idnode, mxatm, imcon, ntpmls, maxmls,
      &totatm, rcut, celprp, ntpguest, volm, mxnode)
       endif
 c Normalise the move frequencies
@@ -636,9 +639,18 @@ c             no rolling average here, just div by widcount at the end
         call wang_landau
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-     &sumchg,ntpmls,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname)
-        
+     &sumchg,ntpmls,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
+     &wlprec)
       endif
+
+      do i=1,ntpguest
+        if(guest_insert(i).gt.0)call insert_guests
+     &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,guest_insert(i),
+     &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
+     &maxmls,ntpmls)
+      enddo
+
 c******************************************************************
 c
 c       gcmc begins
@@ -1279,6 +1291,9 @@ c     &maxvdw,engunit,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
 c***********************************************************************
 c    
 c         Switch - only if multiple guests in sim
+c         Takes one guest already in the framework (guesti) and
+c         switches it's location with another guest already in the 
+c         framework (guestj)
 c
 c***********************************************************************
 c         first generate a maximum limit on the number of swaps

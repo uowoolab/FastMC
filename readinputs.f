@@ -513,7 +513,7 @@ c     halt program if potential cutoff exceeds cell width
      &swap_max, mcswif,
      &mctraf, mcrotf,disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
      &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
-     &lwanglandau)
+     &lwanglandau,wlprec)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -532,7 +532,7 @@ c*************************************************************************
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
       integer n_fwk, fwk_step_max, fwk_initial
       real(8) mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf, overlap 
-      real(8) mcswif 
+      real(8) mcswif,wlprec 
       real(8) mctraf, mcrotf, disp_ratio, tran_ratio, rota_ratio
       real(8) surftol
       real(8), dimension(10) ::  celprp
@@ -610,6 +610,8 @@ c       guest related stuff
 c           record is commented out
             elseif(findstring('fract',record,idum))then
               gstmolfract(idguest)=dblstr(record,lenrec,idum)
+            elseif(findstring('create molecules',record,idum))then
+              guest_insert(idguest)=intstr(record,lenrec,idum)
             elseif(findstring('press',record,idum))then
               gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
             elseif(findstring('probability',record,idum))then
@@ -668,7 +670,12 @@ c         set default writing numguests.out to 1000 steps
           eqsteps=intstr(directive,lenrec,idum)
           if(eqsteps.ne.0)leqsteps=.true.
         elseif (findstring('wang-landau', directive, idum))then
-          lwanglandau=.true. 
+          lwanglandau=.true.
+        ! wang-landau precision keyword (fills the DOS with this value
+        ! initially)
+        elseif (findstring('wl_precision', directive, idum))then
+          wlprec=dblstr(directive,lenrec,idum)
+          if(wlprec.le.1.d0)call error(idnode,2319) 
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
      &"(/,'gcmc requested')")

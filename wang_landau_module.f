@@ -3,10 +3,13 @@
       use utility_pack
       implicit none
 
-      integer, allocatable :: weight_hist(:)
+      integer, allocatable :: visit_hist(:,:)
+      real(8), allocatable :: dos_hist(:,:)
 
-      save weight_hist
+      integer, parameter :: maxvar=1
 
+      save visit_hist
+      save dos_hist
       contains 
       subroutine alloc_wl_arrays
      &(idnode, nhist)
@@ -18,13 +21,14 @@ c
 c************************************************************************
       implicit none
       integer idnode,i,nhist
-      integer, parameter :: nwl=1
+      integer, parameter :: nwl=2
       integer, dimension(nwl) :: fail
 
       do i=1,nwl
         fail(i) = 0
       enddo
-      allocate(weight_hist(nhist), stat=fail(1))
+      allocate(visit_hist(nhist,maxvar), stat=fail(1))
+      allocate(dos_hist(nhist,maxvar), stat=fail(2))
 
       do i=1,nwl
         if(fail(i).gt.0)then
