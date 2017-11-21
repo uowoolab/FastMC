@@ -17,8 +17,8 @@ c      use exclude_module
       implicit none
       
       logical lchk,lfrzi,ldo,fram
-      integer imcon,natms,ibig,last,mpm2
-      integer npm2,idum,i,m,ii,j
+      integer imcon,natms,last,mpm2
+      integer npm2,i,m,ii,j
       real(8) rclim,rsq,rcut,delr,rmin,rminsq
 
       

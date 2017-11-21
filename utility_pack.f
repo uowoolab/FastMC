@@ -179,12 +179,11 @@ c**********************************************************************
 
       logical loop,loop2,loop3,loop4,loop5,safe,lewald,lcut
       logical lrvdw,check,ldelr,kill,lprob
-      character*8 keyword
       character*8 name, chr(mmk)
       integer imcon,keyfce,idnode,idum,ntpvdw,maxmls,mxatm
-      integer n,nummls,numsit,kmax1,kmax2,kmax3,mcsteps
-      integer mxatyp,nrept,ifrz,nneu,ksite,isite,eqsteps
-      integer i,j,ntpguest,ntprob,ntpsite,temp,gsite,iprob,qprob
+      integer n,nummls,numsit,kmax1,kmax2,kmax3
+      integer mxatyp,nrept,ifrz,nneu,ksite,isite
+      integer j,ntpguest,ntprob,ntpsite,temp,gsite,iprob,qprob
       real(8) alpha,delr,rvdw,ppp,width
       real(8) fac,tol,tol1,rcut,eps,volm
       real(8), dimension(10) :: celprp
@@ -488,10 +487,10 @@ c      subroutine to store energy in a grid
 c
 c*********************************************************************
       implicit none
-      integer mol,imol,np,iprob,iguest,i,maxprob,itprob
-      integer jj,itmols,nmols,natms,itatm,jatm,val
+      integer mol,imol,np,iguest,itprob
+      integer jj,nmols,natms,itatm
       integer ngrida,ngridb,ngridc,ntpguest
-      integer j,aidx,bidx,cidx,gidx,jguest
+      integer j,jguest
       real(8) comx,comy,comz,energy
       real(8), dimension(9) :: rcell 
 
@@ -558,8 +557,8 @@ c      subroutine to store guest positions in a grid
 c
 c*********************************************************************
       implicit none
-      integer mol,np,iprob,iguest,i,maxprob,itprob
-      integer jj,itmols,nmols,natms,itatm,jatm,val
+      integer mol,np,iprob,iguest,i,itprob
+      integer jj,itmols,nmols,natms,itatm,jatm
       integer ngrida,ngridb,ngridc,ntpguest
       real(8) comx,comy,comz
       real(8), dimension(9) :: rcell 
@@ -630,9 +629,9 @@ c*********************************************************************
       implicit none
       character*25 filename
       real(8) vol, val
-      integer itprob,iguest,i,j,ii
-      integer igrid,k,l,ngrida,ngridb,ngridc,ntpfram
-      integer nfram,framol,nmol,natms,iatm,m,n,o,p
+      integer itprob,iguest,i,j
+      integer igrid,ngrida,ngridb,ngridc,ntpfram
+      integer nfram,framol,nmol,natms,iatm,m,n,o
       integer gridsize,ip,scell_factor
       real(8), dimension(9) :: cell
 
@@ -711,7 +710,7 @@ c       conditions for writing to a new line
       end subroutine writeenprob
 
       subroutine writeprob
-     &(iguest,itprob,iprob,cell,ntpguest,ntpfram,gridsize,
+     &(iguest,itprob,iprob,cell,ntpfram,gridsize,
      &ngrida,ngridb,ngridc,steps,scell_factor)
 c*********************************************************************
 c
@@ -721,9 +720,9 @@ c*********************************************************************
       implicit none
       character*25 filename
       real(8) vol
-      integer itprob,ntpguest,iguest,i,j,ii,scell_factor
-      integer igrid,k,l,ngrida,ngridb,ngridc,ntpfram
-      integer nfram,framol,nmol,natms,iatm,m,n,o,p
+      integer itprob,iguest,i,j,scell_factor
+      integer igrid,ngrida,ngridb,ngridc,ntpfram
+      integer nfram,framol,nmol,natms,iatm,m,n,o
       integer gridsize,steps,iprob,ip
       real(8), dimension(9) :: cell
 
@@ -838,7 +837,6 @@ c     PB
 c 
 c*********************************************************************
       implicit none
-      integer i,natms
       real(8) ssx,ssy,ssz
       real(8) x,y,z
       real(8), dimension(9) :: rcell
@@ -912,7 +910,7 @@ c
 c*********************************************************************
       implicit none
       integer, parameter :: na = 85 
-      integer maxmls,mxatm,maxalloc,iatm,ntpguest,i,kk,j,k
+      integer maxmls,mxatm,maxalloc,ntpguest,i,j
       integer mxatyp,idnode,mxnode,mxcmls
       real(8) density,ratio,cut,volm,rcut,rvdw,delr
       integer, dimension(na) :: fail
@@ -1073,7 +1071,7 @@ c     of the gases
 c     
 c*********************************************************************
       implicit none
-      integer i,j, idnode, ntpguest
+      integer i, idnode, ntpguest
       logical lfuga,lfract,lpress,do_press
       real(8) temp,press_sum, fract_sum, no_fract_count
 c     check if a mole fraction and total pressure is used, or just
@@ -1402,7 +1400,7 @@ c***********************************************************************
       real(8) aaa,bbb,ccc,det,rt2,rt3,ssx
       real(8) ssy,ssz,ddd,xss,yss,zss
 
-      real(8), dimension(natms):: xxx,yyy,zzz,sxx,syy,szz
+      real(8), dimension(natms):: xxx,yyy,zzz
       real(8), dimension(9) :: cell,rcell
 
       data rt2/1.41421356623d0/,rt3/1.7320508075d0/
@@ -2090,13 +2088,14 @@ c*********************************************************************
       real(8) eng,delE(*)
       integer pass,iguest,levcfg,imcon,idnode,natms
 
+      idnode=idnode
       if(pass.eq.1)then
         call revive_debug
-     &(idnode,natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
+     &(natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
       else
 
         call revive_debug
-     &(idnode,natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
+     &(natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
         if(ins)then          
           open(39,file=outdir//'/debug_ins')
           write(39,'(3x,a13,f20.10,/,3x,a13,f20.10,/,3x,a13,f20.10,/,
@@ -2131,7 +2130,7 @@ c*********************************************************************
       end subroutine debugging
 
       subroutine revive_debug
-     &(idnode,natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
+     &(natms,levcfg,imcon,cfgname,eng,outdir,ins,del,dis,pass)
 c**********************************************************************
 c 
 c     subroutine to write the atom information to a file
@@ -2143,7 +2142,7 @@ c**********************************************************************
       character*1 cfgname(80)
       character*8 outdir
       character*25 outfile
-      integer i,natms,idnode,levcfg,imcon,pass
+      integer i,natms,levcfg,imcon,pass
       real(8) eng
 
 
@@ -2167,7 +2166,7 @@ c**********************************************************************
       return
       end subroutine revive_debug
       subroutine revive
-     &(idnode,natms,levcfg,production,ntpguest,ntpmls,
+     &(natms,levcfg,production,ntpguest,ntpmls,
      &imcon,cfgname,eng,outdir)
 c**********************************************************************
 c 
@@ -2179,7 +2178,7 @@ c**********************************************************************
       character*1 cfgname(80)
       character*8 outdir
       character*25 outfile
-      integer i,j,natms,idnode,levcfg,imcon,ntpguest,ntpmls,nsites
+      integer i,j,natms,levcfg,imcon,ntpguest,ntpmls,nsites
       real(8) eng
 
       write(outfile,'(a8,a7)')outdir,'/REVCON'
@@ -2753,8 +2752,8 @@ c
 c***********************************************************************
       implicit none
       real(8) w,delw,x,delx,y,dely,z,delz
-      real(8) numerator, denominator,denomsq
-      real(8) dfdw,dfdx,dfdy,dfdz,errorq
+      real(8) numerator, denominator
+      real(8) errorq
 
       numerator=w-x*y
       denominator=z-y*y
@@ -2781,14 +2780,14 @@ c     & (dfdy*dely/y)**2+(dfdz*delz/z)**2)
 
       end function errorq
 
-      function calc_Qst(E2, E, N, N2, EN, temp)
+      function calc_Qst(E, N, N2, EN, temp)
 c***********************************************************************
 c
 c     computes the isosteric heat of adsorption 
 c
 c***********************************************************************
       implicit none
-      real(8) calc_Qst, E2, E, N, N2, EN, temp
+      real(8) calc_Qst, E, N, N2, EN, temp
 
       calc_Qst = -1.d0*(EN - E*N)/(N2-N*N) + Rgas*temp
       end function calc_Qst
@@ -2992,7 +2991,7 @@ c     end of config file error exit
       end subroutine abort_config_read
 
       subroutine translate
-     &(imcon,natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,
+     &(natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,
      &a,b,c)
 c***********************************************************************
 c                                                                      *
@@ -3001,14 +3000,14 @@ c     in fractional coordinates.                                       *
 c                                                                      *
 c***********************************************************************
       implicit none
-      integer imcon,natms,mol,it,i
+      integer natms,mol,i
       real(8), dimension(natms) :: newx,newy,newz
 c     these are the unit cell vectors, random moves
 c     will be done in the dimensions of the cell.
 c     only need to be calculated once at the beginning
 c     of the simulation.
       real(8), dimension(9) :: cell,rcell 
-      real(8) comx,comy,comz,tol,movx,movy,movz,det
+      real(8) comx,comy,comz
       real(8) a,b,c,x,y,z
       real(8) ssx,ssy,ssz,xss,yss,zss,shiftx,shifty,shiftz
       do i=1,natms
@@ -3050,7 +3049,7 @@ c     the simulation.
 
       end subroutine translate
 
-      subroutine random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
+      subroutine random_ins(idnode,natms,iguest,rcut,delr)
 c*****************************************************************************
 c
 c     routine to randomly insert a guest into the cell 
@@ -3060,11 +3059,11 @@ c
 c*****************************************************************************
       implicit none
       logical good,insert,done
-      integer i,ii,iguest,jatm,imcon,idnode
-      integer mol,natms,j,jj,k,totatm,counter
+      integer i,iguest,idnode
+      integer natms
       real(8) randa,randb,randc,rmin,rcut,rclim,delr
       real(8) xc,yc,zc,comx,comy,comz,theta
-      real(8) u1,u2,u3,q1,q2,q3,q4,u1sqrt,u1m1sqrt
+      real(8) u1,u2,u3,q1,q2,q3,q4
       real(8) sintheta,beta1,beta2,beta3,norm,rand1,rand2,rand3,rand4
 
       randa=duni(idnode)
@@ -3171,10 +3170,9 @@ c     routine to randomly displace newx,newy,newz atoms
 c
 c*****************************************************************************
       implicit none
-      integer imcon,idnode
+      integer idnode
       real(8) delr
       real(8) randa,randb,randc,halfdelr
-      real(8) rand1,rand2,rand3,rand4
 
       randa=duni(idnode)
       randb=duni(idnode)
@@ -3199,7 +3197,6 @@ c     should be similar to a simultaneous insertion and deletion
 c
 c*****************************************************************************
       implicit none
-      logical done
       integer idnode
       real(8) randa,randb,randc,rotangle
 
@@ -3221,11 +3218,10 @@ c     quaternion rotation
 c*********************************************************************
       implicit none
       integer i,natms
-      real(8) rotangle,alpha,beta,kappa,randmult,xtmp,ytmp,ztmp
+      real(8) alpha,beta,kappa,xtmp,ytmp,ztmp
       real(8) angx,angy,angz
-      real(8), dimension(9) :: R1,R2,R3,mult1,mult2
+      real(8), dimension(9) :: R1,R2,R3
       real(8), dimension(natms) :: xxr,yyr,zzr
-      real(8) rand1,rand2,rand3,rand4
 c     alpha beta kappa generated from rotangle
 c      alpha=(rand1*2.d0-1.d0)*rotangle
 c      beta=(rand2*2.d0-1.d0)*rotangle
@@ -3406,7 +3402,7 @@ c
 c*****************************************************************************
       implicit none
       real(8) weight,comx,comy,comz,newx,newy,newz,mass
-      integer natms,j,i,atomindex,mol
+      integer natms,i,mol
       dimension newx(*),newy(*),newz(*)
 
 
@@ -3454,7 +3450,7 @@ c*****************************************************************************
 
       logical loverlap
       real(8) overlap
-      integer natms,i,j,jatm
+      integer natms,i,j
       loverlap = .false.
 
       if (overlap.gt.0.d0)then
@@ -3480,7 +3476,7 @@ c
 c*****************************************************************************
       implicit none
       logical accepted,displace,insert,delete,swap
-      integer jngsts,ingsts,imol,jmol,i, j, iguest, jguest
+      integer jngsts,ingsts,imol,jmol,iguest,jguest
       real(8) rande,test,edummy
       real(8) volm,ipress,jpress,temp,beta
       real(8) eng
@@ -3489,7 +3485,7 @@ c*****************************************************************************
 
       ipress = gstfuga(iguest)
       imol = locguest(iguest) 
-      ingsts = real(nummols(imol))
+      ingsts = dble(nummols(imol))
 c     round the energy to the nearest second decimal place.
 c     *** WARNING - the higher the value of eng, the worse this
 c        rounding is ***
@@ -3504,7 +3500,8 @@ c     first two if statements prevent exp overflow
       elseif(displace)then
         test=exp(-1.d0*beta*edummy)
       elseif(insert)then
-        test=volm*ipress/((ingsts+1)*boltz*temp)*exp(-1.d0*beta*edummy)
+        test=volm*ipress/
+     &    ((ingsts+1d0)*boltz*temp)*exp(-1.d0*beta*edummy)
       elseif(delete)then
         if(abs(ipress).lt.1.d-7)then
             test = 1.d0
@@ -3543,7 +3540,7 @@ c*****************************************************************************
       end subroutine cartesian
       
       subroutine guestlistgen
-     &(imcon,iguest,totatm,rcut,delr,
+     &(imcon,totatm,rcut,delr,
      &natms,newx,newy,newz)
 c*****************************************************************************
 c    
@@ -3554,9 +3551,9 @@ c
 c*****************************************************************************
       implicit none
       logical chk
-      integer imcon,iguest,natms,i,ii,j,totatm
-      integer itatms,atmadd,n,mol,at
-      real(8) rsq,rmin,rclim,delr,rcut
+      integer imcon,natms,i,ii,j,totatm
+      integer itatms
+      real(8) rsq,rclim,delr,rcut
       real(8),dimension(natms) :: newx,newy,newz
   
       rclim=(rcut+delr)**2
@@ -3640,7 +3637,7 @@ c***********************************************************************
 
       end subroutine get_guest
 
-      subroutine guest_exclude(ntpmls,ntpguest)
+      subroutine guest_exclude(ntpguest)
 c************************************************************************
 c                                                                       * 
 c     subroutine populates the exclude lists for each molecule          *
@@ -3648,8 +3645,8 @@ c                                                                       *
 c************************************************************************
       implicit none
       logical lchk
-      integer ntpguest,ntpmls,ntpfram,mol,jz,iguest,ifram,ii,jj
-      integer nmols,natms,indx,last,mpm2,npm2,m,i,j,k,iatm,jatm
+      integer ntpguest,mol,jz,ii,jj
+      integer natms,m,i,k
  
 c     make a general list of exclusion sites 
 c     then we can build the neighbour lists based on these general lists
@@ -3782,7 +3779,7 @@ c     so the gcmc move can be re-started
 
       end subroutine radial_eval
 
-      subroutine condense(imcon,totatm,ntpmls,ntpfram,ntpguest)
+      subroutine condense(totatm,ntpfram,ntpguest)
 c*****************************************************************************
 c     
 c     subroutine takes the current list of atoms and condenses it
@@ -3791,8 +3788,8 @@ c     generations easier and quicker to access.
 c
 c*****************************************************************************
       implicit none
-      integer i,n,itmls,ntpmls,ntpguest,itgst,itmol,imcon,ntpfram
-      integer mol,indnam,nmol,molind,ii,jatm,isite,nsite,newatm
+      integer i,itmls,ntpguest,itgst,itmol,ntpfram
+      integer mol,indnam,nmol,ii,isite,newatm
       integer j,k,kk,lsite,jj,indexsite,natms,totatm,latom
 c     guests are placed first
       jj=0
@@ -3883,7 +3880,7 @@ c     framework atoms are added after
       return
       end subroutine condense
 
-      subroutine angular_dist(mol,newx,newy,newz,natms,maxanglegrid)
+      subroutine angular_dist(newx,newy,newz,natms,maxanglegrid)
 c*****************************************************************************
 c     
 c     calculate the angular distribution of all guests at a particular 
@@ -3891,8 +3888,7 @@ c     step
 c
 c*****************************************************************************
       implicit none
-      integer i,j,nmol,mol
-      integer natms,jatm,iangle,maxanglegrid
+      integer natms,iangle,maxanglegrid
       real(8) angle,comx,comy,comz
       real(8), dimension(3) :: zaxis,vector1
       real(8), dimension(natms) :: newx,newy,newz
@@ -3928,7 +3924,7 @@ c
 c*****************************************************************************
       implicit none
       logical jobsafe, ljob, production, check, safe
-      integer idum,idnode,i
+      integer idum,idnode
 
       check=.true.
       safe=.true.
@@ -3969,8 +3965,8 @@ c     calculate the angle between two vectors of dimension 3
 c
 c*****************************************************************************
       implicit none
-      real(8) numer,denom,angle,dotprod
-      real(8), dimension(3) :: vect1,vect2,crossprod
+      real(8) angle
+      real(8), dimension(3) :: vect1,vect2
 
 c     this is the numerator of the angle calc (dot product of vectors)
       angle=acos(dot_product(vect1,vect2)/

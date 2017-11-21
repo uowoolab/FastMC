@@ -385,7 +385,7 @@ c     halt program if potential cutoff exceeds cell width
 
       return
 
-100   call abort_config_read(2,idnode,nconfig)
+      call abort_config_read(2,idnode,nconfig)
 
       end subroutine readfwk
 

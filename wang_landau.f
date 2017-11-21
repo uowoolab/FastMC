@@ -1,7 +1,7 @@
       subroutine wang_landau
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-     &sumchg,ntpmls,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
+     &sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
      &wlprec)
 c*****************************************************************************
 c     
@@ -19,11 +19,11 @@ c*****************************************************************************
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
-      integer ntpatm,maxvdw,newld,maxmls,totatm,steps,levcfg
-      integer natms,iguest,mol,idum,ntpmls,ntpfram,i
+      integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg
+      integer natms,iguest,mol,idum,ntpfram,i
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp
-      real(8) engsictmp,delrc,eng,wlprec
+      real(8) engsictmp,delrc,wlprec
       write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
       write(nrite,
@@ -45,30 +45,30 @@ c     at a single temperature.
      &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,guest_insert(i),
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
-     &maxmls,ntpmls)
+     &maxmls)
       enddo
 
       do while(lgchk)
 c       randomly select guest
 c       chose an MC move to perform
 c       accept/reject based on modified acceptance criteria
-        call random_ins(idnode,imcon,natms,totatm,iguest,rcut,delr)
+        call random_ins(idnode,natms,iguest,rcut,delr)
         estep=0.d0
         call insertion
-     & (imcon,idnode,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & ntpguest,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      & loverlap,lnewsurf,surftol,overlap,newld)
         call accept_move
-     & (imcon,idnode,iguest,.true.,.false.,.false.,estep,lnewsurf,
-     & delrc,totatm,idum,ntpfram,ntpmls,ntpguest,maxmls,sumchg,
+     & (iguest,.true.,.false.,.false.,lnewsurf,
+     & delrc,totatm,idum,ntpfram,ntpguest,maxmls,sumchg,
      & engsictmp,chgtmp,newld)
         lgchk=.false.
       enddo
       lprod=.true.
-c      call revive
-c     &(idnode,totatm,levcfg,lprod,ntpguest,maxmls,
-c     &imcon,cfgname,eng,outdir)
+      call revive
+     &(totatm,levcfg,lprod,ntpguest,maxmls,
+     &imcon,cfgname,0.d0,outdir)
 
       call error(idnode,2316)
       end subroutine wang_landau

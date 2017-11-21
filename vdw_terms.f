@@ -16,9 +16,9 @@ c***********************************************************************
       character*8 atom1,atom2,keyword
       character*1 message(80)
 
-      integer ntpvdw,ntpatm,fail,idum,ivdw,maxvdw
+      integer ntpvdw,ntpatm,idum,ivdw,maxvdw
       integer itpvdw,keypot,numpar,katom1,katom2,jtpatm,keyvdw,i
-      integer ntab,idnode,j
+      integer ntab,idnode
       real(8) dlrpot,engunit,rvdw
       real(8), allocatable :: parpot(:)
 
@@ -144,7 +144,7 @@ c        if(keyvdw.gt.maxvdw) call error(idnode,82)
 c     generate nonbonded force arrays
 
       if(ntpvdw.gt.0)then
-        call forgen(idnode,ntpvdw,dlrpot,rvdw)
+        call forgen(ntpvdw,dlrpot,rvdw)
       endif
 
 c     check for unspecified atom-atom potentials
@@ -178,7 +178,7 @@ c     define zero potential for undefined interactions
       return
       end subroutine define_van_der_waals
 
-      subroutine forgen(idnode,ntpvdw,dlrpot,rcut)
+      subroutine forgen(ntpvdw,dlrpot,rcut)
 
 c***********************************************************************
 c     
@@ -191,7 +191,7 @@ c***********************************************************************
       
       implicit none
 
-      integer i,ivdw,ntpvdw,idnode
+      integer i,ivdw,ntpvdw
       real(8) dlrpot,rcut,rrr,ann,amm,gam,bet,eps,rr0,aaa,bbb
       real(8) ccc,ddd,eee,sig,rho,rrc
 CVAM
@@ -379,7 +379,7 @@ c       weeks-chandler-anderson potential
       return
       end subroutine forgen
 
-      subroutine srfrce(sittyp,ik,mol,maxmls,engsrp,rcut,dlrpot)
+      subroutine srfrce(sittyp,ik,mol,engsrp,rcut,dlrpot)
 
 c***********************************************************************
 c     
@@ -392,13 +392,11 @@ c***********************************************************************
       
       implicit none
 
-      integer iatm,ik,m,jatm,k,l,sittyp,mol,jmol,maxmls,kmol
-      real(8) engsrp,virsrp,rcut,dlrpot
-      real(8) fi,rcsq,rdr,strs1,strs2,strs3,strs5,strs6,strs9,ai,aj
-      real(8) ab,rrr,rsq,ppp,t1,t2,vk0,vk1,vk2,gk0,gk1,gk2,gamma,fx
-      real(8) fy,fz,omega
-
-      dimension fi(3)
+      integer ik,m,jatm,k,l,sittyp,mol,jmol,kmol
+      real(8) engsrp,rcut,dlrpot
+      real(8) rcsq,rdr,ai,aj
+      real(8) ab,rrr,rsq,ppp,t1,t2,vk0,vk1,vk2
+      real(8) omega
 
 c     set cutoff condition for pair forces
 
@@ -468,7 +466,7 @@ c     END DEBUG
       end subroutine srfrce 
 
       subroutine lrcorrect
-     x  (idnode,imcon,keyfce,natms,ntpatm,ntpvdw,engunit,
+     x  (imcon,keyfce,natms,ntpatm,ntpvdw,
      x  rcut,volm,maxmls,ntpguest)
       
 c*************************************************************************
@@ -485,9 +483,9 @@ c      use config_module
 
       implicit none
 
-      integer idnode,imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
+      integer imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
       integer ivdw,j,k,mol,maxmls,mxmls2,it,jt,kt,ntpguest,ntatm
-      real(8) engunit,virlrc,rcut,volm,twopi,plrc,eadd,padd
+      real(8) rcut,volm,twopi,plrc,eadd,padd
       real(8) denprd,aaa,bbb,ccc,ddd,eee,eps,sig,rr0,ann,amm
       real(8) natyp,nbtyp,nafrz,nbfrz
       real(8), allocatable :: elrc_mol0(:)
@@ -686,8 +684,8 @@ c     x  25x,': vdw pressure',e15.6)") elrc/engunit,plrc*prsunt
       end subroutine lrcorrect
 
       subroutine gstlrcorrect
-     x  (idnode,imcon,iguest,keyfce,natms,ntpatm,ntpvdw,engunit,
-     x  delrc,rcut,volm,maxmls,lexisting)
+     x  (imcon,iguest,keyfce,ntpatm,ntpvdw,
+     x  delrc,volm,maxmls,lexisting)
       
 c*************************************************************************
 c     
@@ -702,9 +700,9 @@ c***************************************************************************
 
       implicit none
       logical lexisting
-      integer idnode,imcon,keyfce,natms,ntpatm,i,ka,ntpvdw
-      integer ivdw,j,k,iguest,mol,maxmls,it,kt,jt
-      real(8) engunit,rcut,volm,twopi,eadd,self,sic
+      integer imcon,keyfce,ntpatm,i,ntpvdw
+      integer ivdw,j,iguest,mol,maxmls,kt,jt
+      real(8) volm,twopi,eadd,self,sic
       real(8) denprd,delrc,natyp,nbtyp,nafrz,nbfrz
       real(8) nctyp,ndtyp,ncfrz,ndfrz
       twopi=2.0d0*pi

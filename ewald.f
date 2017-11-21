@@ -43,17 +43,17 @@ c********************************************************************
       implicit none
       logical safe,lconsw
       logical lexisting
-      integer idnode,kmax1,kmax2,kmax3,natms,pass
-      integer iatm0,iatm1,i,j,limit,l,kkk,nmin
+      integer kmax1,kmax2,kmax3,natms
+      integer i,limit,l,kkk,nmin
       integer mmin,ll,m,mm,n,nn,k,imcon,iguest,mol
       integer maxmls,kmol,newld,ik
       real(8) engcpe,volm,epsq,alpha,sic,sumchg,qfix,chgtmp
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsictmp,ssx
-      real(8) engsicmol,qfixmol
+      real(8) qfixmol
       real(8) ssy,ssz,rkx1,rky1,rkz1,cs,tmp,rkx2,rky2,rkz2
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
-      real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,chge,prev
-      real(8) ckcold,cksold,qfixtmp,ckcpass2,ckspass2,eng1
+      real(8) ckcs,ckss,rrksq,fkk,akk,chge
+      real(8) ckcold,cksold
       real(8) mixterm,sumsqd
       real(8), dimension(10) :: buffer
 
@@ -363,16 +363,16 @@ c********************************************************************
       use ewald_module
       implicit none
       logical safe,lconsw
-      integer idnode,kmax1,kmax2,kmax3,mxatm,jj
-      integer iatm0,iatm1,i,j,limit,l,kkk,nmin,maxmls
-      integer mmin,ll,m,mm,n,nn,k,imcon,newld,mol,molidx
-      integer mixcount,kmol,ik
+      integer kmax1,kmax2,kmax3,mxatm,jj
+      integer i,j,limit,l,kkk,nmin,maxmls
+      integer mmin,ll,m,mm,n,nn,k,imcon,newld,mol
+      integer kmol,ik
       real(8) engcpe,volm,epsq,alpha,sumchg,qfix
       real(8) twopi,rvolm,ralph,det,rcpcut,rcpct2,engsicold,ssx
       real(8) sic
       real(8) ssy,ssz,rkx1,rky1,rkz1,cs,tmp,rkx2,rky2,rkz2
       real(8) rkx3,rky3,rkz3,rksq,tchge,tclm,tenc,tslm,tens
-      real(8) ckcs,ckss,rrksq,fkk,akk,bkk,akv,eng1
+      real(8) ckcs,ckss,rrksq,fkk,akk,eng1
       real(8), dimension(10) :: buffer
 
 
@@ -660,7 +660,7 @@ c     potential.
       return
       end subroutine ewald1
 
-      subroutine ewald2(chg,natm,engcpe,mol,maxmls,
+      subroutine ewald2(chg,natm,engcpe,mol,
      &drewd,rcut,epsq)
 c********************************************************************
 c                Subroutine to determine the                        *
@@ -671,8 +671,8 @@ c********************************************************************
       use utility_pack
 
       implicit none
-      integer m,n,i,ik,jatm,natm,ll,l1,l2,mol,idxij
-      integer jmol,maxmls,kmol
+      integer i,ik,jatm,natm,ll,l1,l2,mol
+      integer jmol,kmol
       real(8) engcpe,drewd,epsq,rcut
       real(8) rcsq,rdrewd,chgea,chg
       real(8) chgprd,rsq,rrr,ppp,vk0,vk1,vk2,t1,t2,erfcr
@@ -732,7 +732,6 @@ c     END DEBUG
 
       end subroutine ewald2
 
-
       subroutine ewald3(chg,mol,natms,alpha,engcpe,epsq)
 c********************************************************************
 c     Subroutine to calculate the                                   *
@@ -747,7 +746,7 @@ c********************************************************************
 
       real(8) engcpe,epsq,a1,a2,a3,alpha,chg
       real(8) a4,a5,pp,rr3,r10,r42,r216,chgea,chgprd,rrr,rsq,alpr
-      real(8) alpr2,erfr,egamma,tt,exp1
+      real(8) alpr2,erfr,tt,exp1
 
 
       data a1,a2,a3/0.254829592d0,-0.284496736d0,1.421413741d0/

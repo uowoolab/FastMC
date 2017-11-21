@@ -6,6 +6,9 @@
 #OPTIM = -O aggress
 OPTIM =
 
+# warning flags or any other compiler options?
+#FLAGS = -Wall -Wno-conversion
+FLAGS =
 # debugging
 DEBUG =
 # gfortran debugging
@@ -40,17 +43,17 @@ all:
 # parameters for different versions
 gfortran:
 	${MAKE} FC="gfortran" \
-	FFLAGS="${OPTIM}" EXE="gcmc_gfort.x" ${SERIAL}
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc_gfort.x" ${SERIAL}
 cray:
 	${MAKE} FC="ftn -f fixed" \
-	FFLAGS="${OPTIM}" EXE="gcmc-cray.x" ${SERIAL}
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-cray.x" ${SERIAL}
 intel:
 	${MAKE} FC="ifort" \
-	FFLAGS="${OPTIM}" EXE="gcmc.x" ${SERIAL}
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc.x" ${SERIAL}
 
 parallel:
 	${MAKE} FC="mpifort" \
-	FFLAGS="${OPTIM}" EXE="gcmc-par.x" ${PARALLEL}
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-par.x" ${PARALLEL}
 
 # stuff that does the compilations
 ser: ${OBJSER}

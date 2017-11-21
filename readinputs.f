@@ -20,15 +20,15 @@ c*************************************************************************
       
       logical loop,loop2,safe,atmchk,blank
       logical lunits,lguest
-      integer itmols,msite,jsite,ntpatm,totatm,maxvdw
+      integer itmols,jsite,ntpatm,totatm,maxvdw
       integer ifrz,irept,nrept,ksite,isite,ntpmls
       integer lsite,natms
-      integer i,n,j,k,idum,idnode,ntpvdw,ntpguest,ntpfram
+      integer i,n,idum,idnode,ntpvdw,ntpguest,ntpfram
       character*8 junk
       character*8 atom1
       character*1 message(80)
       real(8) weight,charge,engunit,rvdw,dlrpot,sumchg
-      real(8) comx,comy,comz,mass,gpress
+      real(8) comx,comy,comz,mass
       natms=0
       ntpguest=0
       ntpfram=0
@@ -313,7 +313,7 @@ c*************************************************************************
 
       character*1 atname(8),cfgname(80)
       logical safe
-      integer icfg,imcon,idnode,indatm,maxmls
+      integer imcon,idnode,indatm,maxmls
       integer k,l,m,totatm,i,ntpmls
       integer idum,levcfg,mxnode
       real(8) xcoord,ycoord,zcoord,junk,volm,axx,test,rt3
@@ -508,7 +508,7 @@ c     halt program if potential cutoff exceeds cell width
       end subroutine readconfig
 
       subroutine readcontrol(idnode,lspe,temp,
-     &ljob,mcsteps,eqsteps,celprp,ntpguest,lrestart,laccsample,lnumg,
+     &ljob,mcsteps,eqsteps,ntpguest,lrestart,laccsample,lnumg,
      &nnumg,nhis,nwind,mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf,
      &swap_max, mcswif,
      &mctraf, mcrotf,disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
@@ -535,7 +535,6 @@ c*************************************************************************
       real(8) mcswif,wlprec 
       real(8) mctraf, mcrotf, disp_ratio, tran_ratio, rota_ratio
       real(8) surftol
-      real(8), dimension(10) ::  celprp
 
       data ltemp/.false./,lprob/.false./,loop3/.false./
       data lmcsteps/.false./,leqsteps/.false./,lwind/.false./
