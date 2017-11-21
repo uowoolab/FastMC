@@ -836,7 +836,6 @@ c update rotation moves on n00s
      &rota_rotangle=rota_rotangle*0.95d0
           endif
         endif
-
 c       the following is added in case of initial conditions
         if (nmols.eq.0)then
           insert=.true.
@@ -849,6 +848,31 @@ c       the following is added in case of initial conditions
           rota = .false.
           switch = .false.
         endif
+c        if ((nmols.eq.0).or.(nmols.lt.mn_guest(iguest)))then
+c          insert=.true.
+c          delete=.false.
+c          displace=.false.
+c          jump = .false.
+c          flex = .false.
+c          swap = .false.
+c          tran = .false.
+c          rota = .false.
+c          switch = .false.
+c        endif
+c        if(mx_guest(iguest).gt.0)then
+c          if(nmols.gt.mx_guest(iguest))then
+c            insert=.false.
+c            delete=.true.
+c            displace=.false.
+c            jump = .false.
+c            flex = .false.
+c            swap = .false.
+c            tran = .false.
+c            rota = .false.
+c            switch = .false.
+c          endif
+c        endif
+
 c        ewald1en=0.d0
 c        ewald2en=0.d0
 c        vdwen=0.d0

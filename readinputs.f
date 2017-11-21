@@ -560,6 +560,8 @@ c     allocate guest mole fractions
       do i=1,ntpguest
         gstpress(i)=-1.d0
         gstmolfract(i)=-1.d0
+        mx_guest(i) = 0
+        mn_guest(i) = 0
       enddo
       total_pressure = -1.d0
      
@@ -613,6 +615,10 @@ c           record is commented out
               guest_insert(idguest)=intstr(record,lenrec,idum)
             elseif(findstring('press',record,idum))then
               gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
+            elseif (findstring('upper',record,idum))then
+              mx_guest(idguest)=intstr(record, lenrec, idum)
+            elseif (findstring('lower',record,idum))then
+              mn_guest(idguest)=intstr(record, lenrec, idum)
             elseif(findstring('probability',record,idum))then
               lprob=.true.
               rprob=.true.
@@ -750,6 +756,14 @@ c 'ewald' is already read in initscan
           call error(idnode,3)
         endif
       enddo
+    
+
+      do i=1,ntpguest
+        if((mx_guest(i).gt.0).and.
+     &  (mx_guest(i).lt.mn_guest(i)))then
+          call error(idnode,2318)
+        endif
+      enddo 
       if(idnode.eq.0)write(nrite,
      &"(/,'tolerance for automatic failure of gcmc move if nearby atoms
      & within: ',f12.5, ' angstroms.')")overlap
@@ -810,6 +824,7 @@ c 'ewald' is already read in initscan
      &'*** warning the averaging window was not specified in the
      & CONTROL file, defaulting to ',nwind,' windows.'
       endif
+    
       nwind=mcsteps/nwind
       if((ngst.ne.ntpguest))call error(idnode,2312)      
       if(.not.ltemp)then
