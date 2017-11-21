@@ -1305,237 +1305,244 @@ c***********************************************************************
 c         first generate a maximum limit on the number of swaps
 c         by determining the quantities of the different guest types
 c         in the framework
+          call mc_switch
+     &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
+     &switch_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
+     &ntpguest)
+
+c          nswapguest = swap_max
+c          do i=1,ntpguest
+cc           store original energies
+c            mol=locguest(i)
+c            nmols=nummols(mol)
+cc           generate array of molecules to randomly select
+c            do j=1,nmols
+c              swap_mols(i,j) = j
+c            enddo
+c            swap_mol_count(i) = nmols
+c            nswapguest = min(nswapguest, nmols)
+c          enddo
+c          nswapguest = min(swap_max, nswapguest)
+c          if(nswapguest.le.0)then
+c            cycle
+c          endif 
+c          switch_count=switch_count+1
+c          num_swaps = floor(duni(idnode)*nswapguest) + 1 
+c          num_swaps = 1
+c          engsicorig = engsic
+cc         store original surface molecule counts in case the move 
+cc         is rejected
+c          loverlap=.false.
+c          do iswap=1,num_swaps
+cc           random choice of two different guests to swap
+c            swap_guest_max = ntpguest
+c            do j=1,ntpguest
+c              swap_chosen_guest(j) = j
+c            enddo 
+c            iguest = floor(duni(idnode) * swap_guest_max) + 1
+c
+cc           determine the second guest by shifting the array
+cc           and randomly selecting from the reduced array
+c            do j=iguest,ntpguest
+c              swap_chosen_guest(j)=j+1
+c            enddo
+c            swap_guest_max = swap_guest_max - 1
+c            jguest = floor(duni(idnode) * swap_guest_max) + 1
+c            jguest = swap_chosen_guest(jguest)
+cc           break here if one of the molecules has no more 
+cc           molecules to swap, but still count this as one of 
+cc           the swap attempts.
+c            if((swap_mol_count(iguest) <= 0)
+c     &.or.(swap_mol_count(jguest)<=0))cycle
+cc           molecule choice to swap on each
+c            swi(iguest)=swi(iguest) + 1
+c            ichoice=floor(duni(idnode)*swap_mol_count(iguest))+1
+c            ichoice = swap_mols(iguest, ichoice)
+c            
+c            swi(jguest)=swi(jguest)+1
+c            jchoice=floor(duni(idnode)*swap_mol_count(jguest))+1
+c            jchoice= swap_mols(jguest, jchoice)
+cc         store original framework configuration if the move is rejected
+c            do i=1,maxmls
+c              origenergy(i) = energy(i)
+c              origsurfmols(i) = surfacemols(i)
+c            enddo
+c            jmol=locguest(jguest)
+c            imol=locguest(iguest)
+c            do kk=1,totatm
+c              origmolxxx(imol,kk) = molxxx(imol,kk)
+c              origmolyyy(imol,kk) = molyyy(imol,kk)
+c              origmolzzz(imol,kk) = molzzz(imol,kk)
+c              origmolxxx(jmol,kk) = molxxx(jmol,kk)
+c              origmolyyy(jmol,kk) = molyyy(jmol,kk)
+c              origmolzzz(jmol,kk) = molzzz(jmol,kk)
+c            enddo
+c            do ik=1,newld
+c              ckcsorig(imol,ik)=ckcsum(imol,ik) 
+c              ckssorig(imol,ik)=ckssum(imol,ik) 
+c              ckcsorig(jmol,ik)=ckcsum(jmol,ik) 
+c              ckssorig(jmol,ik)=ckssum(jmol,ik) 
+c              ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
+c              ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+cc              ckcsnew(imol,ik)=0.d0
+cc              ckssnew(imol,ik)=0.d0
+cc              ckcsnew(jmol,ik)=0.d0
+cc              ckssnew(jmol,ik)=0.d0
+cc              ckcsnew(maxmls+1,ik)=0.d0 
+cc              ckssnew(maxmls+1,ik)=0.d0
+c            enddo
+c            call get_guest(jguest, jchoice, jmol, natms, nmols)
+c            call com(natms,jmol,newx,newy,newz,comx,comy,comz)
+c            do iatm=1,natms
+c              guestx(jguest,iatm)=newx(iatm) - comx
+c              guesty(jguest,iatm)=newy(iatm) - comy
+c              guestz(jguest,iatm)=newz(iatm) - comz
+c            enddo
+c            call get_guest(iguest, ichoice, imol, natms, nmols)
+c            call com(natms,imol,newx,newy,newz,comshiftx,
+c     &comshifty,comshiftz)
+c            do iatm=1,natms
+c              guestx(iguest,iatm)=newx(iatm) - comshiftx
+c              guesty(iguest,iatm)=newy(iatm) - comshifty
+c              guestz(iguest,iatm)=newz(iatm) - comshiftz
+c            enddo
+cc************************************************************************
+cc           START SWITCH OF GUESTI AND GUESTJ
+cc           Delete it, since shifting it to the new position would
+cc           create infinite energies.
+cc************************************************************************
+c            estep = 0.d0
+c            call deletion 
+c     &(imcon,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,maxmls,
+c     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+c     &overlap,newld)
+c            call accept_move
+c     &(iguest,.false.,.true.,.false.,
+c     &linitsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c            estepi=-estep
+c            call get_guest(jguest,jchoice,jmol,natms,nmols)
+c            estep=0.d0
+c            call deletion 
+c     &(imcon,keyfce,jguest,jchoice,alpha,rcut,delr,drewd,maxmls,
+c     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp,
+c     &overlap,newld)
+c            call accept_move
+c     &(jguest,.false.,.true.,.false.,
+c     &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c            estepj=-estep
+c            do iatm=1,natms
+c              newx(iatm) = guestx(jguest,iatm) + comshiftx
+c              newy(iatm) = guesty(jguest,iatm) + comshifty
+c              newz(iatm) = guestz(jguest,iatm) + comshiftz
+c            enddo
+c            estep=0.d0
+c            call insertion
+c     & (imcon,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
+c     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+c     & loverlap,lnewsurfj,surftol,overlap,newld)
+c            estepj=estepj+estep
+c            call accept_move
+c     &(jguest,.true.,.false.,.false.,
+c     &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c
+c            call get_guest(iguest,ichoice,imol,natms,nmols)
+c            do iatm=1,natms
+c              newx(iatm) = guestx(iguest,iatm) + comx
+c              newy(iatm) = guesty(iguest,iatm) + comy
+c              newz(iatm) = guestz(iguest,iatm) + comz
+c            enddo
+c            estep=0.d0
+c            call insertion
+c     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+c     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+c     & loverlap,lnewsurf,surftol,overlap,newld)
+c            estepi=estepi+estep
+c            call accept_move
+c     &(iguest,.true.,.false.,.false.,
+c     &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+cc************************************************************************
+cc           END OF SWITCH
+cc************************************************************************
+cc           update swap arrays for iguest
+c            do k=1,nummols(locguest(iguest))
+c              if (swap_mols(iguest,k) >= ichoice) then
+c                swap_mols(iguest, k) = swap_mols(iguest,k+1)
+c              end if
+c            enddo
+c            swap_mol_count(iguest) = swap_mol_count(iguest) - 1
+cc           same for jguest
+c            do k=1,nummols(locguest(jguest))
+c              if (swap_mols(jguest,k) >= jchoice) then
+c                swap_mols(jguest, k) = swap_mols(jguest,k+1)
+c              end if
+c            enddo
+c            swap_mol_count(jguest) = swap_mol_count(jguest) - 1
+c          enddo
+cc         perform energy evaluation
+c          if((estepi+estepj).lt.0.d0)then
+c            accepted=.true.
+c          else
+c            accepted=.false.
+c            rande=duni(idnode)
+c            call energy_eval
+c     &(estepi+estepj,rande,statvolm,iguest,0,temp,beta,
+c     &displace,insert,delete,swap,accepted)
+c          endif
+c          if(loverlap)accepted=.false.
+cc         DEBUG
+cc          accepted=.false.
+cc         END DEBUG
+c          if(accepted)then
+c            accept_switch=accept_switch+1
+c            call condense(totatm,ntpfram,ntpguest)
+c
+c          else
+c            do ik=1,maxmls
+c              delE(ik)=0.d0
+c              energy(ik)=origenergy(ik)
+c              surfacemols(ik)=origsurfmols(ik)
+c            enddo
+cc           restore original framework if move is rejected
+c            do ik=1,totatm 
+c              molxxx(imol,ik)=origmolxxx(imol,ik)
+c              molyyy(imol,ik)=origmolyyy(imol,ik)
+c              molzzz(imol,ik)=origmolzzz(imol,ik)
+c              molxxx(jmol,ik)=origmolxxx(jmol,ik)
+c              molyyy(jmol,ik)=origmolyyy(jmol,ik)
+c              molzzz(jmol,ik)=origmolzzz(jmol,ik)
+c            enddo
+cc           restore original ewald1 sums if step is rejected
+c            do ik=1,newld
+c              ckcsum(imol,ik)=ckcsorig(imol,ik) 
+c              ckssum(imol,ik)=ckssorig(imol,ik) 
+c              ckcsum(jmol,ik)=ckcsorig(jmol,ik) 
+c              ckssum(jmol,ik)=ckssorig(jmol,ik) 
+c              ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
+c              ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
+cc              ckcsnew(imol,ik)=0.d0
+cc              ckssnew(imol,ik)=0.d0
+cc              ckcsnew(jmol,ik)=0.d0
+cc              ckssnew(jmol,ik)=0.d0
+cc              ckcsnew(maxmls+1,ik)=0.d0 
+cc              ckssnew(maxmls+1,ik)=0.d0
+c            enddo
+c            elrc=origelrc
+c            elrc_mol=origelrc_mol
+c            engsic=engsicorig
+cc           restore original surfacemols if step is rejected
+c            call condense(totatm,ntpfram,ntpguest)
+c          endif
           switch = .false.
-          nswapguest = swap_max
-          do i=1,ntpguest
-c           store original energies
-            mol=locguest(i)
-            nmols=nummols(mol)
-c           generate array of molecules to randomly select
-            do j=1,nmols
-              swap_mols(i,j) = j
-            enddo
-            swap_mol_count(i) = nmols
-            nswapguest = min(nswapguest, nmols)
-          enddo
-          nswapguest = min(swap_max, nswapguest)
-          if(nswapguest.le.0)then
-            cycle
-          endif 
-          switch_count=switch_count+1
-          num_swaps = floor(duni(idnode)*nswapguest) + 1 
-          num_swaps = 1
-          engsicorig = engsic
-c         store original surface molecule counts in case the move 
-c         is rejected
-          loverlap=.false.
-          do iswap=1,num_swaps
-c           random choice of two different guests to swap
-            swap_guest_max = ntpguest
-            do j=1,ntpguest
-              swap_chosen_guest(j) = j
-            enddo 
-            iguest = floor(duni(idnode) * swap_guest_max) + 1
-
-c           determine the second guest by shifting the array
-c           and randomly selecting from the reduced array
-            do j=iguest,ntpguest
-              swap_chosen_guest(j)=j+1
-            enddo
-            swap_guest_max = swap_guest_max - 1
-            jguest = floor(duni(idnode) * swap_guest_max) + 1
-            jguest = swap_chosen_guest(jguest)
-c           break here if one of the molecules has no more 
-c           molecules to swap, but still count this as one of 
-c           the swap attempts.
-            if((swap_mol_count(iguest) <= 0)
-     &.or.(swap_mol_count(jguest)<=0))cycle
-c           molecule choice to swap on each
-            swi(iguest)=swi(iguest) + 1
-            ichoice=floor(duni(idnode)*swap_mol_count(iguest))+1
-            ichoice = swap_mols(iguest, ichoice)
-            
-            swi(jguest)=swi(jguest)+1
-            jchoice=floor(duni(idnode)*swap_mol_count(jguest))+1
-            jchoice= swap_mols(jguest, jchoice)
-c         store original framework configuration if the move is rejected
-            do i=1,maxmls
-              origenergy(i) = energy(i)
-              origsurfmols(i) = surfacemols(i)
-            enddo
-            jmol=locguest(jguest)
-            imol=locguest(iguest)
-            do kk=1,totatm
-              origmolxxx(imol,kk) = molxxx(imol,kk)
-              origmolyyy(imol,kk) = molyyy(imol,kk)
-              origmolzzz(imol,kk) = molzzz(imol,kk)
-              origmolxxx(jmol,kk) = molxxx(jmol,kk)
-              origmolyyy(jmol,kk) = molyyy(jmol,kk)
-              origmolzzz(jmol,kk) = molzzz(jmol,kk)
-            enddo
-            do ik=1,newld
-              ckcsorig(imol,ik)=ckcsum(imol,ik) 
-              ckssorig(imol,ik)=ckssum(imol,ik) 
-              ckcsorig(jmol,ik)=ckcsum(jmol,ik) 
-              ckssorig(jmol,ik)=ckssum(jmol,ik) 
-              ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
-              ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
-c              ckcsnew(imol,ik)=0.d0
-c              ckssnew(imol,ik)=0.d0
-c              ckcsnew(jmol,ik)=0.d0
-c              ckssnew(jmol,ik)=0.d0
-c              ckcsnew(maxmls+1,ik)=0.d0 
-c              ckssnew(maxmls+1,ik)=0.d0
-            enddo
-            call get_guest(jguest, jchoice, jmol, natms, nmols)
-            call com(natms,jmol,newx,newy,newz,comx,comy,comz)
-            do iatm=1,natms
-              guestx(jguest,iatm)=newx(iatm) - comx
-              guesty(jguest,iatm)=newy(iatm) - comy
-              guestz(jguest,iatm)=newz(iatm) - comz
-            enddo
-            call get_guest(iguest, ichoice, imol, natms, nmols)
-            call com(natms,imol,newx,newy,newz,comshiftx,
-     &comshifty,comshiftz)
-            do iatm=1,natms
-              guestx(iguest,iatm)=newx(iatm) - comshiftx
-              guesty(iguest,iatm)=newy(iatm) - comshifty
-              guestz(iguest,iatm)=newz(iatm) - comshiftz
-            enddo
-c************************************************************************
-c           START SWITCH OF GUESTI AND GUESTJ
-c           Delete it, since shifting it to the new position would
-c           create infinite energies.
-c************************************************************************
-            estep = 0.d0
-            call deletion 
-     &(imcon,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,maxmls,
-     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
-     &overlap,newld)
-            call accept_move
-     &(iguest,.false.,.true.,.false.,
-     &linitsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-            estepi=-estep
-            call get_guest(jguest,jchoice,jmol,natms,nmols)
-            estep=0.d0
-            call deletion 
-     &(imcon,keyfce,jguest,jchoice,alpha,rcut,delr,drewd,maxmls,
-     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp,
-     &overlap,newld)
-            call accept_move
-     &(jguest,.false.,.true.,.false.,
-     &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-            estepj=-estep
-            do iatm=1,natms
-              newx(iatm) = guestx(jguest,iatm) + comshiftx
-              newy(iatm) = guesty(jguest,iatm) + comshifty
-              newz(iatm) = guestz(jguest,iatm) + comshiftz
-            enddo
-            estep=0.d0
-            call insertion
-     & (imcon,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurfj,surftol,overlap,newld)
-            estepj=estepj+estep
-            call accept_move
-     &(jguest,.true.,.false.,.false.,
-     &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-
-            call get_guest(iguest,ichoice,imol,natms,nmols)
-            do iatm=1,natms
-              newx(iatm) = guestx(iguest,iatm) + comx
-              newy(iatm) = guesty(iguest,iatm) + comy
-              newz(iatm) = guestz(iguest,iatm) + comz
-            enddo
-            estep=0.d0
-            call insertion
-     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
-            estepi=estepi+estep
-            call accept_move
-     &(iguest,.true.,.false.,.false.,
-     &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-c************************************************************************
-c           END OF SWITCH
-c************************************************************************
-c           update swap arrays for iguest
-            do k=1,nummols(locguest(iguest))
-              if (swap_mols(iguest,k) >= ichoice) then
-                swap_mols(iguest, k) = swap_mols(iguest,k+1)
-              end if
-            enddo
-            swap_mol_count(iguest) = swap_mol_count(iguest) - 1
-c           same for jguest
-            do k=1,nummols(locguest(jguest))
-              if (swap_mols(jguest,k) >= jchoice) then
-                swap_mols(jguest, k) = swap_mols(jguest,k+1)
-              end if
-            enddo
-            swap_mol_count(jguest) = swap_mol_count(jguest) - 1
-          enddo
-c         perform energy evaluation
-          if((estepi+estepj).lt.0.d0)then
-            accepted=.true.
-          else
-            accepted=.false.
-            rande=duni(idnode)
-            call energy_eval
-     &(estepi+estepj,rande,statvolm,iguest,0,temp,beta,
-     &displace,insert,delete,swap,accepted)
-          endif
-          if(loverlap)accepted=.false.
-c         DEBUG
-c          accepted=.false.
-c         END DEBUG
-          if(accepted)then
-            accept_switch=accept_switch+1
-            call condense(totatm,ntpfram,ntpguest)
-
-          else
-            do ik=1,maxmls
-              delE(ik)=0.d0
-              energy(ik)=origenergy(ik)
-              surfacemols(ik)=origsurfmols(ik)
-            enddo
-c           restore original framework if move is rejected
-            do ik=1,totatm 
-              molxxx(imol,ik)=origmolxxx(imol,ik)
-              molyyy(imol,ik)=origmolyyy(imol,ik)
-              molzzz(imol,ik)=origmolzzz(imol,ik)
-              molxxx(jmol,ik)=origmolxxx(jmol,ik)
-              molyyy(jmol,ik)=origmolyyy(jmol,ik)
-              molzzz(jmol,ik)=origmolzzz(jmol,ik)
-            enddo
-c           restore original ewald1 sums if step is rejected
-            do ik=1,newld
-              ckcsum(imol,ik)=ckcsorig(imol,ik) 
-              ckssum(imol,ik)=ckssorig(imol,ik) 
-              ckcsum(jmol,ik)=ckcsorig(jmol,ik) 
-              ckssum(jmol,ik)=ckssorig(jmol,ik) 
-              ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
-              ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-c              ckcsnew(imol,ik)=0.d0
-c              ckssnew(imol,ik)=0.d0
-c              ckcsnew(jmol,ik)=0.d0
-c              ckssnew(jmol,ik)=0.d0
-c              ckcsnew(maxmls+1,ik)=0.d0 
-c              ckssnew(maxmls+1,ik)=0.d0
-            enddo
-            elrc=origelrc
-            elrc_mol=origelrc_mol
-            engsic=engsicorig
-c           restore original surfacemols if step is rejected
-            call condense(totatm,ntpfram,ntpguest)
-          endif
         elseif(swap)then
 c***********************************************************************
 c    
@@ -2729,6 +2736,243 @@ c       tally surface molecules
       return
       end subroutine mc_jump
 
+      subroutine mc_switch
+     &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
+     &switch_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
+     &ntpguest)
+c*******************************************************************************
+c
+c     Keeps track of all the associated arrays and calls the 
+c     The underlying mechanics of this code is a 
+c     'deletion / displacement / insertion'
+c     move, where two molecules of different types in the simulation cell 
+c     switch locations.
+c     Acceptance/rejection criteria based on Metropolis
+c     importance sampling coupled to a canonical ensemble.
+c
+c     *** Currently only one switch is performed, but one could possibly
+c         include multi switches as long as (detailed) balance isn't
+c         violated. ***
+c*******************************************************************************
+      implicit none
+      logical accepted,loverlap,loverallap,linitsurf,linitsurfj
+      integer switch_count,nswitchgst,ntpguest,i,j,mol,nmols,jguest
+      integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
+      integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
+      integer ntpatm,maxvdw,accept_switch,ntpfram
+      real(8) comx,comy,comz,comshiftx,comshifty,comshiftz,estep
+      real(8) estepi,estepj,volm,statvolm,alpha,rcut,delr,drewd,epsq
+      real(8) engunit,overlap,surftol,dlrpot,sumchg,temp,beta,delrc
+      
+      nswitchgst = 0
+      do i=1,ntpguest
+        mol=locguest(i)
+        nmols=nummols(mol)
+c       generate array of molecules to randomly select
+        do j=1,nmols
+          switch_mols(i,j) = j
+        enddo
+        switch_mol_count(i) = nmols
+        if(nmols.gt.0)then
+          nswitchgst=nswitchgst+1
+          switch_chosen_guest(nswitchgst)=i
+        endif
+      enddo
+c     return if one can't make a switch move
+      if(nswitchgst.lt.2)return
+      switch_count=switch_count+1
+      engsicorig = engsic
+c     loverallap is true if one or both of the guests 
+c     overlap with other atoms in their new configurations.
+      loverallap=.false.
+c     random choice of the second guest to switch
+      jguest = floor(duni(idnode)*nswitchgst)+1
+      jguest = switch_chosen_guest(jguest)
+c     molecule choice to switch on each
+      swi(iguest)=swi(iguest)+1
+      ichoice=floor(duni(idnode)*switch_mol_count(iguest))+1
+      ichoice = switch_mols(iguest,ichoice)
+      
+      swi(jguest)=swi(jguest)+1
+      jchoice=floor(duni(idnode)*switch_mol_count(jguest))+1
+      jchoice= switch_mols(jguest,jchoice)
+c     store original framework configuration if the move is rejected
+      do i=1,maxmls
+        origenergy(i) = energy(i)
+        origsurfmols(i) = surfacemols(i)
+      enddo
+      jmol=locguest(jguest)
+      imol=locguest(iguest)
+c     back up original arrays in case move is rejected
+      do kk=1,totatm
+        origmolxxx(imol,kk) = molxxx(imol,kk)
+        origmolyyy(imol,kk) = molyyy(imol,kk)
+        origmolzzz(imol,kk) = molzzz(imol,kk)
+        origmolxxx(jmol,kk) = molxxx(jmol,kk)
+        origmolyyy(jmol,kk) = molyyy(jmol,kk)
+        origmolzzz(jmol,kk) = molzzz(jmol,kk)
+      enddo
+      do ik=1,newld
+        ckcsorig(imol,ik)=ckcsum(imol,ik) 
+        ckssorig(imol,ik)=ckssum(imol,ik) 
+        ckcsorig(jmol,ik)=ckcsum(jmol,ik) 
+        ckssorig(jmol,ik)=ckssum(jmol,ik) 
+        ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
+        ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
+c        ckcsnew(imol,ik)=0.d0
+c        ckssnew(imol,ik)=0.d0
+c        ckcsnew(jmol,ik)=0.d0
+c        ckssnew(jmol,ik)=0.d0
+c        ckcsnew(maxmls+1,ik)=0.d0 
+c        ckssnew(maxmls+1,ik)=0.d0
+      enddo
+c     keeping track of the guest orientations by
+c     re-populating the 'template' configurations for
+c     guestx,guesty,guestz
+      call get_guest(jguest,jchoice,jmol,natms,nmols)
+      call com(natms,jmol,newx,newy,newz,comx,comy,comz)
+      do iatm=1,natms
+        guestx(jguest,iatm)=newx(iatm) - comx
+        guesty(jguest,iatm)=newy(iatm) - comy
+        guestz(jguest,iatm)=newz(iatm) - comz
+      enddo
+      call get_guest(iguest,ichoice,imol,natms,nmols)
+      call com(natms,imol,newx,newy,newz,comshiftx,
+     &comshifty,comshiftz)
+      do iatm=1,natms
+        guestx(iguest,iatm)=newx(iatm) - comshiftx
+        guesty(iguest,iatm)=newy(iatm) - comshifty
+        guestz(iguest,iatm)=newz(iatm) - comshiftz
+      enddo
+c************************************************************************
+c       START SWITCH OF GUESTI AND GUESTJ
+c       Delete it, since shifting it to the new position would
+c       create infinite energies.
+c************************************************************************
+      estep = 0.d0
+      call deletion 
+     &(imcon,keyfce,iguest,ichoice,alpha,rcut,delr,drewd,maxmls,
+     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
+c     have to default accept move so the energy arrays are updated
+c     and ichoice from iguest is actually deleted from the system
+c     so that jchoice from jguest can be inserted there.
+      call accept_move
+     &(iguest,.false.,.true.,.false.,
+     &linitsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+      estepi=-estep
+      call get_guest(jguest,jchoice,jmol,natms,nmols)
+      estep=0.d0
+      call deletion 
+     &(imcon,keyfce,jguest,jchoice,alpha,rcut,delr,drewd,maxmls,
+     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp,
+     &overlap,newld)
+      call accept_move
+     &(jguest,.false.,.true.,.false.,
+     &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+      estepj=-estep
+      do iatm=1,natms
+        newx(iatm) = guestx(jguest,iatm) + comshiftx
+        newy(iatm) = guesty(jguest,iatm) + comshifty
+        newz(iatm) = guestz(jguest,iatm) + comshiftz
+      enddo
+      estep=0.d0
+      call insertion
+     & (imcon,jguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+     & loverlap,lnewsurfj,surftol,overlap,newld)
+      if(loverlap)loverallap=.true.
+      estepj=estepj+estep
+      call accept_move
+     &(jguest,.true.,.false.,.false.,
+     &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+
+      call get_guest(iguest,ichoice,imol,natms,nmols)
+      do iatm=1,natms
+        newx(iatm) = guestx(iguest,iatm) + comx
+        newy(iatm) = guesty(iguest,iatm) + comy
+        newz(iatm) = guestz(iguest,iatm) + comz
+      enddo
+      estep=0.d0
+      call insertion
+     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+     & loverlap,lnewsurf,surftol,overlap,newld)
+      if(loverlap)loverallap=.true.
+      estepi=estepi+estep
+      call accept_move
+     &(iguest,.true.,.false.,.false.,
+     &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
+     &sumchg,engsictmp,chgtmp,newld)
+c************************************************************************
+c           END OF SWITCH
+c************************************************************************
+c     perform energy evaluation
+      if((estepi+estepj).lt.0.d0)then
+        accepted=.true.
+      else
+        accepted=.false.
+        rande=duni(idnode)
+c       assume this move is governed by the canonical ensemble
+        call energy_eval
+     &(estepi+estepj,rande,statvolm,iguest,jguest,temp,beta,
+     &.true.,.false.,.false.,.false.,accepted)
+      endif
+      if(loverallap)accepted=.false.
+c     DEBUG
+c      accepted=.false.
+c     END DEBUG
+      if(accepted)then
+        accept_switch=accept_switch+1
+        call condense(totatm,ntpfram,ntpguest)
+      else
+        do ik=1,maxmls
+          delE(ik)=0.d0
+          energy(ik)=origenergy(ik)
+          surfacemols(ik)=origsurfmols(ik)
+        enddo
+c       restore original framework if move is rejected
+        do ik=1,totatm 
+          molxxx(imol,ik)=origmolxxx(imol,ik)
+          molyyy(imol,ik)=origmolyyy(imol,ik)
+          molzzz(imol,ik)=origmolzzz(imol,ik)
+          molxxx(jmol,ik)=origmolxxx(jmol,ik)
+          molyyy(jmol,ik)=origmolyyy(jmol,ik)
+          molzzz(jmol,ik)=origmolzzz(jmol,ik)
+        enddo
+c       restore original ewald1 sums if step is rejected
+        do ik=1,newld
+          ckcsum(imol,ik)=ckcsorig(imol,ik) 
+          ckssum(imol,ik)=ckssorig(imol,ik) 
+          ckcsum(jmol,ik)=ckcsorig(jmol,ik) 
+          ckssum(jmol,ik)=ckssorig(jmol,ik) 
+          ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
+          ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
+c          ckcsnew(imol,ik)=0.d0
+c          ckssnew(imol,ik)=0.d0
+c          ckcsnew(jmol,ik)=0.d0
+c          ckssnew(jmol,ik)=0.d0
+c          ckcsnew(maxmls+1,ik)=0.d0 
+c          ckssnew(maxmls+1,ik)=0.d0
+        enddo
+        elrc=origelrc
+        elrc_mol=origelrc_mol
+        engsic=engsicorig
+c       restore original surfacemols if step is rejected
+        call condense(totatm,ntpfram,ntpguest)
+      endif
+      return
+      end subroutine mc_switch
+
       subroutine mc_swap
      &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,statvolm,
      &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
@@ -2774,17 +3018,17 @@ c     store original ewald1 sums in case the move is rejected
       origelrc = elrc
       origelrc_mol=elrc_mol
       do j=1,iguest-1
-        swap_chosen_guest(j) = j
+        switch_chosen_guest(j) = j
       enddo 
       do j=iguest,ntpguest
-        swap_chosen_guest(j)=j+1
+        switch_chosen_guest(j)=j+1
       enddo
       ichoice=floor(duni(idnode)*nmols)+1
       call get_guest(iguest,ichoice,imol,natms,nmols)
       call com(natms,imol,newx,newy,newz,comx,comy,comz)
 c     chose a second guest to swap with
       jguest = floor(duni(idnode) * (ntpguest-1)) + 1
-      jguest = swap_chosen_guest(jguest)
+      jguest = switch_chosen_guest(jguest)
       jmol=locguest(jguest)
 c     store original framework configuration if the move is rejected
       do ik=1,totatm

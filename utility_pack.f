@@ -34,8 +34,8 @@
       integer, allocatable :: numfrz(:),numtyp(:),dens(:)
       integer, allocatable :: ins(:),del(:),dis(:),jmp(:),flx(:)
       integer, allocatable :: swp(:),swi(:)
-      integer, allocatable :: swap_mol_count(:), swap_mols(:,:)
-      integer, allocatable :: swap_chosen_guest(:)
+      integer, allocatable :: switch_mol_count(:), switch_mols(:,:)
+      integer, allocatable :: switch_chosen_guest(:)
       integer, allocatable :: ind(:),ilist(:),jlist(:),angdist(:)
       integer, allocatable :: nprob(:),nprobsites(:),lprobsites(:,:)
 
@@ -153,7 +153,7 @@ c     statistics file input channel
       save gstpress,angdist,node_avg,node_std,nodeweight
       save xdf,ydf,zdf,rsqdf
       save ins,del,dis,jmp,flx,swp,swi
-      save swap_mol_count, swap_mols, swap_chosen_guest
+      save switch_mol_count,switch_mols,switch_chosen_guest
       save lexatm,nexatm,noxatm,ilist,jlist,unqatm,ltpsit
       save mxlist,ltype,mxegrd,lexsit,nexsit
       save numtyp,numfrz,dens,ind,newx,newy,newz
@@ -996,9 +996,9 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(flx(ntpguest),stat=fail(65))
       allocate(swp(ntpguest),stat=fail(66))
       allocate(swi(ntpguest),stat=fail(67))
-      allocate(swap_mol_count(ntpguest),stat=fail(68))
-      allocate(swap_mols(ntpguest,maxguest),stat=fail(69))
-      allocate(swap_chosen_guest(ntpguest),stat=fail(70))
+      allocate(switch_mol_count(ntpguest),stat=fail(68))
+      allocate(switch_mols(ntpguest,maxguest),stat=fail(69))
+      allocate(switch_chosen_guest(ntpguest),stat=fail(70))
       allocate(origmolxxx(maxmls,maxalloc),stat=fail(71))
       allocate(origmolyyy(maxmls,maxalloc),stat=fail(73))
       allocate(origmolzzz(maxmls,maxalloc),stat=fail(74))
