@@ -46,6 +46,7 @@ c*************************************************************
       use flex_module
       use ewald_module
       use mc_moves
+      use wang_landau
 
       implicit none
 
@@ -629,7 +630,7 @@ c             no rolling average here, just div by widcount at the end
       endif
       if (lwanglandau)then
         lgchk=.false.
-        call wang_landau
+        call wang_landau_sim
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
      &sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
@@ -1579,7 +1580,7 @@ c***********************************************************************
      &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
-     &ntpguest)
+     &ntpguest,rotangle)
 c          swap_count = swap_count+1
 c          origtotatm = totatm 
 c
@@ -2781,15 +2782,15 @@ c         violated. ***
 c*******************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
-      logical lnewsurfj
+      logical lnewsurf,lnewsurfj
       integer switch_count,nswitchgst,ntpguest,i,j,mol,nmols,jguest
       integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
       integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
-      integer ntpatm,maxvdw,accept_switch,ntpfram
+      integer ntpatm,maxvdw,accept_switch,ntpfram,natms
       real(8) icomx,icomy,icomz,jcomx,jcomy,jcomz,estep
       real(8) estepi,estepj,volm,statvolm,alpha,rcut,delr,drewd,epsq
       real(8) engunit,overlap,surftol,dlrpot,sumchg,temp,beta,delrc
-      real(8) engsictmp,chgtmp 
+      real(8) engsictmp,chgtmp,rande 
       nswitchgst = 0
       do i=1,ntpguest
         mol=locguest(i)
@@ -3000,7 +3001,7 @@ c       restore original surfacemols if step is rejected
      &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
-     &ntpguest)
+     &ntpguest,rotangle)
 c*******************************************************************************
 c
 c     Keeps track of all the associated arrays and calls the 
@@ -3017,12 +3018,12 @@ c*******************************************************************************
       integer idnode,imcon,keyfce,iguest,jguest,totatm,swap_count
       integer maxmls,kmax1,kmax2,kmax3,origtotatm,ik,imol,jmol,iatm
       integer newld,ntpatm,maxvdw,accept_swap,randchoice
-      integer nmol,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
+      integer nmols,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
       integer jnatms,jnmols
       real(8) volm,statvolm,alpha,rcut,delr,drewd,epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estepi,estepj,gpress,rande,estep
-      real(8) comx,comy,comz,engsictmp,chgtmp
+      real(8) comx,comy,comz,engsictmp,chgtmp,rotangle
 
       swap_count = swap_count+1
       origtotatm = totatm 
@@ -3458,7 +3459,8 @@ c***********************************************************************
       integer nmols,natms,ik,mxcmls
       real(8) alpha,rcut,delr,drewd,volm,epsq,overlap,surftol
       real(8) dlrpot,sumchg,comx,comy,comz,q1,q2,q3,q4,a,b,c
-      real(8) estep,enginit,engunit,ewld3sum
+      real(8) estep,enginit,engunit,ewld3sum,chgtmp,engsictmp
+      real(8) ewld1eng,ewld2sum,vdwsum
       call get_guest(iguest,imol,mol,natms,nmols)
 c     Calculate the energy for the chosen guest in
 c     its orginal place
