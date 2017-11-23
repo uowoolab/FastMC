@@ -109,7 +109,6 @@ c     DEBUG
       real(8) ecoul,evdw
       real(8) ecoulg,evdwg,overlap,surfmol
       real(8) ewld2sum,vdwsum,comx,comy,comz,ewaldaverage
-      real(8) comshiftx, comshifty, comshiftz 
       real(8) dmolecules,molecules2,energy2,Q_st,C_v
       real(8) weight,tw,spenergy,dlpeng,estep,thrd,twothrd
       real(8) estepi,estepj
@@ -2692,7 +2691,7 @@ c*******************************************************************************
       integer nmol,natms,mol,ik,ntpfram,ntpguest
       real(8) volm,statvolm,jumpangle,alpha,rcut,delr,drewd,epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
-      real(8) a,b,c,q1,q2,q3,q4,estep,gpress,rande
+      real(8) a,b,c,q1,q2,q3,q4,estep,gpress,rande,engsictmp,chgtmp
 
       mol=locguest(iguest)
       nmol=nummols(mol)
@@ -2782,14 +2781,15 @@ c         violated. ***
 c*******************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
+      logical lnewsurfj
       integer switch_count,nswitchgst,ntpguest,i,j,mol,nmols,jguest
       integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
       integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
       integer ntpatm,maxvdw,accept_switch,ntpfram
-      real(8) comx,comy,comz,comshiftx,comshifty,comshiftz,estep
+      real(8) icomx,icomy,icomz,jcomx,jcomy,jcomz,estep
       real(8) estepi,estepj,volm,statvolm,alpha,rcut,delr,drewd,epsq
       real(8) engunit,overlap,surftol,dlrpot,sumchg,temp,beta,delrc
-      
+      real(8) engsictmp,chgtmp 
       nswitchgst = 0
       do i=1,ntpguest
         mol=locguest(i)
@@ -2799,7 +2799,7 @@ c       generate array of molecules to randomly select
           switch_mols(i,j) = j
         enddo
         switch_mol_count(i) = nmols
-        if(nmols.gt.0)then
+        if((nmols.gt.0).and.(i.ne.iguest))then
           nswitchgst=nswitchgst+1
           switch_chosen_guest(nswitchgst)=i
         endif
@@ -2856,19 +2856,18 @@ c     keeping track of the guest orientations by
 c     re-populating the 'template' configurations for
 c     guestx,guesty,guestz
       call get_guest(jguest,jchoice,jmol,natms,nmols)
-      call com(natms,jmol,newx,newy,newz,comx,comy,comz)
+      call com(natms,jmol,newx,newy,newz,jcomx,jcomy,jcomz)
       do iatm=1,natms
-        guestx(jguest,iatm)=newx(iatm) - comx
-        guesty(jguest,iatm)=newy(iatm) - comy
-        guestz(jguest,iatm)=newz(iatm) - comz
+        guestx(jguest,iatm)=newx(iatm) - jcomx
+        guesty(jguest,iatm)=newy(iatm) - jcomy
+        guestz(jguest,iatm)=newz(iatm) - jcomz
       enddo
       call get_guest(iguest,ichoice,imol,natms,nmols)
-      call com(natms,imol,newx,newy,newz,comshiftx,
-     &comshifty,comshiftz)
+      call com(natms,imol,newx,newy,newz,icomx,icomy,icomz)
       do iatm=1,natms
-        guestx(iguest,iatm)=newx(iatm) - comshiftx
-        guesty(iguest,iatm)=newy(iatm) - comshifty
-        guestz(iguest,iatm)=newz(iatm) - comshiftz
+        guestx(iguest,iatm)=newx(iatm) - icomx
+        guesty(iguest,iatm)=newy(iatm) - icomy
+        guestz(iguest,iatm)=newz(iatm) - icomz
       enddo
 c************************************************************************
 c       START SWITCH OF GUESTI AND GUESTJ
@@ -2885,9 +2884,8 @@ c     have to default accept move so the energy arrays are updated
 c     and ichoice from iguest is actually deleted from the system
 c     so that jchoice from jguest can be inserted there.
       call accept_move
-     &(iguest,.false.,.true.,.false.,
-     &linitsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
+     &(iguest,.false.,.true.,.false.,linitsurf,delrc,totatm,ichoice,
+     &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
       estepi=-estep
       call get_guest(jguest,jchoice,jmol,natms,nmols)
       estep=0.d0
@@ -2897,14 +2895,16 @@ c     so that jchoice from jguest can be inserted there.
      &engunit,delrc,estep,linitsurfj,surftol,sumchg,engsictmp,chgtmp,
      &overlap,newld)
       call accept_move
-     &(jguest,.false.,.true.,.false.,
-     &linitsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
+     &(jguest,.false.,.true.,.false.,linitsurfj,delrc,totatm,jchoice,
+     &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
       estepj=-estep
+
+c     now insert the guests in their new positions (jguest in iguests
+c     position and vise versa)
       do iatm=1,natms
-        newx(iatm) = guestx(jguest,iatm) + comshiftx
-        newy(iatm) = guesty(jguest,iatm) + comshifty
-        newz(iatm) = guestz(jguest,iatm) + comshiftz
+        newx(iatm) = guestx(jguest,iatm) + icomx
+        newy(iatm) = guesty(jguest,iatm) + icomy
+        newz(iatm) = guestz(jguest,iatm) + icomz
       enddo
       estep=0.d0
       call insertion
@@ -2915,15 +2915,14 @@ c     so that jchoice from jguest can be inserted there.
       if(loverlap)loverallap=.true.
       estepj=estepj+estep
       call accept_move
-     &(jguest,.true.,.false.,.false.,
-     &lnewsurfj,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
+     &(jguest,.true.,.false.,.false.,lnewsurfj,delrc,totatm,jchoice,
+     &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
 
       call get_guest(iguest,ichoice,imol,natms,nmols)
       do iatm=1,natms
-        newx(iatm) = guestx(iguest,iatm) + comx
-        newy(iatm) = guesty(iguest,iatm) + comy
-        newz(iatm) = guestz(iguest,iatm) + comz
+        newx(iatm) = guestx(iguest,iatm) + jcomx
+        newy(iatm) = guesty(iguest,iatm) + jcomy
+        newz(iatm) = guestz(iguest,iatm) + jcomz
       enddo
       estep=0.d0
       call insertion
@@ -2934,9 +2933,8 @@ c     so that jchoice from jguest can be inserted there.
       if(loverlap)loverallap=.true.
       estepi=estepi+estep
       call accept_move
-     &(iguest,.true.,.false.,.false.,
-     &lnewsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
+     &(iguest,.true.,.false.,.false.,lnewsurf,delrc,totatm,ichoice,
+     &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
 c************************************************************************
 c           END OF SWITCH
 c************************************************************************

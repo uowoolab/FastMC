@@ -504,10 +504,10 @@ c       update long range correction
         elrc_mol(:)=elrc_mol(:)+delrc_mol(:)
 c       update nummols,totatm, then condense everything to 1d arrays
         nummols(mol)=nummols(mol)+1
-c       update the choice variable in case the user does something
-c       with this after
         totatm=totatm+natms
         call condense(totatm,ntpfram,ntpguest)
+c       update the choice variable in case the user does something
+c       with this after
         choice = nummols(mol)
       elseif(delete)then
         do k=1,newld
