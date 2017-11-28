@@ -9,7 +9,8 @@
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
      &sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec)
+     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,
+     &mcrotf,mcswif,nnumg,temp)
 c*****************************************************************************
 c     
 c     Main routine for computing the weighted histogram of Wang and
@@ -22,35 +23,45 @@ c*****************************************************************************
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
-      integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg
-      integer natms,iguest,mol,idum,ntpfram,i
+      integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg,nhist
+      integer natms,iguest,mol,idum,ntpfram,i,nnumg,minchk
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp
-      real(8) engsictmp,delrc,wlprec
+      real(8) engsictmp,delrc,wlprec,timelp
+      real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
+      real(8) mcrotf,mcswif,lambda,temp
       write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
       write(nrite,
      &"('Initial coefficient set to',f9.5,/)")wlprec
       lgchk=.true.
+      ! set the number of concurrent histograms sampling.
+      ! We will hard-code this to one and sample only the number of
+      ! guests for now... 
+      nhist=1
+      call alloc_wl_arrays(idnode,nhist,ntpguest)
 c     Temporary: exit if more than one guest included in the
 c     FIELD/CONTROL files. Make clear that this currently works
 c     for estimating the partition function for a single guest
 c     at a single temperature.
       if(ntpguest.gt.1)call error(idnode,2318)
-      iguest=1
-      mol=locguest(iguest)
-      natms=numatoms(mol)
-
+    
+      call timchk(0,timelp)
+c     loop is kind of pointless for now but keep it for future
+c     use.
       do i=1,ntpguest
-        ! compute reduced thermal debroglie wavelength for each guest
-
+        ! compute thermal debroglie wavelength for each guest
+        ! assuming, 1) equilibrium ideal gas, 2) no internal degrees of freedom
+        mol=locguest(i)
+        lambda = hplanck / sqrt(2.d0*pi*molmass(i)*boltz*temp)
+        dlambda(i) = lambda 
         if(guest_insert(i).gt.0)call insert_guests
      &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,guest_insert(i),
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
      &maxmls)
       enddo
-
+      minchk=min(400,nnumg)
       do while(lgchk)
 c       randomly select guest
 c       chose an MC move to perform

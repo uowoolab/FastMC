@@ -43,7 +43,7 @@
       real(8), allocatable :: dbuff(:),delE(:)
       real(8), allocatable :: statbuff(:),chainstats(:)
       real(8), allocatable :: energy(:), node_avg(:,:),nodeweight(:)
-      real(8), allocatable :: origenergy(:)
+      real(8), allocatable :: origenergy(:),molmass(:)
       real(8), allocatable :: surfacemols(:),origsurfmols(:)
       real(8), allocatable :: node_std(:,:)
       real(8), allocatable :: avgwindow(:), varwindow(:), sumwindowav(:)
@@ -82,7 +82,7 @@ c     min translation for gcmc displacement
       real(8), parameter :: delrmax=3.d0
 
 c     conversion factor for coulombic terms in internal units
-c     i.e. (unit(charge)**2/(4 pi eps0 unit(length))/unit(energy)
+c     i.e. (unit(charge)**2/(4 pi eps0 unit(length))/unit(energy))
 
       real(8), parameter :: r4pie0=138935.4835d0
 
@@ -106,6 +106,10 @@ c     Gas constant in terms of kcal / (mol K)
 c     planck's constant in internal units
 
       real(8), parameter :: hbar=6.350780668d0
+
+c     planck's constant in (m^2 kg) / s
+
+      real(8), parameter :: hplanck = 6.62607004d-34
 
 c     conversion factor for pressure from internal units to katm
 
@@ -159,7 +163,7 @@ c     statistics file input channel
       save numtyp,numfrz,dens,ind,newx,newy,newz
       save nprob,nprobsites,lprobsites,grid
       save delE, energy, total_pressure, gstfuga, gstmolfract
-      save origenergy,guest_insert
+      save origenergy,guest_insert,molmass
       save Acc_factor, P_crit, T_crit, K_fug
       save origsurfmols,surfacemols,lprobeng
       contains
@@ -934,72 +938,73 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(guesty(ntpguest,mxguestsite),stat=fail(3))
       allocate(guestz(ntpguest,mxguestsite),stat=fail(4))
       allocate(locfram(maxmls),stat=fail(5))
-      allocate(list(maxalloc,mxlist),stat=fail(6))
-      allocate(lentry(maxalloc),stat=fail(7))
-      allocate(noxatm(maxalloc),stat=fail(8))
-      allocate(nexatm(maxalloc),stat=fail(9))
-      allocate(lexatm(maxalloc,mxexcl),stat=fail(10))
-      allocate(nexsit(mxguestsite,mxexcl),stat=fail(11))
-      allocate(lexsit(mxguestsite,mxguestsite,mxexcl),stat=fail(12))
-      allocate(xxx(maxalloc),stat=fail(13))
-      allocate(yyy(maxalloc),stat=fail(14))
-      allocate(zzz(maxalloc),stat=fail(15))
-      allocate(molnam(40,maxmls),stat=fail(16))
-      allocate(nummols(maxmls),stat=fail(17))
-      allocate(numatoms(maxmls),stat=fail(18))
-      allocate(atmname(maxmls,maxalloc),stat=fail(19))
-      allocate(atmchg(maxmls,maxalloc),stat=fail(20))
-      allocate(atmwght(maxmls,maxalloc),stat=fail(21))
-      allocate(lfzsite(maxmls,maxalloc),stat=fail(22))
-      allocate(molxxx(maxmls,maxalloc),stat=fail(23))
-      allocate(molyyy(maxmls,maxalloc),stat=fail(24))
-      allocate(molzzz(maxmls,maxalloc),stat=fail(25))
-      allocate(frambuff(maxmls,maxalloc),stat=fail(26))
-      allocate(lfreezesite(maxalloc),stat=fail(27))
-      allocate(atmcharge(maxalloc),stat=fail(28))
-      allocate(atomname(maxalloc),stat=fail(29))
-      allocate(atmweight(maxalloc),stat=fail(30))
-      allocate(gstlentry(mxguestsite),stat=fail(31))
-      allocate(gstpress(ntpguest),stat=fail(32))
-      allocate(statbuff(1+ntpguest*16),stat=fail(33))
-      allocate(chainstats(1+ntpguest*16),stat=fail(34))
-      allocate(gstlist(mxguestsite,maxalloc),stat=fail(35))
-      allocate(ilist(maxalloc),stat=fail(36))
-      allocate(unqatm(maxalloc),stat=fail(37))
-      allocate(jlist(maxalloc),stat=fail(38))
-      allocate(ltpsit(maxmls,maxalloc),stat=fail(39))
-      allocate(ltype(maxalloc),stat=fail(40))
-      allocate(xdf(maxalloc),stat=fail(41))
-      allocate(ydf(maxalloc),stat=fail(42))
-      allocate(zdf(maxalloc),stat=fail(43))
-      allocate(rsqdf(maxalloc),stat=fail(44))
-      allocate(numtyp(mxatyp),stat=fail(45))
-      allocate(numfrz(mxatyp),stat=fail(46))
-      allocate(dens(mxatyp),stat=fail(47))
-      allocate(newx(mxguestsite),stat=fail(48))
-      allocate(newy(mxguestsite),stat=fail(49))
-      allocate(newz(mxguestsite),stat=fail(50))
-      allocate(ind(mxguestsite),stat=fail(51))
-      allocate(energy(maxmls+1),stat=fail(52))
-      allocate(origenergy(maxmls+1),stat=fail(53))
-      allocate(delE(mxcmls),stat=fail(54))
-      allocate(avgwindow(ntpguest*9),stat=fail(55))
-      allocate(sumwindowav(ntpguest*9),stat=fail(56))
-      allocate(varwindow(ntpguest*9),stat=fail(57))
-      allocate(nodeweight(mxnode),stat=fail(58))
-      allocate(node_avg(mxnode,ntpguest*9),stat=fail(59))
-      allocate(node_std(mxnode,ntpguest*9),stat=fail(60))
-      allocate(ins(ntpguest),stat=fail(61))
-      allocate(del(ntpguest),stat=fail(62))
-      allocate(dis(ntpguest),stat=fail(63))
-      allocate(jmp(ntpguest),stat=fail(64))
-      allocate(flx(ntpguest),stat=fail(65))
-      allocate(swp(ntpguest),stat=fail(66))
-      allocate(swi(ntpguest),stat=fail(67))
-      allocate(switch_mol_count(ntpguest),stat=fail(68))
-      allocate(switch_mols(ntpguest,maxguest),stat=fail(69))
-      allocate(switch_chosen_guest(ntpguest),stat=fail(70))
-      allocate(origmolxxx(maxmls,maxalloc),stat=fail(71))
+      allocate(molmass(maxmls),stat=fail(6))
+      allocate(list(maxalloc,mxlist),stat=fail(7))
+      allocate(lentry(maxalloc),stat=fail(8))
+      allocate(noxatm(maxalloc),stat=fail(9))
+      allocate(nexatm(maxalloc),stat=fail(10))
+      allocate(lexatm(maxalloc,mxexcl),stat=fail(11))
+      allocate(nexsit(mxguestsite,mxexcl),stat=fail(12))
+      allocate(lexsit(mxguestsite,mxguestsite,mxexcl),stat=fail(13))
+      allocate(xxx(maxalloc),stat=fail(14))
+      allocate(yyy(maxalloc),stat=fail(15))
+      allocate(zzz(maxalloc),stat=fail(16))
+      allocate(molnam(40,maxmls),stat=fail(17))
+      allocate(nummols(maxmls),stat=fail(18))
+      allocate(numatoms(maxmls),stat=fail(19))
+      allocate(atmname(maxmls,maxalloc),stat=fail(20))
+      allocate(atmchg(maxmls,maxalloc),stat=fail(21))
+      allocate(atmwght(maxmls,maxalloc),stat=fail(22))
+      allocate(lfzsite(maxmls,maxalloc),stat=fail(23))
+      allocate(molxxx(maxmls,maxalloc),stat=fail(24))
+      allocate(molyyy(maxmls,maxalloc),stat=fail(25))
+      allocate(molzzz(maxmls,maxalloc),stat=fail(26))
+      allocate(frambuff(maxmls,maxalloc),stat=fail(27))
+      allocate(lfreezesite(maxalloc),stat=fail(28))
+      allocate(atmcharge(maxalloc),stat=fail(29))
+      allocate(atomname(maxalloc),stat=fail(30))
+      allocate(atmweight(maxalloc),stat=fail(31))
+      allocate(gstlentry(mxguestsite),stat=fail(32))
+      allocate(gstpress(ntpguest),stat=fail(33))
+      allocate(statbuff(1+ntpguest*16),stat=fail(34))
+      allocate(chainstats(1+ntpguest*16),stat=fail(35))
+      allocate(gstlist(mxguestsite,maxalloc),stat=fail(36))
+      allocate(ilist(maxalloc),stat=fail(37))
+      allocate(unqatm(maxalloc),stat=fail(38))
+      allocate(jlist(maxalloc),stat=fail(39))
+      allocate(ltpsit(maxmls,maxalloc),stat=fail(40))
+      allocate(ltype(maxalloc),stat=fail(41))
+      allocate(xdf(maxalloc),stat=fail(42))
+      allocate(ydf(maxalloc),stat=fail(43))
+      allocate(zdf(maxalloc),stat=fail(44))
+      allocate(rsqdf(maxalloc),stat=fail(45))
+      allocate(numtyp(mxatyp),stat=fail(46))
+      allocate(numfrz(mxatyp),stat=fail(47))
+      allocate(dens(mxatyp),stat=fail(48))
+      allocate(newx(mxguestsite),stat=fail(49))
+      allocate(newy(mxguestsite),stat=fail(50))
+      allocate(newz(mxguestsite),stat=fail(51))
+      allocate(ind(mxguestsite),stat=fail(52))
+      allocate(energy(maxmls+1),stat=fail(53))
+      allocate(origenergy(maxmls+1),stat=fail(54))
+      allocate(delE(mxcmls),stat=fail(55))
+      allocate(avgwindow(ntpguest*9),stat=fail(56))
+      allocate(sumwindowav(ntpguest*9),stat=fail(57))
+      allocate(varwindow(ntpguest*9),stat=fail(58))
+      allocate(nodeweight(mxnode),stat=fail(59))
+      allocate(node_avg(mxnode,ntpguest*9),stat=fail(60))
+      allocate(node_std(mxnode,ntpguest*9),stat=fail(61))
+      allocate(ins(ntpguest),stat=fail(62))
+      allocate(del(ntpguest),stat=fail(63))
+      allocate(dis(ntpguest),stat=fail(64))
+      allocate(jmp(ntpguest),stat=fail(65))
+      allocate(flx(ntpguest),stat=fail(66))
+      allocate(swp(ntpguest),stat=fail(67))
+      allocate(swi(ntpguest),stat=fail(68))
+      allocate(switch_mol_count(ntpguest),stat=fail(69))
+      allocate(switch_mols(ntpguest,maxguest),stat=fail(70))
+      allocate(switch_chosen_guest(ntpguest),stat=fail(71))
+      allocate(origmolxxx(maxmls,maxalloc),stat=fail(72))
       allocate(origmolyyy(maxmls,maxalloc),stat=fail(73))
       allocate(origmolzzz(maxmls,maxalloc),stat=fail(74))
       allocate(gstfuga(ntpguest),stat=fail(75))
@@ -3973,5 +3978,56 @@ c     this is the numerator of the angle calc (dot product of vectors)
      &sqrt(dot_product(vect1,vect1))/sqrt(dot_product(vect2,vect2)))
 
       end subroutine calc_angle
+      subroutine timchk(ktim,time)
+
+c***********************************************************************
+c     
+c     timing routine for time elapsed in seconds
+c     
+c***********************************************************************
+      implicit none
+
+      logical init
+      character*12 dat,tim,zon
+      integer idnode,mynode,ktim,day
+      real(8) time,told,tsum,tnow
+      integer info(8)
+
+      save init,idnode,told,tsum,day
+
+      data init/.true./
+
+   10 format(/,'time elapsed since job start = ',f15.3,' seconds',/)
+
+      call date_and_time(dat,tim,zon,info)
+      
+      if(init)then
+
+         tsum=0.d0
+         time=0.d0
+         day=info(3)
+         idnode=mynode()
+         told=3600.d0*dble(info(5))+60.d0*dble(info(6))+
+     x         dble(info(7))+0.001d0*dble(info(8))
+         init=.false.
+
+      else 
+
+         tnow=3600.d0*dble(info(5))+60.d0*dble(info(6))+
+     x         dble(info(7))+0.001d0*dble(info(8))
+         if(day.ne.info(3))then
+           told=told-86400.d0
+           day=info(3)
+         endif
+         tsum=tsum+tnow-told
+         told=tnow
+         time=tsum
+
+      endif
+
+      if(ktim.gt.0.and.idnode.eq.0) write(nrite,10)time
+
+      return
+      end subroutine timchk
 
       end module utility_pack

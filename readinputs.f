@@ -117,12 +117,13 @@ c        initialize number of sites counter
      &         write(nrite,"(/,2x,'molecular species type:',3x,i4)")
      &         n
 
-c        get name of molecular species
              
+              mass=0.d0
+c            get name of molecular species
              call getrec(safe,idnode,nfield)
              if(.not.safe)call abort_field_read(1,idnode,nfield)
              call lowcase(record,lenrec)
-c        break if commented out
+c            break if commented out
              if(findstring('&guest',record,idum))then
                call getword(junk,record,6,lenrec)
                lguest=.true.
@@ -138,7 +139,7 @@ c        break if commented out
      &         write(nrite,"(2x,'name of species:',3x,40a1)")
      &         (molnam(i,n),i=1,40)
 
-            
+                   
              loop2=.true.
              do while(loop2)
                call getrec(safe,idnode,nfield)
@@ -204,6 +205,7 @@ c                       nsite iterates over all atom sites
                         atmwght(n,ksite)=weight
                         atmchg(n,ksite)=charge
                         lfzsite(n,ksite)=ifrz
+                        mass=mass+weight
                       enddo
                       if(idnode.eq.0)then
                         write(nrite,"(21x,i5,5x,a8,2f12.5,3i10)")
@@ -242,7 +244,7 @@ c          establish a list of unique atom types (for vdw calc)
 c                 calculate com of the guest and subtract
 c                 so the reference atoms are centred around
 c                 the com.
-                    mass=0.d0
+                    molmass(n) = mass
                     comx=0.d0
                     comy=0.d0
                     comz=0.d0
@@ -269,6 +271,9 @@ c                 the com.
      &                   guesty(ntpguest,i),guestz(ntpguest,i)
                       enddo
                     endif
+                  else
+                    ! mass of framework.
+                    molmass(n) = mass*nummols(n)
                   endif
                endif
              enddo
