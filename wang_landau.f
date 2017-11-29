@@ -7,10 +7,10 @@
       contains
       subroutine wang_landau_sim
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
-     &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-     &sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
+     &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
      &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,
-     &mcrotf,mcswif,nnumg,temp)
+     &mcrotf,mcswif,nnumg,temp,beta)
 c*****************************************************************************
 c     
 c     Main routine for computing the weighted histogram of Wang and
@@ -19,22 +19,40 @@ c     PB - 21/08/2017
 c
 c*****************************************************************************
       implicit none
-      logical wlchk,loverlap,lnewsurf,lprod
+      logical wlchk,loverlap,lnewsurf,lprod,accepted
+      logical insert,delete,displace,jump,swap,tran,rota,switch
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg,nhist
-      integer natms,iguest,mol,idum,ntpfram,i,nnumg,minchk
+      integer natms,iguest,jguest,mol,idum,ntpfram,i,nnumg,minchk
+      integer accept_ins,ins_count,accept_del,del_count,accept_tran
+      integer tran_count,accept_disp,disp_count,accept_rota,rota_count
+      integer totaccept,wlcount,accept_jump,jump_count,accept_switch
+      integer switch_count,accept_swap,swap_count
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
-      real(8) sumchg,surftol,overlap,estep,chgtmp
-      real(8) engsictmp,delrc,wlprec,timelp
+      real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
+      real(8) engsictmp,delrc,wlprec,timelp,beta,statvolm
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
-      real(8) mcrotf,mcswif,lambda,temp
+      real(8) mcrotf,mcswif,lambda,temp,tran_delr,rota_rotangle
+      real(8) delrdisp,rotangle,jumpangle
       write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
       write(nrite,
      &"('Initial coefficient set to',f9.5,/)")wlprec
       wlchk=.true.
+
+      data accept_ins,accept_del,accept_disp,totaccept/0,0,0,0/
+      data accept_jump,accept_swap,accept_switch/0,0,0/
+      data accept_tran,accept_rota/0,0/
+      data ins_count,del_count,disp_count,wlcount/0,0,0,0/
+      data jump_count,swap_count,switch_count/0,0,0/
+      data tran_count,rota_count/0,0/
+      rotangle=pi/3.d0
+      delrdisp=delr
+      tran_delr=delr
+      rota_rotangle=rotangle
+      jumpangle=rotangle
       ! set the number of concurrent histograms sampling.
       ! We will hard-code this to one and sample only the number of
       ! guests for now... 
@@ -52,7 +70,6 @@ c     use.
       do i=1,ntpguest
         ! compute thermal debroglie wavelength for each guest
         ! assuming, 1) equilibrium ideal gas, 2) no internal degrees of freedom
-        mol=locguest(i)
         lambda = hplanck / sqrt(2.d0*pi*molmass(i)*boltz*temp)
         dlambda(i) = lambda
         if(guest_insert(i).gt.0)call insert_guests
@@ -65,20 +82,95 @@ c     use.
       do while(wlchk)
 c       randomly select guest, should only be one for now
         iguest=floor(duni(idnode)*ntpguest)+1
-c       chose an MC move to perform
-c        
+c       set all moves to false.
+        insert=.false.
+        delete=.false.
+        displace=.false.
+        jump=.false.
+        swap=.false.
+        tran=.false.
+        rota=.false.
+        switch=.false.
+c       chose a move to perform
 c       accept/reject based on modified acceptance criteria
-        call random_ins(idnode,natms,iguest,rcut,delr)
-        estep=0.d0
-        call insertion
-     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
-c        call accept_move
-c     & (iguest,.true.,.false.,.false.,lnewsurf,
-c     & delrc,totatm,idum,ntpfram,ntpguest,maxmls,sumchg,
-c     & engsictmp,chgtmp,newld)
+        randmov=duni(idnode)
+        if(randmov.lt.mcinsf)then
+          insert = .true.
+        elseif(randmov.lt.mcdelf)then
+          delete = .true.
+        elseif(randmov.lt.mcdisf)then
+          displace = .true.
+        elseif(randmov.lt.mcjmpf)then
+          jump = .true.
+        elseif(randmov.lt.mcswpf)then
+          swap = .true.
+        elseif(randmov.lt.mctraf)then
+          displace = .true.
+          tran = .true.
+        elseif(randmov.lt.mcrotf)then
+          displace = .true.
+          rota = .true.
+        elseif(randmov.lt.mcswif)then
+          switch = .true.
+        else
+c Failover displace -- shouldn't reach here
+          displace=.true.
+        endif
+
+        if(insert)then
+          call wl_insert
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
+     &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
+     &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
+     &overlap,accepted,temp,beta,accept_ins)
+          insert=.false.
+        elseif(delete)then
+          call wl_delete
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,del_count,alpha,
+     &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
+     &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
+     &overlap,accepted,temp,beta,accept_del)
+          delete=.false.
+        elseif(displace)then
+          call wl_displace
+     &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,tran,
+     &tran_count,tran_delr,rota,rota_count,rota_rotangle,disp_count,
+     &delrdisp,rotangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,rcut,delr,
+     &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
+     &beta,delrc,ntpatm,maxvdw,accept_tran,accept_rota,accept_disp,
+     &ntpguest,ntpfram)
+          displace=.false.
+          tran=.false.
+          rota=.false.
+        elseif(jump)then
+          call wl_jump
+     &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
+     &jump_count,jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_jump,ntpfram,
+     &ntpguest)
+          jump=.false.
+        elseif(switch)then
+          call wl_switch
+     &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
+     &switch_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
+     &ntpguest)
+          switch=.false.
+        elseif(swap)then
+          call wl_swap
+     &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,statvolm,
+     &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
+     &ntpguest,rotangle)
+          swap=.false.
+        endif
+
+        if(accepted)then
+          accepted=.false.
+        endif
         wlchk=.false.
       enddo
       lprod=.true.

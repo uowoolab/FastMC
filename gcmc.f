@@ -632,10 +632,10 @@ c             no rolling average here, just div by widcount at the end
         lgchk=.false.
         call wang_landau_sim
      &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
-     &ntpfram,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,
-     &sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,mcrotf,
-     &mcswif,nnumg,temp)
+     &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
+     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,
+     &mcrotf,mcswif,nnumg,temp,beta)
       endif
 
 
@@ -1803,7 +1803,6 @@ c*******************************************************************************
       mol=locguest(iguest)
       nmol=nummols(mol)
       natms=numatoms(mol)
-
       lnewsurf = .false.
       engsicorig=engsic
       ins(iguest)=1
