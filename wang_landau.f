@@ -19,7 +19,7 @@ c     PB - 21/08/2017
 c
 c*****************************************************************************
       implicit none
-      logical lgchk,loverlap,lnewsurf,lprod
+      logical wlchk,loverlap,lnewsurf,lprod
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
@@ -34,7 +34,7 @@ c*****************************************************************************
      &"(/'Entering main routine for Wang - Landau calculation',/)")
       write(nrite,
      &"('Initial coefficient set to',f9.5,/)")wlprec
-      lgchk=.true.
+      wlchk=.true.
       ! set the number of concurrent histograms sampling.
       ! We will hard-code this to one and sample only the number of
       ! guests for now... 
@@ -54,18 +54,19 @@ c     use.
         ! assuming, 1) equilibrium ideal gas, 2) no internal degrees of freedom
         mol=locguest(i)
         lambda = hplanck / sqrt(2.d0*pi*molmass(i)*boltz*temp)
-        dlambda(i) = lambda 
+        dlambda(i) = lambda
         if(guest_insert(i).gt.0)call insert_guests
-     &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,guest_insert(i),
+     &(idnode,imcon,totatm,ntpguest,ntpfram,i,guest_insert(i),
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
      &maxmls)
       enddo
       minchk=min(400,nnumg)
-      do while(lgchk)
-c       randomly select guest
+      do while(wlchk)
+c       randomly select guest, should only be one for now
+        iguest=floor(duni(idnode)*ntpguest)+1
 c       chose an MC move to perform
-        
+c        
 c       accept/reject based on modified acceptance criteria
         call random_ins(idnode,natms,iguest,rcut,delr)
         estep=0.d0
@@ -74,11 +75,11 @@ c       accept/reject based on modified acceptance criteria
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      & loverlap,lnewsurf,surftol,overlap,newld)
-        call accept_move
-     & (iguest,.true.,.false.,.false.,lnewsurf,
-     & delrc,totatm,idum,ntpfram,ntpguest,maxmls,sumchg,
-     & engsictmp,chgtmp,newld)
-        lgchk=.false.
+c        call accept_move
+c     & (iguest,.true.,.false.,.false.,lnewsurf,
+c     & delrc,totatm,idum,ntpfram,ntpguest,maxmls,sumchg,
+c     & engsictmp,chgtmp,newld)
+        wlchk=.false.
       enddo
       lprod=.true.
       call revive
