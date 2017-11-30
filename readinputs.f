@@ -512,13 +512,13 @@ c     halt program if potential cutoff exceeds cell width
 
       end subroutine readconfig
 
-      subroutine readcontrol(idnode,lspe,temp,
-     &ljob,mcsteps,eqsteps,ntpguest,lrestart,laccsample,lnumg,
-     &nnumg,nhis,nwind,mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf,
-     &swap_max, mcswif,
-     &mctraf, mcrotf,disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
-     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
-     &lwanglandau,wlprec)
+      subroutine readcontrol
+     &(idnode,lspe,temp,ljob,mcsteps,eqsteps,ntpguest,lrestart,
+     &laccsample,lnumg,nnumg,nhis,nwind,mcinsf,mcdelf,mcdisf,mcjmpf,
+     &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
+     &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
+     &fwk_step_max,fwk_initial,lwidom,lwanglandau,wlprec,flatcoeff,
+     &visittol,prectol)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -531,15 +531,15 @@ c*************************************************************************
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,lprob,loop3,rprob,lrestart,laccsample
-      logical leng, l_fwk_seq, lwidom, lwanglandau
+      logical leng,l_fwk_seq,lwidom,lwanglandau
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
-      integer n_fwk, fwk_step_max, fwk_initial
-      real(8) mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf, overlap 
-      real(8) mcswif,wlprec 
-      real(8) mctraf, mcrotf, disp_ratio, tran_ratio, rota_ratio
-      real(8) surftol
+      integer n_fwk,fwk_step_max,fwk_initial,visittol
+      real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
+      real(8) mcswif,wlprec,flatcoeff 
+      real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
+      real(8) surftol,prectol
 
       data ltemp/.false./,lprob/.false./,loop3/.false./
       data lmcsteps/.false./,leqsteps/.false./,lwind/.false./
@@ -675,11 +675,21 @@ c         set default writing numguests.out to 1000 steps
           if(eqsteps.ne.0)leqsteps=.true.
         elseif (findstring('wang-landau', directive, idum))then
           lwanglandau=.true.
+        ! wang-landau coefficient to determine flatness of histogram.
+        ! default is deviation no greater than 70% of average
+        elseif (findstring('wl_flat_coeff', directive, idum))then
+          flatcoeff=dblstr(directive,lenrec,idum)
+        ! wang-landau coefficient to determine convergence based on
+        ! minimum number of visits to each bin (default is 1000)
+        elseif (findstring('wl_visit_tolerance',directive,idum))then
+          visittol=intstr(directive,lenrec,idum)
         ! wang-landau precision keyword (fills the DOS with this value
         ! initially)
         elseif (findstring('wl_precision', directive, idum))then
           wlprec=dblstr(directive,lenrec,idum)
           if(wlprec.le.1.d0)call error(idnode,2319) 
+        elseif (findstring('wl_prec_tolerance', directive, idum))then
+          prectol=dblstr(directive,lenrec,idum)
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
      &"(/,'gcmc requested')")

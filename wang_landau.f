@@ -6,11 +6,11 @@
 
       contains
       subroutine wang_landau_sim
-     &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
+     &(idnode,mxnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,
-     &mcrotf,mcswif,nnumg,temp,beta)
+     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
+     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol)
 c*****************************************************************************
 c     
 c     Main routine for computing the weighted histogram of Wang and
@@ -21,33 +21,40 @@ c*****************************************************************************
       implicit none
       logical wlchk,loverlap,lnewsurf,lprod,accepted
       logical insert,delete,displace,jump,swap,tran,rota,switch
+      logical production
       character*8 outdir
       character*1 cfgname(80)      
-      integer idnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
-      integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg,nhist
-      integer natms,iguest,jguest,mol,idum,ntpfram,i,nnumg,minchk
+      integer idnode,mxnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
+      integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg,nhist,ihist
+      integer natms,iguest,jguest,mol,imol,idum,ntpfram,i,nnumg,minchk
       integer accept_ins,ins_count,accept_del,del_count,accept_tran
       integer tran_count,accept_disp,disp_count,accept_rota,rota_count
       integer totaccept,wlcount,accept_jump,jump_count,accept_switch
-      integer switch_count,accept_swap,swap_count
+      integer switch_count,accept_swap,swap_count,mcsteps,eqsteps
+      integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx
+      integer varchunk,visittol
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
-      real(8) engsictmp,delrc,wlprec,timelp,beta,statvolm
+      real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
       real(8) mcrotf,mcswif,lambda,temp,tran_delr,rota_rotangle
-      real(8) delrdisp,rotangle,jumpangle
+      real(8) delrdisp,rotangle,jumpangle,flatcoeff,prectol
       write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
       write(nrite,
-     &"('Initial coefficient set to',f9.5,/)")wlprec
+     &"('Initial coefficient set to ',f9.5,/)")wlprec
+      write(nrite,"('Convergence tolerance for the coefficient ',
+     &E9.1,/)")prectol
       wlchk=.true.
-
+      logwlprec=log(wlprec)
       data accept_ins,accept_del,accept_disp,totaccept/0,0,0,0/
       data accept_jump,accept_swap,accept_switch/0,0,0/
       data accept_tran,accept_rota/0,0/
       data ins_count,del_count,disp_count,wlcount/0,0,0,0/
       data jump_count,swap_count,switch_count/0,0,0/
       data tran_count,rota_count/0,0/
+
+      production=.false.
       rotangle=pi/3.d0
       delrdisp=delr
       tran_delr=delr
@@ -57,31 +64,47 @@ c*****************************************************************************
       ! We will hard-code this to one and sample only the number of
       ! guests for now... 
       nhist=1
+      ihist=nhist
       call alloc_wl_arrays(idnode,nhist,ntpguest)
 c     Temporary: exit if more than one guest included in the
 c     FIELD/CONTROL files. Make clear that this currently works
 c     for estimating the partition function for a single guest
 c     at a single temperature.
       if(ntpguest.gt.1)call error(idnode,2318)
-    
+      wlstepcount=0
+      prod_count=0 
       call timchk(0,timelp)
+c     obtain the min/max number of molecules based on this node's identity
+c     and maxvar
+c     NB:This is not an effective division of labour, since the higher
+c     loadings will be more computationally expensive.
+      minmol=(maxvar)/(mxnode)*(idnode)
+      maxmol=(maxvar)/(mxnode)*(idnode+1)
+      varchunk=maxmol-minmol
+      if((mxnode.gt.1).and.(idnode.eq.0))write(nrite,
+     &"(2x,'Sampling split into ',i2,' different jobs, each with ',i5, 
+     &' guest loadings to sample.')")(maxvar/mxnode),(maxmol-minmol)
 c     loop is kind of pointless for now but keep it for future
 c     use.
       do i=1,ntpguest
         ! compute thermal debroglie wavelength for each guest
         ! assuming, 1) equilibrium ideal gas, 2) no internal degrees of freedom
         lambda = hplanck / sqrt(2.d0*pi*molmass(i)*boltz*temp)
-        dlambda(i) = lambda
-        if(guest_insert(i).gt.0)call insert_guests
-     &(idnode,imcon,totatm,ntpguest,ntpfram,i,guest_insert(i),
+        dlambda(i) = lambda**3
+        if((guest_insert(i).gt.0).or.(minmol.gt.0))then
+          insmol=max(guest_insert(i), minmol)
+          call insert_guests
+     &(idnode,imcon,totatm,ntpguest,ntpfram,i,insmol,
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
      &maxmls)
+        endif
       enddo
       minchk=min(400,nnumg)
       do while(wlchk)
 c       randomly select guest, should only be one for now
         iguest=floor(duni(idnode)*ntpguest)+1
+        imol=locguest(iguest)
 c       set all moves to false.
         insert=.false.
         delete=.false.
@@ -113,23 +136,79 @@ c       accept/reject based on modified acceptance criteria
         elseif(randmov.lt.mcswif)then
           switch = .true.
         else
-c Failover displace -- shouldn't reach here
+c       Failover displace -- shouldn't reach here
           displace=.true.
         endif
-
+c       Border conditions. Insertion when nmol is greater or equal to
+c       maxmol
+        if((nummols(imol).ge.maxmol).and.(insert))then
+          insert=.false.
+          if(randmov.lt.mcdelf)then
+            delete = .true.
+          elseif(randmov.lt.mcdisf)then
+            displace = .true.
+          elseif(randmov.lt.mcjmpf)then
+            jump = .true.
+          elseif(randmov.lt.mcswpf)then
+            swap = .true.
+          elseif(randmov.lt.mctraf)then
+            displace = .true.
+            tran = .true.
+          elseif(randmov.lt.mcrotf)then
+            displace = .true.
+            rota = .true.
+          elseif(randmov.lt.mcswif)then
+            switch = .true.
+          else
+c         Failover displace -- shouldn't reach here
+            displace=.true.
+          endif
+        endif
+c       Border condition. Deletion when nmol is less than or equal to
+c       minmol
+c       NB: by not changing the mcxyzf values, these border conditions
+c       are favouring another move, which may not be intended by the
+c       user. e.g. mcdisf has a large advantage now that mcdelf is
+c       removed.
+        if((nummols(imol).le.minmol).and.(delete))then
+          delete=.false.
+          if(randmov.lt.mcinsf)then
+            insert = .true.
+          elseif(randmov.lt.mcdisf)then
+            displace = .true.
+          elseif(randmov.lt.mcjmpf)then
+            jump = .true.
+          elseif(randmov.lt.mcswpf)then
+            swap = .true.
+          elseif(randmov.lt.mctraf)then
+            displace = .true.
+            tran = .true.
+          elseif(randmov.lt.mcrotf)then
+            displace = .true.
+            rota = .true.
+          elseif(randmov.lt.mcswif)then
+            switch = .true.
+          else
+c         Failover displace -- shouldn't reach here
+            displace=.true.
+          endif
+        endif
+c       fist two are controlled by new WL acceptance criteria
+c       the rest are usual NVT.
+c       NB: Swap and Switch not used yet in these calcs.
         if(insert)then
           call wl_insert
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins)
+     &overlap,accepted,temp,beta,accept_ins,minmol,ihist)
           insert=.false.
         elseif(delete)then
           call wl_delete
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,del_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del)
+     &overlap,accepted,temp,beta,accept_del,minmol,ihist)
           delete=.false.
         elseif(displace)then
           call wl_displace
@@ -167,21 +246,42 @@ c Failover displace -- shouldn't reach here
      &ntpguest,rotangle)
           swap=.false.
         endif
-
+        molidx=nummols(imol)-minmol
+c       update the histograms (regardless of accept/reject)
+c       DOS Histogram is updated by an increment of log(wlprec)
+c       Visited state histogram incremented by 1.
+        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
+        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
+        if(convergence_check(ihist,varchunk,flatcoeff,visittol))then
+          call reset_visit_hist(ihist,varchunk)
+          ! update the precision factor
+          wlprec=adjust_factor(wlprec)
+          logwlprec=log(wlprec)
+        endif
         if(accepted)then
           accepted=.false.
         endif
-        wlchk=.false.
+c       Convergence of a particular 'sweep' is determined when
+c       the visited state histogram is 'flat'
+        wlstepcount=wlstepcount+1
+        if(production)then
+c            if(prod_count.ge.mcsteps)wlchk=.false.
+            prod_count=prod_count+1
+        endif
+c       done if the precision factor is less than the tolerance
+        if((wlprec-1.d0).lt.prectol)wlchk=.false.
+        if(wlstepcount.ge.eqsteps)production=.true.
       enddo
       lprod=.true.
       call revive
      &(totatm,levcfg,lprod,ntpguest,maxmls,
      &imcon,cfgname,0.d0,outdir)
-
+      write(nrite, "('tolerance met: ', f12.5)")(wlprec-1.d0)
       call error(idnode,2316)
       end subroutine wang_landau_sim
 
-      logical function convergence_check()
+      logical function convergence_check
+     &(ihist,varchunk,flatcoeff,visittol)
 c**********************************************************************
 c
 c     check to see if the histogram is converged. 
@@ -189,10 +289,48 @@ c     PB - 15/11/2017
 c
 c**********************************************************************
       implicit none
-       
+      integer ihist,ik,ncount,varchunk,visittol
+      real(8) ave,var,std,vhist,delta,delta2,flatcoeff,mxvar,minvar
       convergence_check=.false.
+      ave=0.d0
+      var=0.d0
+      ncount=0
+      mxvar=0.d0
+      minvar=1.d99 
+      ! mean and std in one loop
+      do ik=1,varchunk
+        ncount=ncount+1
+        vhist=dble(visit_hist(ik,ihist))
+        if(vhist.lt.minvar)minvar=vhist
+        if(vhist.gt.mxvar)mxvar=vhist
+        delta=vhist-ave
+        ave=ave+delta/dble(ncount)
+        delta2=vhist-ave
+        var=var+delta*delta2
+      enddo
+c     std could be another metric for convergence
+c      std=sqrt(var)
+c     return if there's at least one bin that hasn't
+c     been visited yet.
+      if(minvar.le.0.d0)return
+      convergence_check=
+     &((minvar<flatcoeff*ave).or.(int(minvar).ge.visittol))
       return
       end function convergence_check
+
+      subroutine reset_visit_hist(ihist,varchunk)
+c**********************************************************************
+c
+c     Reset the visit histogram to '0' 
+c     PB - 30/11/2017
+c
+c**********************************************************************
+      implicit none
+      integer ik,ihist,varchunk 
+      do ik=1,varchunk
+        visit_hist(ik,ihist)=0
+      enddo
+      end subroutine reset_visit_hist
 
       real(8) function adjust_factor(f)
 c**********************************************************************
@@ -208,20 +346,35 @@ c**********************************************************************
       end function adjust_factor
 
       logical function accept_wl_move
-     &(idnode, iguest, insert, delete, displace)
+     &(idnode,iguest,ihist,insert,delete,swap,estep,minmol,statvolm,
+     &beta)
 c**********************************************************************
 c
-c     Acceptance criteria for the Wang-Landau algorithm. Right now
-c     this is for ajusting the number of molecules as a macrostate
+c     Acceptance criteria for the Wang-Landau algorithm. Currently
+c     hard-coded for ajusting the number of molecules as a macrostate
 c     variable.
 c     PB - 15/11/2017
 c
 c**********************************************************************
       implicit none
-      logical insert, delete, displace
-      integer idnode, iguest
-
+      logical insert,delete,swap
+      integer idnode,iguest,imol,nmol,molidx,minmol,ihist
+      real(8) randn,contrib,estep,beta,statvolm
       accept_wl_move=.false.
+      imol=locguest(iguest)
+      nmol=nummols(imol)
+      molidx=nmol-minmol
+      if(insert)then
+        contrib=exp(-1.d0*beta*estep)*statvolm/(1+nmol)/dlambda(iguest)*
+     &exp(dos_hist(molidx,ihist)-dos_hist(molidx+1,ihist))
+      elseif(delete)then
+        contrib=exp(-1.d0*beta*estep)*(nmol)/statvolm*dlambda(iguest)*
+     &exp(dos_hist(molidx,ihist)-dos_hist(molidx-1,ihist))
+      else
+        ! Nothing yet..
+      endif
+      randn=duni(idnode)
+      accept_wl_move = (randn.lt.contrib)
       return
       end function accept_wl_move
 
@@ -229,7 +382,7 @@ c**********************************************************************
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins)
+     &overlap,accepted,temp,beta,accept_ins,minmol,ihist)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'insertion' 
@@ -242,10 +395,10 @@ c*******************************************************************************
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
       integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,maxmls,newld,accept_ins
-      integer ntpfram,randchoice
+      integer ntpfram,randchoice,minmol,ihist
       real(8) rcut,delr,estep,alpha,drewd,volm
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
-      real(8) surftol,overlap,rande,gpress,statvolm,temp,beta
+      real(8) surftol,overlap,rande,statvolm,temp,beta
       mol=locguest(iguest)
       nmol=nummols(mol)
       natms=numatoms(mol)
@@ -263,13 +416,9 @@ c*******************************************************************************
      & loverlap,lnewsurf,surftol,overlap,newld)
       accepted=.false.
 
-      if (.not.loverlap)then
-        gpress=gstfuga(iguest)
-        rande=duni(idnode)
-        call energy_eval
-     &(estep,rande,statvolm,iguest,0,temp,beta,
-     &.false.,.true.,.false.,.false.,accepted)
-      endif
+      if (.not.loverlap)accepted=accept_wl_move
+     &(idnode,iguest,ihist,.true.,.false.,.false.,estep,minmol,statvolm,
+     &beta)
 c     DEBUG
 c      accepted=.true.
 c     END DEBUG
@@ -290,7 +439,7 @@ c     END DEBUG
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,del_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del)
+     &overlap,accepted,temp,beta,accept_del,minmol,ihist)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'deletion' 
@@ -303,10 +452,10 @@ c*******************************************************************************
       integer iguest,idnode,imcon,totatm,mol,nmol
       integer del_count,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,maxmls,newld,accept_del
-      integer ntpfram,randchoice
+      integer ntpfram,randchoice,minmol,ihist
       real(8) rcut,delr,estep,alpha,drewd,volm
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
-      real(8) surftol,overlap,rande,gpress,statvolm,temp,beta
+      real(8) surftol,overlap,rande,statvolm,temp,beta
       mol=locguest(iguest)
       nmol=nummols(mol)
 
@@ -322,13 +471,9 @@ c*******************************************************************************
      &ntpatm,maxvdw,engunit,delrc,estep,linitsurf,surftol,sumchg,
      &engsictmp,chgtmp,overlap,newld)
 
-      gpress=gstfuga(iguest)
-      accepted=.false.
-
-      rande=duni(idnode)
-      call energy_eval
-     &(-estep,rande,statvolm,iguest,0,temp,beta,
-     &.false.,.false.,.true.,.false.,accepted)
+      accepted=accept_wl_move
+     &(idnode,iguest,ihist,.false.,.true.,.false.,-estep,minmol,
+     &statvolm,beta)
          
 c     the following occurs if the move is accepted.
       if(accepted)then
@@ -1055,4 +1200,6 @@ c     total up the energy contributions.
 
       return
       end subroutine wl_displace_guest
+
+
       end module wang_landau

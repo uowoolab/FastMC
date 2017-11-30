@@ -87,7 +87,7 @@ c*************************************************************
       integer iguest,ntpguest,ntpmls,natms,mol,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
       integer ins_rollcount, nswapguest, num_swaps, swap_max
-      integer swap_guest_max,idnode
+      integer swap_guest_max,idnode,visittol
       integer ngrida,ngridb,ngridc,istat,avcount
       integer totalguests,globalnguests,globalsteps
       integer, allocatable :: fwksumbuff(:)
@@ -103,7 +103,7 @@ c*************************************************************
       real(8) tzero,timelp,engunit,rvdw,temp,beta
       real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,gpress
       real(8) init,wlprec
-      real(8) ewld1eng
+      real(8) ewld1eng,flatcoeff
 c     DEBUG
       real(8) pewld1,pewld2,pelrc,pvdw
 c     DEBUG
@@ -116,7 +116,7 @@ c     DEBUG
       real(8) E,aN,EN,E2,N2,H_const,avgH,stdH
       real(8) avgN,stdN,avgE,stdE,avgEN,stdEN,avgN2,stdN2,avgE2,stdE2
       real(8) avgNF,NF,stdNF,surftol,guest_toten
-      real(8) griddim,grvol
+      real(8) griddim,grvol,prectol
       real(8) a,b,c,q1,q2,q3,q4 
       real(8) delE_fwk
       integer m, indatm, indfwk, gstidx
@@ -174,9 +174,15 @@ c     surface tolerance default set to -1 angstroms (off)
       avcount = 0
 c     averaging window to calculate errors
       nwind=100000
-
-c     Default wang-landau DOS filling coefficient is e. 
+c     default flatness tolerance for Wang-Landau simulations.
+      flatcoeff=0.7
+c     default min number of visits for each histogram bin
+c     in Wang-Landau simulations.
+      visittol=1000
+c     default Wang-Landau DOS filling coefficient is e. 
       wlprec = dexp(1.d0)
+c     default Wang-Landau DOS precision tolerance
+      prectol=1e-8
 c scoping issues
       delrc = 0
 
@@ -300,11 +306,10 @@ c     produce unit cell for folding purposes
       enddo
       call readcontrol(idnode,lspe,temp,ljob,mcsteps,eqsteps,
      &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,nwind,
-     &mcinsf, mcdelf, mcdisf, mcjmpf, mcflxf, mcswpf,
-     &swap_max, mcswif,mctraf, mcrotf,
-     &disp_ratio, tran_ratio, rota_ratio, lfuga, overlap,
-     &surftol, n_fwk, l_fwk_seq, fwk_step_max, fwk_initial, lwidom,
-     &lwanglandau,wlprec)
+     &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
+     &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
+     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,
+     &lwanglandau,wlprec,flatcoeff,visittol,prectol)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -631,11 +636,11 @@ c             no rolling average here, just div by widcount at the end
       if (lwanglandau)then
         lgchk=.false.
         call wang_landau_sim
-     &(idnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
+     &(idnode,mxnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,
-     &mcrotf,mcswif,nnumg,temp,beta)
+     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
+     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol)
       endif
 
 
