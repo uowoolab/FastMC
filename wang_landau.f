@@ -299,6 +299,8 @@ c       the visited state histogram is 'flat'
           ! update the precision factor
           wlprec=adjust_factor(wlprec)
           logwlprec=log(wlprec)
+          call flush(800+iguest)
+          call reset_visit_hist(ihist,varchunk)
         endif
         if(accepted)then
           accepted=.false.
@@ -307,13 +309,11 @@ c       the visited state histogram is 'flat'
         sweepsteps=sweepsteps+1
         if(production)then
 c            if(prod_count.ge.mcsteps)wlchk=.false.
-            prod_count=prod_count+1
+          prod_count=prod_count+1
         endif
 c       done if the precision factor is less than the tolerance
         if((wlprec-1.d0).lt.prectol)then
           wlchk=.false.
-        else
-          call reset_visit_hist(ihist,varchunk)
         endif
         if(wlstepcount.ge.eqsteps)production=.true.
       enddo
@@ -365,6 +365,7 @@ c**********************************************************************
       do ik=1,varchunk
         ncount=ncount+1
         vhist=dble(visit_hist(ik,ihist))
+        write(*,*)ik,vhist
         if(vhist.lt.minvar)minvar=vhist
         if(vhist.gt.mxvar)mxvar=vhist
         delta=vhist-ave
@@ -372,6 +373,7 @@ c**********************************************************************
         delta2=vhist-ave
         var=var+delta*delta2
       enddo
+      write(*,*)"DONE"
 c     std could be another metric for convergence
 c      std=sqrt(var)
 c     return if there's at least one bin that hasn't
@@ -390,7 +392,7 @@ c     PB - 30/11/2017
 c
 c**********************************************************************
       implicit none
-      integer ik,ihist,varchunk 
+      integer ik,ihist,varchunk
       do ik=1,varchunk
         visit_hist(ik,ihist)=0
       enddo
@@ -409,7 +411,7 @@ c**********************************************************************
       return
       end function adjust_factor
 
-      logical function accept_wl_move
+      logical function eval_wl_move
      &(idnode,iguest,ihist,insert,delete,swap,estep,minmol,statvolm,
      &beta)
 c**********************************************************************
@@ -424,7 +426,7 @@ c**********************************************************************
       logical insert,delete,swap
       integer idnode,iguest,imol,nmol,molidx,minmol,ihist
       real(8) randn,contrib,estep,beta,statvolm
-      accept_wl_move=.false.
+      eval_wl_move=.false.
       imol=locguest(iguest)
       nmol=nummols(imol)
       molidx=(nmol-minmol)+1
@@ -438,9 +440,9 @@ c**********************************************************************
         ! Nothing yet..
       endif
       randn=duni(idnode)
-      accept_wl_move = (randn.lt.contrib)
+      eval_wl_move = (randn.lt.contrib)
       return
-      end function accept_wl_move
+      end function eval_wl_move
 
       subroutine wl_insert
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
@@ -459,10 +461,10 @@ c*******************************************************************************
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
       integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,maxmls,newld,accept_ins
-      integer ntpfram,randchoice,minmol,ihist
+      integer ntpfram,randchoice,minmol,ihist,molidx
       real(8) rcut,delr,estep,alpha,drewd,volm
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
-      real(8) surftol,overlap,rande,statvolm,temp,beta
+      real(8) surftol,overlap,rande,statvolm,temp,beta,unbiased
       mol=locguest(iguest)
       nmol=nummols(mol)
       natms=numatoms(mol)
@@ -480,7 +482,7 @@ c*******************************************************************************
      & loverlap,lnewsurf,surftol,overlap,newld)
       accepted=.false.
 
-      if (.not.loverlap)accepted=accept_wl_move
+      if (.not.loverlap)accepted=eval_wl_move
      &(idnode,iguest,ihist,.true.,.false.,.false.,estep,minmol,statvolm,
      &beta)
 c     DEBUG
@@ -489,6 +491,10 @@ c     END DEBUG
       if(accepted)then
         accept_ins=accept_ins+1
         randchoice=0
+        ! recompute unbiased prob
+        molidx=(nmol-minmol)+1
+        unbiased=exp(-1.d0*beta*estep)*statvolm/(1+nmol)
+        tmat_c(molidx,molidx)=tmat_c(molidx,molidx)+unbiased
         call accept_move
      &(iguest,.true.,.false.,.false.,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpguest,maxmls,
@@ -535,7 +541,7 @@ c*******************************************************************************
      &ntpatm,maxvdw,engunit,delrc,estep,linitsurf,surftol,sumchg,
      &engsictmp,chgtmp,overlap,newld)
 
-      accepted=accept_wl_move
+      accepted=eval_wl_move
      &(idnode,iguest,ihist,.false.,.true.,.false.,-estep,minmol,
      &statvolm,beta)
          
