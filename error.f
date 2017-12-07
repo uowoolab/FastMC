@@ -1171,7 +1171,6 @@ c     close all i/o channels
         
         if(idnode.eq.0) then
           close (nrite)
-          close (nhist)
           close (ncontrol)
           close (nconfig)
           close (nstats)

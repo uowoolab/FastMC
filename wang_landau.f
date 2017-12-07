@@ -22,29 +22,32 @@ c*****************************************************************************
       logical wlchk,loverlap,lnewsurf,lprod,accepted
       logical insert,delete,displace,jump,swap,tran,rota,switch
       logical production
+      character*25 outfile,visfile,dosfile
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,mxnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,newld,maxmls,totatm,levcfg,nhist,ihist
-      integer natms,iguest,jguest,mol,imol,idum,ntpfram,i,nnumg,minchk
+      integer natms,iguest,jguest,mol,imol,idum,ntpfram,nnumg,minchk
       integer accept_ins,ins_count,accept_del,del_count,accept_tran
       integer tran_count,accept_disp,disp_count,accept_rota,rota_count
       integer totaccept,wlcount,accept_jump,jump_count,accept_switch
       integer switch_count,accept_swap,swap_count,mcsteps,eqsteps
       integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx
-      integer varchunk,visittol
+      integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
       real(8) mcrotf,mcswif,lambda,temp,tran_delr,rota_rotangle
       real(8) delrdisp,rotangle,jumpangle,flatcoeff,prectol
-      write(nrite, 
+      if(idnode.eq.0)then
+        write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
-      write(nrite,
+        write(nrite,
      &"('Initial coefficient set to ',f9.5,/)")wlprec
-      write(nrite,"('Convergence tolerance for the coefficient ',
+        write(nrite,"('Convergence tolerance for the coefficient ',
      &E9.1,/)")prectol
+      endif
       wlchk=.true.
       logwlprec=log(wlprec)
       data accept_ins,accept_del,accept_disp,totaccept/0,0,0,0/
@@ -53,7 +56,26 @@ c*****************************************************************************
       data ins_count,del_count,disp_count,wlcount/0,0,0,0/
       data jump_count,swap_count,switch_count/0,0,0/
       data tran_count,rota_count/0,0/
+      data wlstepcount,sweepcount,sweepsteps,prod_count/0,0,0,0/ 
 
+c     make a new file to write some Wang-Landau data to
+      if(ntpguest.gt.1)then
+        do i=1,ntpguest
+          write(outfile,"(a8,'/wang_landau',i2.2,'.out')")outdir,i
+          open(800+i,file=outfile)
+          write(visfile,"(a8,'/visited_hist',i2.2,'.csv')")outdir,i
+          open(700+i,file=visfile)
+          write(dosfile,"(a17,i2.2,'.csv')")'density_of_states',i
+          open(600+i,file=dosfile)
+        enddo
+      else
+        outfile=outdir // '/wang_landau.out'
+        open(801,file=outfile,status="replace")
+        dosfile='density_of_states.csv'
+        open(701,file=dosfile,status="replace")
+        visfile=outdir // '/visited_hist.csv'
+        open(601,file=visfile,status="replace")
+      endif
       production=.false.
       rotangle=pi/3.d0
       delrdisp=delr
@@ -71,8 +93,6 @@ c     FIELD/CONTROL files. Make clear that this currently works
 c     for estimating the partition function for a single guest
 c     at a single temperature.
       if(ntpguest.gt.1)call error(idnode,2318)
-      wlstepcount=0
-      prod_count=0 
       call timchk(0,timelp)
 c     obtain the min/max number of molecules based on this node's identity
 c     and maxvar
@@ -81,9 +101,15 @@ c     loadings will be more computationally expensive.
       minmol=(maxvar)/(mxnode)*(idnode)
       maxmol=(maxvar)/(mxnode)*(idnode+1)
       varchunk=maxmol-minmol
-      if((mxnode.gt.1).and.(idnode.eq.0))write(nrite,
+      if(mxnode.eq.1)then
+        write(nrite,
+     &"('Sampling ',i5,' guest loadings on one node.',/)")
+     &(maxmol-minmol)
+      else
+        if(idnode.eq.0)write(nrite,
      &"(2x,'Sampling split into ',i2,' different jobs, each with ',i5, 
-     &' guest loadings to sample.')")(maxvar/mxnode),(maxmol-minmol)
+     &' guest loadings to sample.')")mxnode,(maxmol-minmol)
+      endif
 c     loop is kind of pointless for now but keep it for future
 c     use.
       do i=1,ntpguest
@@ -246,14 +272,30 @@ c       NB: Swap and Switch not used yet in these calcs.
      &ntpguest,rotangle)
           swap=.false.
         endif
-        molidx=nummols(imol)-minmol
+c       offset molidx by one to count for the '0' bin.
+        molidx=(nummols(imol)-minmol)+1
 c       update the histograms (regardless of accept/reject)
 c       DOS Histogram is updated by an increment of log(wlprec)
 c       Visited state histogram incremented by 1.
+        !write(*,*)visit_hist(:, ihist)
         visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
         dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
+c       Convergence of a particular 'sweep' is determined when
+c       the visited state histogram is 'flat'
         if(convergence_check(ihist,varchunk,flatcoeff,visittol))then
-          call reset_visit_hist(ihist,varchunk)
+          sweepcount=sweepcount+1
+          write(800+iguest,"('Sweep ',i7)")sweepcount
+          write(800+iguest,"('Histogram is flat, rescaling precision ',
+     &'factor to ',f15.12)")log(wlprec)
+          totaccept=
+     &accept_ins+accept_del+accept_disp+accept_jump+
+     &accept_swap+accept_switch+accept_tran+accept_rota
+          write(800+iguest,"('Number of accepted steps ',i9)")totaccept
+          write(800+iguest,"('Total number of steps this sweep ',i9)")
+     &sweepsteps
+          sweepsteps=0
+          call dump_wl_files
+     &(idnode,ntpguest,nhist,minmol)
           ! update the precision factor
           wlprec=adjust_factor(wlprec)
           logwlprec=log(wlprec)
@@ -261,23 +303,45 @@ c       Visited state histogram incremented by 1.
         if(accepted)then
           accepted=.false.
         endif
-c       Convergence of a particular 'sweep' is determined when
-c       the visited state histogram is 'flat'
         wlstepcount=wlstepcount+1
+        sweepsteps=sweepsteps+1
         if(production)then
 c            if(prod_count.ge.mcsteps)wlchk=.false.
             prod_count=prod_count+1
         endif
 c       done if the precision factor is less than the tolerance
-        if((wlprec-1.d0).lt.prectol)wlchk=.false.
+        if((wlprec-1.d0).lt.prectol)then
+          wlchk=.false.
+        else
+          call reset_visit_hist(ihist,varchunk)
+        endif
         if(wlstepcount.ge.eqsteps)production=.true.
       enddo
+      call timchk(0,timelp)
       lprod=.true.
+      !DOSFILE is 701, VISITED file is 601
       call revive
      &(totatm,levcfg,lprod,ntpguest,maxmls,
      &imcon,cfgname,0.d0,outdir)
-      write(nrite, "('tolerance met: ', f12.5)")(wlprec-1.d0)
-      call error(idnode,2316)
+      if(idnode.eq.0)then
+        write(nrite,"(/,a100,/,33x,'Wang-Landau calculation complete!',
+     &/,a100,/)")repeat('*',100),repeat('*',100)
+        write(nrite, "(a35,f15.12)")'tolerance met:',(wlprec-1.d0)
+        write(nrite, "(a35,i15)")
+     &'total number of Monte Carlo steps: ',wlstepcount
+        write(nrite,"(a35,i15)")
+     &'number of W-L sweeps: ',sweepcount
+
+        write(nrite, "(a35,f15.3,' seconds')")
+     &'Time elapsed for W-L calculation: ',timelp
+        ! write DOS histogram for guest i
+        ! first two loops are currently pointless.
+      endif 
+      call dump_wl_files
+     &(idnode,ntpguest,nhist,minmol)
+
+      call terminate_wl
+     &(idnode,ntpguest)
       end subroutine wang_landau_sim
 
       logical function convergence_check
@@ -314,7 +378,7 @@ c     return if there's at least one bin that hasn't
 c     been visited yet.
       if(minvar.le.0.d0)return
       convergence_check=
-     &((minvar<flatcoeff*ave).or.(int(minvar).ge.visittol))
+     &((minvar.ge.flatcoeff*ave).or.(int(minvar).ge.visittol))
       return
       end function convergence_check
 
@@ -363,7 +427,7 @@ c**********************************************************************
       accept_wl_move=.false.
       imol=locguest(iguest)
       nmol=nummols(imol)
-      molidx=nmol-minmol
+      molidx=(nmol-minmol)+1
       if(insert)then
         contrib=exp(-1.d0*beta*estep)*statvolm/(1+nmol)/dlambda(iguest)*
      &exp(dos_hist(molidx,ihist)-dos_hist(molidx+1,ihist))
@@ -1201,5 +1265,68 @@ c     total up the energy contributions.
       return
       end subroutine wl_displace_guest
 
+      subroutine dump_wl_files
+     &(idnode,ntpguest,nhist,minmol)
+c***********************************************************************
+c                                                                      *
+c     Write the DOS and visited histograms to their file channels      *
+c     PB - 05/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,ntpguest,i,j,k,n
+      integer minmol,nhist
+      do i=1,ntpguest
+c       Overwrite old data...
+        if(idnode.eq.0)then
+          rewind(700+i)
+          write(700+i,"('N,p(N)')")
+        endif
+        rewind(600+i)
+        write(600+i,"('N,Visit(N)')")
+        do j=1,nhist
+          do k=1,maxvar
+c           subtract 1 to account for occupation of N=0
+            n=(minmol+k)-1
+            if(idnode.eq.0)write(700+i,"(i6,',',f50.10)")n,dos_hist(k,j)
+            write(600+i,"(i6,',',i20)")n,visit_hist(k,j)
+          enddo
+        enddo
+      enddo
+      end subroutine dump_wl_files
 
+      subroutine terminate_wl
+     &(idnode,ntpguest)
+c***********************************************************************
+c                                                                      *
+c     End the program within the Wang-Landau Module. This way all      *
+c     the stuff reported for a typical GCMC sim is avoided.            *
+c                                                                      * 
+c     PB - 05/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,ntpguest,i
+
+c     close all i/o channels for each branch
+      do i=1,ntpguest
+        close (400+i)
+        close (800+i)
+        close (202)
+c        close (203)
+        close (500+i)
+        close (205)
+      enddo
+      
+      if(idnode.eq.0) then
+        close (nrite)
+        close (ncontrol)
+        close (nconfig)
+        close (nstats)
+        close (nfield)
+      endif
+      call gsync()
+      call exitcomms()
+      return
+      end subroutine terminate_wl
       end module wang_landau

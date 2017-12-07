@@ -178,7 +178,7 @@ c     default flatness tolerance for Wang-Landau simulations.
       flatcoeff=0.7
 c     default min number of visits for each histogram bin
 c     in Wang-Landau simulations.
-      visittol=1000
+      visittol=10000
 c     default Wang-Landau DOS filling coefficient is e. 
       wlprec = dexp(1.d0)
 c     default Wang-Landau DOS precision tolerance
@@ -315,6 +315,16 @@ c     square the overlap so that it can be compared to the rsqdf array
 c     square the surface tolerance so that it can be compared to the
 c     rsqdf array
       call fugacity(idnode,lfuga,temp,ntpguest)
+      if((.not.lwidom).and.(.not.lwanglandau))then
+        if(idnode.eq.0)then
+          write(nrite,'(a6,5x,a1,15x,a12,7x,a12)')'guest','y',
+     &   'fugacity/bar','pressure/bar'
+          do i=1, ntpguest
+              write(nrite,'(i6,1x,f9.3,2(f19.6))') i, gstmolfract(i), 
+     &   gstfuga(i)/1.E5, gstpress(i)/1.E5
+          enddo
+        endif
+      endif
 
 c     FLEX
       if(n_fwk.gt.0)then
@@ -1440,7 +1450,7 @@ c        prodcount used for weighting the mean and stdev
 
              Q_st = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
              C_v = calc_cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
-             if(.not.lwidom)then
+             if((.not.lwidom).and.(.not.lwanglandau))then
                write(nrite,"(5x,a60,f20.9,/,5x,a60,f20.9,/,
      &           5x,a60,f20.9,/,5x,a60,f20.9,/,5x,a60,f20.9,/,
      &           5x,a60,i20,/,5x,a60,f20.9,/,5x,a60,f20.9,/,

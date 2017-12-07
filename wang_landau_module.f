@@ -11,7 +11,7 @@ c     in the WL simulation. For now this just means the maximum
 c     number of guests to attempt.
 c     Ideally this should be a function of the liquid density of
 c     a gas, and the available pore space in a material.
-      integer, parameter :: maxvar=1000
+      integer, parameter :: maxvar=20
       save visit_hist
       save dos_hist,dlambda
       contains 
@@ -31,8 +31,8 @@ c************************************************************************
       do i=1,nwl
         fail(i) = 0
       enddo
-      allocate(visit_hist(maxvar,nhist), stat=fail(1))
-      allocate(dos_hist(maxvar,nhist), stat=fail(2))
+      allocate(visit_hist(maxvar+1,nhist), stat=fail(1))
+      allocate(dos_hist(maxvar+1,nhist), stat=fail(2))
       allocate(dlambda(ntpguest), stat=fail(3))
 
       do i=1,nwl
@@ -41,9 +41,9 @@ c************************************************************************
             call error(idnode, 2317)
         endif
       enddo
-      do i=1,maxvar
-        dos_hist(:,maxvar)=1.d0
-        visit_hist(:,maxvar)=0.d0
+      do i=1,nhist
+        dos_hist(:,i)=1.d0
+        visit_hist(:,i)=0
       enddo
       do i=1,ntpguest
         dlambda(i)=0.d0

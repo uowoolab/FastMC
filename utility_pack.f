@@ -131,10 +131,6 @@ c     configuration file input channel
 
       integer,parameter :: nconfig=10
 
-c     history file input channel
- 
-      integer,parameter :: nhist=11
-
 c     statistics file input channel
 
       integer,parameter :: nstats=12
@@ -1067,8 +1063,7 @@ c     initialize the stat arrays
       return
       end subroutine alloc_config_arrays
 
-
-      subroutine fugacity(idnode, lfuga, temp, ntpguest)
+      subroutine fugacity(idnode,lfuga,temp,ntpguest)
 c**********************************************************************
 c
 c     subroutine to compute fugacities from the supplied pressures 
@@ -1087,7 +1082,7 @@ c     guest partial pressures
       fract_sum = 0.d0
       press_sum = 0.d0
       no_fract_count = 0.d0
-      call fluid_properties(idnode, ntpguest, lfuga) 
+      call fluid_properties(idnode, ntpguest,lfuga) 
       do i=1,ntpguest
         if(gstpress(i).lt.0.)then
             lpress=.false.
@@ -1172,14 +1167,6 @@ c       main fugacity calculation
           gstfuga(i) = gstpress(i)
         enddo 
       endif
-      if(idnode.eq.0)then
-        write(nrite,'(a6,5x,a1,15x,a12,7x,a12)')'guest','y',
-     & 'fugacity/bar','pressure/bar'
-        do i=1, ntpguest
-            write(nrite,'(i6,1x,f9.3,2(f19.6))') i, gstmolfract(i), 
-     & gstfuga(i)/1.E5, gstpress(i)/1.E5
-        enddo
-      endif
       end subroutine fugacity
 
       subroutine guess_guest(iguess, ntpguest)
@@ -1233,8 +1220,7 @@ c         I don't know
       enddo
       end subroutine guess_guest
 
-
-      subroutine fluid_properties(idnode,ntpguest, lfuga)
+      subroutine fluid_properties(idnode,ntpguest,lfuga)
 c**********************************************************************
 c
 c     computes fluid properties based on the guest type
