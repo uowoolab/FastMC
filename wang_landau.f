@@ -1292,6 +1292,8 @@ c           subtract 1 to account for occupation of N=0
             write(600+i,"(i6,',',i20)")n,visit_hist(k,j)
           enddo
         enddo
+        call flush(600+i)
+        call flush(700+i)
       enddo
       end subroutine dump_wl_files
 
