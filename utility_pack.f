@@ -121,7 +121,7 @@ c     main input channel
 
 c     main output channel
 
-      integer, parameter :: nrite=6
+      integer, parameter :: nrite=7
 
 c     force field input channel
 
