@@ -32,7 +32,7 @@ c*****************************************************************************
       integer accept_ins,ins_count,accept_del,del_count,accept_tran
       integer tran_count,accept_disp,disp_count,accept_rota,rota_count
       integer totaccept,wlcount,accept_jump,jump_count,accept_switch
-      integer switch_count,accept_swap,swap_count,mcsteps,eqsteps
+      integer switch_count,accept_swap,swap_count,mcsteps,eqsteps,tail
       integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx,nmol
       integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n,maxn,minn
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
@@ -99,16 +99,17 @@ c     obtain the min/max number of molecules based on this node's identity
 c     and maxn
 c     NB:This is not an effective division of labour, since the higher
 c     loadings will be more computationally expensive.
+      tail=0
       call divide_jobs
-     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk)
+     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk,tail)
       if(mxnode.eq.1)then
         write(nrite,
      &"('Sampling ',i5,' guest loadings on one node.',/)")
-     &(maxmol-minmol)
+     &(varchunk)
       else
         if(idnode.eq.0)write(nrite,
      &"(2x,'Sampling split into ',i2,' different jobs, each with ',i5, 
-     &' guest loadings to sample.')")mxnode,(maxmol-minmol)
+     &' guest loadings to sample.')")mxnode,varchunk
       endif
 c     loop is kind of pointless for now but keep it for future
 c     use.
@@ -312,7 +313,7 @@ c       the visited state histogram is 'flat'
      &sweepsteps
           sweepsteps=0
           call dump_wl_files
-     &(idnode,ntpguest,nhist,minmol,maxn)
+     &(idnode,ntpguest,nhist,minmol,maxmol,varchunk)
           call flush(800+iguest)
         endif
         if(accepted)then
@@ -336,8 +337,15 @@ c       done if the precision factor is less than the tolerance
         endif
         if(wlstepcount.ge.eqsteps)production=.true.
       enddo
+c     useful routine for summing DOS's from each node.
+c     HOWEVER - the normalization of the DOS is in this routine
+c     as well, so must keep and make sure it works for serial
+c     executions as well.
+      call stitch_branches
+     &(idnode,mxnode,maxn,minn,minmol,maxmol,tail,ihist,varchunk)
 
-      call compute_isotherm(idnode,iguest,beta,ihist,maxn)
+      call compute_isotherm
+     &(idnode,iguest,beta,ihist,maxn,minn,varchunk)
       ! units = kcal/kg
       call timchk(0,timelp)
       lprod=.true.
@@ -360,7 +368,7 @@ c       done if the precision factor is less than the tolerance
         ! first two loops are currently pointless.
       endif 
       call dump_wl_files
-     &(idnode,ntpguest,nhist,minmol,maxn)
+     &(idnode,ntpguest,nhist,minmol,maxmol,varchunk)
 
       call terminate_wl
      &(idnode,ntpguest)
@@ -1379,7 +1387,7 @@ c     total up the energy contributions.
       end subroutine wl_displace_guest
 
       subroutine dump_wl_files
-     &(idnode,ntpguest,nhist,minmol,maxn)
+     &(idnode,ntpguest,nhist,minmol,maxmol,varchunk)
 c***********************************************************************
 c                                                                      *
 c     Write the DOS and visited histograms to their file channels      *
@@ -1388,7 +1396,7 @@ c                                                                      *
 c***********************************************************************
       implicit none
       integer idnode,ntpguest,i,j,k,n
-      integer minmol,nhist,maxn
+      integer minmol,nhist,minmol,maxmol,varchunk
       do i=1,ntpguest
 c       Overwrite old data...
         if(idnode.eq.0)then
@@ -1398,7 +1406,7 @@ c       Overwrite old data...
         rewind(600+i)
         write(600+i,"('N,Visit(N)')")
         do j=1,nhist
-          do k=1,maxn
+          do k=1,varchunk
 c           subtract 1 to account for occupation of N=0
             n=(minmol+k)-1
             if(idnode.eq.0)write(700+i,"(i6,',',f50.10)")n,dos_hist(k,j)
@@ -1411,7 +1419,7 @@ c           subtract 1 to account for occupation of N=0
       end subroutine dump_wl_files
 
       real(16) function grand_canonical_partition
-     &(idnode,ihist,beta,mu,maxn)
+     &(idnode,ihist,beta,mu,minn,maxn,varchunk)
 c***********************************************************************
 c                                                                      *
 c     Determine the grand canonical partition function from the        *
@@ -1421,22 +1429,38 @@ c     PB - 12/12/17                                                    *
 c                                                                      *
 c***********************************************************************
       implicit none
-      integer idnode,ihist,i,maxn
-      real(8) mu,beta,shift,niter
+      integer idnode,ihist,i,maxn,minn,varchunk
+      real(8) mu,beta,niter
       grand_canonical_partition=0.d0 
-      shift=dos_hist(1,ihist)
-
-      do i=1,maxn
+      do i=1,varchunk
 c       shift the DOS by the value recorded for N=0.
-        dos_hist(i,ihist)=dos_hist(i,ihist)-shift
-        niter=dble(i)-1.d0
+        niter=dble(i)-1.d0-dble(minn)
         grand_canonical_partition = grand_canonical_partition 
      &+ exp(dos_hist(i,ihist) + beta*mu*niter)
       enddo
 
       end function grand_canonical_partition
 
-      subroutine stitch_branches(idnode,mxnode)
+      real(8) function obtain_min_shift(obj,opt,nsample)
+c***********************************************************************
+c                                                                      *
+c     Find the constant shift factor that will minimize the variance   *
+c     between two sets of data, obj is the objective data to fit to,   *
+c     opt is the data that will be shifted by the constant factor.     * 
+c                                                                      *
+c     NB: This should be a non-linear optimization..                   *
+c     PB - 13/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer nsample
+      real(8) :: obj(nsample), opt(nsample)
+
+      obtain_min_shift=0.d0
+      end function obtain_min_shift
+
+      subroutine stitch_branches
+     &(idnode,mxnode,maxn,minn,minmol,maxmol,tail,ihist,varchunk)
 c***********************************************************************
 c                                                                      *
 c     Routine to stitch together the density of states computed        *
@@ -1447,13 +1471,67 @@ c     PB - 13/12/17                                                    *
 c                                                                      *
 c***********************************************************************
       implicit none
-      integer idnode,mxnode
+      integer idnode,mxnode,inode,tail,ii,ik,ihist,idx,maxmol
+      integer minmol,minmol2,maxmol2,ij,i,varchunk
+      real(8), allocatable :: dosbuff(:)
+      ! objective and optimized
+      real(8), allocatable :: obj(:), opt(:)
+      real(8) const,shift
+      allocate(dosbuff(maxn))
+      allocate(obj(tail-2))
+      allocate(opt(tail-2))
 
 
+      if(idnode.eq.0)then
+c       normalize the dos_hist on the main node
+        shift=dos_hist(1,ihist)
+        do i=1,varchunk
+c         shift the DOS by the value recorded for N=0.
+          dos_hist(i,ihist)=dos_hist(i,ihist)-shift
+        enddo
+        do inode=1,mxnode
+c         crecv([messagetag],[variable to send],[length],[destination],
+c     [dummy var])
+c         WARNING: setting the last variable to 1 will send a
+c         real(kind=16) type.
+          call crecv(inode*2+1,dosbuff,maxn,2)
+          ! ignore terminal entries
+          ! merge the rest via min variance.
+          ik=0
+          ! obtain minmol and maxmol for the current node
+          call divide_jobs
+     &(inode,mxnode,maxn,minn,maxmol2,minmol2,varchunk,tail)
+          do ii = 2,tail-1
+            ik=ik+1
+            opt(ik)=dosbuff(ii)
+            idx=maxmol-tail-1+ik
+            obj(ik)=dos_hist(idx,ihist)
+          enddo
+          const = obtain_min_shift(obj,opt,tail-2)
+          ! report error in stitching with node inode
+          ik=1
+          do ij=minmol2+1,maxmol2
+            ik=ik+1
+            ! merge the tail portion by averaging.
+            if((ik.ge.2).and.(ik.le.tail-1))then
+              dos_hist(ij,ihist)=
+     &(dos_hist(ij,ihist)+dosbuff(ik)+const)/2.d0
+            else
+              dos_hist(ij,ihist)=dosbuff(ik)+const
+            endif
+          enddo
+        enddo
+      else
+c       csend([messagetag],[variable to send],[length],[destination],
+c     [dummy var])
+c       may have to reduce dos_hist to a 1D array..
+        call csend(idnode*2+1,dos_hist(:,ihist),maxn,0,1)
+      endif
 
       end subroutine stitch_branches
 
-      subroutine compute_isotherm(idnode,iguest,beta,ihist,maxn)
+      subroutine compute_isotherm
+     &(idnode,iguest,beta,ihist,maxn,minn,varchunk)
 c***********************************************************************
 c                                                                      *
 c     Determine the most probable adsorption value for the gas         *
@@ -1465,7 +1543,7 @@ c                                                                      *
 c***********************************************************************
       implicit none
       character*25 outfile
-      integer npress,idnode,iguest,ihist,ik,ip,maxn
+      integer npress,idnode,iguest,ihist,ik,ip,maxn,minn,varchunk
       real(8) mu,pmin,pmax,pinterval,p,beta,niter
       real(kind=16) z_uvt,n,dos_sum  
 
@@ -1484,7 +1562,8 @@ c***********************************************************************
         ! convert from bar to Pa
         p=(ip*pmin)*1.d5
         mu=log(p*dlambda(iguest)*beta)/beta 
-        z_uvt = grand_canonical_partition(idnode,ihist,beta,mu,maxn)
+        z_uvt = grand_canonical_partition
+     &(idnode,ihist,beta,mu,minn,maxn,varchunk)
         dos_sum=0.d0
         do ik=1,maxn
           niter=dble(ik)-1.d0
@@ -1497,7 +1576,7 @@ c***********************************************************************
       end subroutine compute_isotherm
 
       subroutine divide_jobs
-     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk)
+     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk,tail)
 c***********************************************************************
 c                                                                      *
 c     Divide the jobs based on the node count. This is currently       *
@@ -1516,7 +1595,9 @@ c     5% addition to both sides of a N distribution so that one can
 c     stitch them together in post-processing.
       !tail=int(dble(maxn)*0.05d0)
       tail=5
-
+      ! if run serially, just assume the user will add the tails
+      ! if this calc will be stitched together in postprocessing.
+      if(mxnode.eq.1)tail=0
       nodex=idnode+1
 c     asymtotic function:
 c     f(x) = (Nmax * x^2 + Nmax/max_cpu * x^2) / (x^2 + x + 1)
