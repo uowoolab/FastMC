@@ -23,7 +23,7 @@
       integer, allocatable :: locfram(:),moldf(:),moltype(:)
       integer, allocatable :: lfreezesite(:),lfzsite(:,:)
       integer, allocatable :: nummols(:),numatoms(:)
-      integer, allocatable :: guest_insert(:)  
+      integer, allocatable :: guest_insert(:),guest_min(:),guest_max(:) 
       real(8), dimension(9) :: cell
       real(8), dimension(9) :: rcell
       real(8), dimension(9) :: ucell
@@ -159,7 +159,7 @@ c     statistics file input channel
       save numtyp,numfrz,dens,ind,newx,newy,newz
       save nprob,nprobsites,lprobsites,grid
       save delE, energy, total_pressure, gstfuga, gstmolfract
-      save origenergy,guest_insert,molmass
+      save origenergy,guest_insert,molmass,guest_min,guest_max
       save Acc_factor, P_crit, T_crit, K_fug
       save origsurfmols,surfacemols,lprobeng
       contains
@@ -909,7 +909,7 @@ c      avgwindow(9) = <exp(-E/kb/T)>
 c
 c*********************************************************************
       implicit none
-      integer, parameter :: na = 85 
+      integer, parameter :: na = 87
       integer maxmls,mxatm,maxalloc,ntpguest,i,j
       integer mxatyp,idnode,mxnode,mxcmls
       real(8) density,ratio,cut,volm,rcut,rvdw,delr
@@ -1014,6 +1014,8 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(moltype(maxalloc), stat=fail(83))
       allocate(moldf(maxalloc), stat=fail(84))
       allocate(guest_insert(ntpguest), stat=fail(85))
+      allocate(guest_min(ntpguest), stat=fail(86))
+      allocate(guest_max(ntpguest), stat=fail(87))
       do i=1,na
         if(fail(i).gt.0)then
             if(idnode.eq.0)write(nrite,'(10i5)')fail(i)
@@ -1047,6 +1049,8 @@ c     initialize the stat arrays
       chainstats(:)=0.d0
       do i=1,ntpguest
         guest_insert(i)=0
+        guest_min(i)=0
+        guest_max(i)=0
         ins(i) = 0.d0
         del(i) = 0.d0
         dis(i) = 0.d0
@@ -3492,7 +3496,7 @@ c     first two if statements prevent exp overflow
         test=exp(-1.d0*beta*edummy)
       elseif(insert)then
         test=volm*ipress/
-     &    ((ingsts+1d0)*boltz*temp)*exp(-1.d0*beta*edummy)
+     &    ((ingsts+1.d0)*boltz*temp)*exp(-1.d0*beta*edummy)
       elseif(delete)then
         if(abs(ipress).lt.1.d-7)then
             test = 1.d0

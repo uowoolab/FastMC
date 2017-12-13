@@ -518,7 +518,7 @@ c     halt program if potential cutoff exceeds cell width
      &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
      &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
      &fwk_step_max,fwk_initial,lwidom,lwanglandau,wlprec,flatcoeff,
-     &visittol,prectol)
+     &visittol,prectol,maxn,minn)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -532,10 +532,12 @@ c*************************************************************************
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,lprob,loop3,rprob,lrestart,laccsample
       logical leng,l_fwk_seq,lwidom,lwanglandau
+      logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
-      integer n_fwk,fwk_step_max,fwk_initial,visittol
+      integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
+      integer minn
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
       real(8) mcswif,wlprec,flatcoeff 
       real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
@@ -544,6 +546,8 @@ c*************************************************************************
       data ltemp/.false./,lprob/.false./,loop3/.false./
       data lmcsteps/.false./,leqsteps/.false./,lwind/.false./
 
+      lguest_min(:)=.false.
+      lguest_max(:)=.false.
       iprob=0
       ngst=0 
       nhis=0
@@ -616,6 +620,12 @@ c           record is commented out
               gstmolfract(idguest)=dblstr(record,lenrec,idum)
             elseif(findstring('create molecules',record,idum))then
               guest_insert(idguest)=intstr(record,lenrec,idum)
+            elseif(findstring('min molecules',record,idum))then
+              lguest_min(idguest)=.true.
+              guest_min(idguest)=intstr(record,lenrec,idum)
+            elseif(findstring('max molecules',record,idum))then
+              lguest_max(idguest)=.true.
+              guest_max(idguest)=intstr(record,lenrec,idum)
             elseif(findstring('press',record,idum))then
               gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
             elseif(findstring('probability',record,idum))then
@@ -690,6 +700,10 @@ c         set default writing numguests.out to 1000 steps
           if(wlprec.le.1.d0)call error(idnode,2319) 
         elseif (findstring('wl_prec_tolerance', directive, idum))then
           prectol=dblstr(directive,lenrec,idum)
+        elseif (findstring('wl_max_N', directive, idum))then
+          maxn=dblstr(directive,lenrec,idum)
+        elseif (findstring('wl_min_N', directive, idum))then
+          minn=dblstr(directive,lenrec,idum)
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
      &"(/,'gcmc requested')")
@@ -766,7 +780,24 @@ c 'ewald' is already read in initscan
         endif
       enddo
     
+c     check if lwanglandau guest_max and guest_min are allocated
+      mm=0
+      mi=1d99
+      if(lwanglandau)then
+        do iguest=1,ngst
+          if(.not.lguest_min(iguest))then
+            guest_min(iguest)=minn
+          if(.not.lguest_max(iguest))then
+            guest_max(iguest)=maxn
+          endif
+          mm = max(guest_max(iguest),mm)
+          mi = min(guest_min(iguest),mi)
+        enddo
+        maxn=mm
+        minn=mi
+      endif
 
+      
       if(idnode.eq.0)write(nrite,
      &"(/,'tolerance for automatic failure of gcmc move if nearby atoms
      & within: ',f12.5, ' angstroms.')")overlap

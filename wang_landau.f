@@ -10,7 +10,8 @@
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
      &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
-     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol)
+     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
+     &maxn,minn)
 c*****************************************************************************
 c     
 c     Main routine for computing the weighted histogram of Wang and
@@ -21,7 +22,7 @@ c*****************************************************************************
       implicit none
       logical wlchk,loverlap,lnewsurf,lprod,accepted
       logical insert,delete,displace,jump,swap,tran,rota,switch
-      logical production
+      logical production,converge
       character*25 outfile,visfile,dosfile
       character*8 outdir
       character*1 cfgname(80)      
@@ -32,14 +33,14 @@ c*****************************************************************************
       integer tran_count,accept_disp,disp_count,accept_rota,rota_count
       integer totaccept,wlcount,accept_jump,jump_count,accept_switch
       integer switch_count,accept_swap,swap_count,mcsteps,eqsteps
-      integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx
-      integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n
+      integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx,nmol
+      integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n,maxn,minn
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
       real(8) mcrotf,mcswif,lambda,temp,tran_delr,rota_rotangle
-      real(8) delrdisp,rotangle,jumpangle,flatcoeff,prectol
+      real(8) delrdisp,rotangle,jumpangle,flatcoeff,prectol,mu
       if(idnode.eq.0)then
         write(nrite, 
      &"(/'Entering main routine for Wang - Landau calculation',/)")
@@ -87,7 +88,7 @@ c     make a new file to write some Wang-Landau data to
       ! guests for now... 
       nhist=1
       ihist=nhist
-      call alloc_wl_arrays(idnode,nhist,ntpguest)
+      call alloc_wl_arrays(idnode,nhist,ntpguest,maxn)
 c     Temporary: exit if more than one guest included in the
 c     FIELD/CONTROL files. Make clear that this currently works
 c     for estimating the partition function for a single guest
@@ -95,12 +96,11 @@ c     at a single temperature.
       if(ntpguest.gt.1)call error(idnode,2318)
       call timchk(0,timelp)
 c     obtain the min/max number of molecules based on this node's identity
-c     and maxvar
+c     and maxn
 c     NB:This is not an effective division of labour, since the higher
 c     loadings will be more computationally expensive.
-      minmol=(maxvar)/(mxnode)*(idnode)
-      maxmol=(maxvar)/(mxnode)*(idnode+1)
-      varchunk=maxmol-minmol
+      call divide_jobs
+     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk)
       if(mxnode.eq.1)then
         write(nrite,
      &"('Sampling ',i5,' guest loadings on one node.',/)")
@@ -115,7 +115,8 @@ c     use.
       do i=1,ntpguest
         ! compute thermal debroglie wavelength for each guest
         ! assuming, 1) equilibrium ideal gas, 2) no internal degrees of freedom
-        lambda = hplanck / sqrt(2.d0*pi*molmass(i)*boltz*temp)
+        lambda = hplanck / sqrt(2.d0*pi*molmass(i)/1000.d0*boltz*temp/
+     &avo)/1.d-10
         dlambda(i) = lambda**3
         if((guest_insert(i).gt.0).or.(minmol.gt.0))then
           insmol=max(guest_insert(i), minmol)
@@ -167,7 +168,12 @@ c       Failover displace -- shouldn't reach here
         endif
 c       Border conditions. Insertion when nmol is greater or equal to
 c       maxmol
-        if((nummols(imol).ge.maxmol).and.(insert))then
+        nmol=nummols(imol)
+        if((nmol.ge.maxmol).and.(insert))then
+c         update edge case
+          visit_hist(nmol+1,ihist)=visit_hist(nmol+1,ihist)+1
+          dos_hist(nmol+1,ihist)=dos_hist(nmol+1,ihist)+logwlprec
+          tmat_c(nmol+1,nmol+1)=tmat_c(nmol+1,nmol+1)+1.d0
           insert=.false.
           if(randmov.lt.mcdelf)then
             delete = .true.
@@ -196,7 +202,11 @@ c       NB: by not changing the mcxyzf values, these border conditions
 c       are favouring another move, which may not be intended by the
 c       user. e.g. mcdisf has a large advantage now that mcdelf is
 c       removed.
-        if((nummols(imol).le.minmol).and.(delete))then
+        if((nmol.le.minmol).and.(delete))then
+c         update edge case
+          visit_hist(nmol+1,ihist)=visit_hist(nmol+1,ihist)+1
+          dos_hist(nmol+1,ihist)=dos_hist(nmol+1,ihist)+logwlprec
+          tmat_c(nmol+1,nmol+1)=tmat_c(nmol+1,nmol+1)+1.d0
           delete=.false.
           if(randmov.lt.mcinsf)then
             insert = .true.
@@ -227,14 +237,14 @@ c       NB: Swap and Switch not used yet in these calcs.
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins,minmol,ihist)
+     &overlap,accepted,temp,beta,accept_ins,minmol,ihist,logwlprec)
           insert=.false.
         elseif(delete)then
           call wl_delete
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,del_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del,minmol,ihist)
+     &overlap,accepted,temp,beta,accept_del,minmol,ihist,logwlprec)
           delete=.false.
         elseif(displace)then
           call wl_displace
@@ -278,15 +288,22 @@ c       update the histograms (regardless of accept/reject)
 c       DOS Histogram is updated by an increment of log(wlprec)
 c       Visited state histogram incremented by 1.
         !write(*,*)visit_hist(:, ihist)
-        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
-        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
+c        this creates a monotonically increasing DOS. Maybe just for
+c        insert/deletes?
+c        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
+c        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
+
 c       Convergence of a particular 'sweep' is determined when
 c       the visited state histogram is 'flat'
-        if(convergence_check(ihist,varchunk,flatcoeff,visittol))then
+        converge=convergence_check(ihist,varchunk,flatcoeff,visittol)
+        if(converge)then
           sweepcount=sweepcount+1
+          ! update the precision factor
+          wlprec=adjust_factor(wlprec)
+          logwlprec=log(wlprec)
           write(800+iguest,"('Sweep ',i7)")sweepcount
           write(800+iguest,"('Histogram is flat, rescaling precision ',
-     &'factor to ',f15.12)")log(wlprec)
+     &'factor to ',f15.12)")wlprec
           totaccept=
      &accept_ins+accept_del+accept_disp+accept_jump+
      &accept_swap+accept_switch+accept_tran+accept_rota
@@ -296,11 +313,7 @@ c       the visited state histogram is 'flat'
           sweepsteps=0
           call dump_wl_files
      &(idnode,ntpguest,nhist,minmol)
-          ! update the precision factor
-          wlprec=adjust_factor(wlprec)
-          logwlprec=log(wlprec)
           call flush(800+iguest)
-          call reset_visit_hist(ihist,varchunk)
         endif
         if(accepted)then
           accepted=.false.
@@ -308,15 +321,24 @@ c       the visited state histogram is 'flat'
         wlstepcount=wlstepcount+1
         sweepsteps=sweepsteps+1
         if(production)then
-c            if(prod_count.ge.mcsteps)wlchk=.false.
+c          if(prod_count.ge.mcsteps)wlchk=.false.
           prod_count=prod_count+1
         endif
 c       done if the precision factor is less than the tolerance
-        if((wlprec-1.d0).lt.prectol)then
+        if((converge).and.((logwlprec).lt.prectol))then
           wlchk=.false.
+        elseif(converge)then
+          ! only reset histogram if we are not at the end
+          ! of the run. This way the 'dump_wl_files' will
+          ! not produce a '0' histogram.
+          call reset_visit_hist(ihist,varchunk)
+          
         endif
         if(wlstepcount.ge.eqsteps)production=.true.
       enddo
+
+      call compute_isotherm(idnode,iguest,beta,ihist,maxn)
+      ! units = kcal/kg
       call timchk(0,timelp)
       lprod=.true.
       !DOSFILE is 701, VISITED file is 601
@@ -326,7 +348,7 @@ c       done if the precision factor is less than the tolerance
       if(idnode.eq.0)then
         write(nrite,"(/,a100,/,33x,'Wang-Landau calculation complete!',
      &/,a100,/)")repeat('*',100),repeat('*',100)
-        write(nrite, "(a35,f15.12)")'tolerance met:',(wlprec-1.d0)
+        write(nrite, "(a35,f15.12)")'tolerance met: ',(wlprec-1.d0)
         write(nrite, "(a35,i15)")
      &'total number of Monte Carlo steps: ',wlstepcount
         write(nrite,"(a35,i15)")
@@ -338,7 +360,7 @@ c       done if the precision factor is less than the tolerance
         ! first two loops are currently pointless.
       endif 
       call dump_wl_files
-     &(idnode,ntpguest,nhist,minmol)
+     &(idnode,ntpguest,nhist,minmol,maxn)
 
       call terminate_wl
      &(idnode,ntpguest)
@@ -365,22 +387,29 @@ c**********************************************************************
       do ik=1,varchunk
         ncount=ncount+1
         vhist=dble(visit_hist(ik,ihist))
-        write(*,*)ik,vhist
         if(vhist.lt.minvar)minvar=vhist
         if(vhist.gt.mxvar)mxvar=vhist
-        delta=vhist-ave
-        ave=ave+delta/dble(ncount)
-        delta2=vhist-ave
-        var=var+delta*delta2
+        ave=ave+vhist
+        !delta=vhist-ave
+        !ave=ave+delta/dble(ncount)
+        !delta2=vhist-ave
+        !var=var+delta*delta2
       enddo
-      write(*,*)"DONE"
+      ave=ave/dble(ncount)
 c     std could be another metric for convergence
 c      std=sqrt(var)
 c     return if there's at least one bin that hasn't
 c     been visited yet.
-      if(minvar.le.0.d0)return
+      if(minvar.le.0.5d0)return
       convergence_check=
      &((minvar.ge.flatcoeff*ave).or.(int(minvar).ge.visittol))
+      !write(*,*)"*****************************************"
+      !write(*,*)convergence_check
+      !write(*,*)"FLAT TOL      :",flatcoeff
+      !write(*,*)"AVERAGE       :",ave
+      !write(*,*)"MIN VAL       :",minvar
+      !write(*,*)"AVE*TOL       :",flatcoeff*ave
+      !write(*,*)"*****************************************"
       return
       end function convergence_check
 
@@ -412,7 +441,7 @@ c**********************************************************************
       end function adjust_factor
 
       logical function eval_wl_move
-     &(idnode,iguest,ihist,insert,delete,swap,estep,minmol,statvolm,
+     &(idnode,iguest,ihist,insert,delete,swap,estep,minmol,volm,
      &beta)
 c**********************************************************************
 c
@@ -425,21 +454,35 @@ c**********************************************************************
       implicit none
       logical insert,delete,swap
       integer idnode,iguest,imol,nmol,molidx,minmol,ihist
-      real(8) randn,contrib,estep,beta,statvolm
+      real(8) randn,contrib,estep,beta,volm,unbiased
       eval_wl_move=.false.
       imol=locguest(iguest)
       nmol=nummols(imol)
       molidx=(nmol-minmol)+1
       if(insert)then
-        contrib=exp(-1.d0*beta*estep)*statvolm/(1+nmol)/dlambda(iguest)*
+        unbiased=exp(-1.d0*beta*estep)*volm/(1+nmol)
+        contrib=unbiased/dlambda(iguest)*
      &exp(dos_hist(molidx,ihist)-dos_hist(molidx+1,ihist))
+        !write(*,*)"INSERT unbiased: ",unbiased
       elseif(delete)then
-        contrib=exp(-1.d0*beta*estep)*(nmol)/statvolm*dlambda(iguest)*
+        unbiased=exp(-1.d0*beta*estep)*(nmol)/volm
+        contrib=unbiased*dlambda(iguest)*
      &exp(dos_hist(molidx,ihist)-dos_hist(molidx-1,ihist))
+        !write(*,*)"DELETE unbiased: ",unbiased
       else
         ! Nothing yet..
       endif
       randn=duni(idnode)
+      !if(randn.lt.contrib)then
+      !  write(*,*)"************************************"
+      !  if(delete)write(*,*)"DELETION:  "
+      !  if(insert)write(*,*)"INSERTION: "
+      !  write(*,*)"ENERGY  : ",estep
+      !  write(*,*)"UNBIASED: ",unbiased
+      !  write(*,*)"BIASED  : ",contrib
+      !  write(*,*)"LAMBDA^3: ",dlambda(iguest)
+      !  write(*,*)"************************************"
+      !endif
       eval_wl_move = (randn.lt.contrib)
       return
       end function eval_wl_move
@@ -448,7 +491,7 @@ c**********************************************************************
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,ins_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins,minmol,ihist)
+     &overlap,accepted,temp,beta,accept_ins,minmol,ihist,logwlprec)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'insertion' 
@@ -461,11 +504,12 @@ c*******************************************************************************
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
       integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,maxmls,newld,accept_ins
-      integer ntpfram,randchoice,minmol,ihist,molidx
-      real(8) rcut,delr,estep,alpha,drewd,volm
+      integer ntpfram,randchoice,minmol,ihist,molidx,old_molidx
+      real(8) rcut,delr,estep,alpha,drewd,statvolm,logwlprec
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
-      real(8) surftol,overlap,rande,statvolm,temp,beta,unbiased
+      real(8) surftol,overlap,rande,volm,temp,beta,unbiased
       mol=locguest(iguest)
+c     nmol is the original number of molecules. i.e. not N+1
       nmol=nummols(mol)
       natms=numatoms(mol)
 
@@ -483,23 +527,52 @@ c*******************************************************************************
       accepted=.false.
 
       if (.not.loverlap)accepted=eval_wl_move
-     &(idnode,iguest,ihist,.true.,.false.,.false.,estep,minmol,statvolm,
+     &(idnode,iguest,ihist,.true.,.false.,.false.,estep,minmol,volm,
      &beta)
 c     DEBUG
 c      accepted=.true.
 c     END DEBUG
+
+c     update TM arrays regardless of acceptance/rejection
+      molidx=(nmol-minmol)+2
+      old_molidx=(nmol-minmol)+1
+      !TODO(pboyd) look up proper unbiased probability..
+      unbiased=exp(-1.d0*beta*estep)*volm/(1+nmol)
+      if(unbiased.gt.1.d0)then
+        tmat_c(old_molidx,molidx)=tmat_c(old_molidx,molidx)+1.d0
+c        tmat_c(molidx,old_molidx)=tmat_c(molidx,old_molidx)+
+c     &(1.d0-1.d0)
+        tmat_vis(old_molidx,molidx)=tmat_vis(old_molidx,molidx)+1
+        tmat_vis(old_molidx,old_molidx)=
+     &tmat_vis(old_molidx,old_molidx)+1
+c        tmat_vis(molidx,old_molidx)=
+c     &tmat_vis(molidx,old_molidx)+1
+
+      else
+        tmat_c(old_molidx,molidx)=tmat_c(old_molidx,molidx)+unbiased
+c        tmat_c(molidx,old_molidx)=tmat_c(molidx,old_molidx)+
+c     &(1.d0-unbiased)
+        tmat_c(old_molidx,old_molidx)=tmat_c(old_molidx,old_molidx)+
+     &(1.d0-unbiased)
+        tmat_vis(old_molidx,molidx)=tmat_vis(old_molidx,molidx)+1
+        tmat_vis(old_molidx,old_molidx)=
+     &tmat_vis(old_molidx,old_molidx)+1
+c        tmat_vis(molidx,old_molidx)=
+c     &tmat_vis(molidx,old_molidx)+1
+      endif
+
       if(accepted)then
         accept_ins=accept_ins+1
         randchoice=0
-        ! recompute unbiased prob
-        molidx=(nmol-minmol)+1
-        unbiased=exp(-1.d0*beta*estep)*statvolm/(1+nmol)
-        tmat_c(molidx,molidx)=tmat_c(molidx,molidx)+unbiased
+        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
+        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
         call accept_move
      &(iguest,.true.,.false.,.false.,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp,newld)
       else
+        visit_hist(old_molidx,ihist)=visit_hist(old_molidx,ihist)+1
+        dos_hist(old_molidx,ihist)=dos_hist(old_molidx,ihist)+logwlprec
         call reject_move
      &(iguest,0,.true.,.false.,.false.,.false.)
       endif
@@ -509,7 +582,7 @@ c     END DEBUG
      &(idnode,imcon,keyfce,iguest,totatm,rcut,delr,del_count,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del,minmol,ihist)
+     &overlap,accepted,temp,beta,accept_del,minmol,ihist,logwlprec)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'deletion' 
@@ -522,11 +595,12 @@ c*******************************************************************************
       integer iguest,idnode,imcon,totatm,mol,nmol
       integer del_count,keyfce,ntpguest,kmax1,kmax2,kmax3
       integer ntpatm,maxvdw,maxmls,newld,accept_del
-      integer ntpfram,randchoice,minmol,ihist
-      real(8) rcut,delr,estep,alpha,drewd,volm
+      integer ntpfram,randchoice,minmol,ihist,molidx,old_molidx
+      real(8) rcut,delr,estep,alpha,drewd,statvolm,logwlprec
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
-      real(8) surftol,overlap,rande,statvolm,temp,beta
+      real(8) surftol,overlap,rande,volm,temp,beta,unbiased
       mol=locguest(iguest)
+c     nmol is the original number of molecules. i.e. not N-1
       nmol=nummols(mol)
 
       engsicorig=engsic
@@ -543,16 +617,49 @@ c*******************************************************************************
 
       accepted=eval_wl_move
      &(idnode,iguest,ihist,.false.,.true.,.false.,-estep,minmol,
-     &statvolm,beta)
+     &volm,beta)
+
+c     update TM arrays regardless of acceptance/rejection
+      molidx=(nmol-minmol)
+      old_molidx=(nmol-minmol)+1
+      !TODO(pboyd) look up proper unbiased probability..
+      ! NB: Witman has this as 1/exp(1.d0*beta*estep)
+      unbiased=exp(-1.d0*beta*estep)*(nmol)/volm
+      if(unbiased.gt.1.d0)then
+        tmat_c(old_molidx,molidx)=tmat_c(old_molidx,molidx)+1.d0
+c        tmat_c(molidx,old_molidx)=tmat_c(molidx,old_molidx)+
+c     &(1.d0-1.d0)
+        tmat_vis(old_molidx,molidx)=tmat_vis(old_molidx,molidx)+1
+        tmat_vis(old_molidx,old_molidx)=
+     &tmat_vis(old_molidx,old_molidx)+1
+c        tmat_vis(molidx,old_molidx)=
+c     &tmat_vis(molidx,old_molidx)+1
+
+      else
+        tmat_c(old_molidx,molidx)=tmat_c(old_molidx,molidx)+unbiased
+c        tmat_c(molidx,old_molidx)=tmat_c(molidx,old_molidx)+
+c     &(1.d0-unbiased)
+        tmat_c(old_molidx,old_molidx)=tmat_c(old_molidx,old_molidx)+
+     &(1.d0-unbiased)
+        tmat_vis(old_molidx,molidx)=tmat_vis(old_molidx,molidx)+1
+        tmat_vis(old_molidx,old_molidx)=
+     &tmat_vis(old_molidx,old_molidx)+1
+c        tmat_vis(molidx,old_molidx)=
+c     &tmat_vis(molidx,old_molidx)+1
+      endif
          
 c     the following occurs if the move is accepted.
       if(accepted)then
+        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
+        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
         accept_del=accept_del+1
         call accept_move
      &(iguest,.false.,.true.,.false.,
      &linitsurf,delrc,totatm,randchoice,ntpfram,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp,newld)
       else
+        visit_hist(old_molidx,ihist)=visit_hist(old_molidx,ihist)+1
+        dos_hist(old_molidx,ihist)=dos_hist(old_molidx,ihist)+logwlprec
         call reject_move
      &(iguest,0,.false.,.true.,.false.,.false.)
       endif
@@ -1272,7 +1379,7 @@ c     total up the energy contributions.
       end subroutine wl_displace_guest
 
       subroutine dump_wl_files
-     &(idnode,ntpguest,nhist,minmol)
+     &(idnode,ntpguest,nhist,minmol,maxn)
 c***********************************************************************
 c                                                                      *
 c     Write the DOS and visited histograms to their file channels      *
@@ -1281,7 +1388,7 @@ c                                                                      *
 c***********************************************************************
       implicit none
       integer idnode,ntpguest,i,j,k,n
-      integer minmol,nhist
+      integer minmol,nhist,maxn
       do i=1,ntpguest
 c       Overwrite old data...
         if(idnode.eq.0)then
@@ -1291,7 +1398,7 @@ c       Overwrite old data...
         rewind(600+i)
         write(600+i,"('N,Visit(N)')")
         do j=1,nhist
-          do k=1,maxvar
+          do k=1,maxn
 c           subtract 1 to account for occupation of N=0
             n=(minmol+k)-1
             if(idnode.eq.0)write(700+i,"(i6,',',f50.10)")n,dos_hist(k,j)
@@ -1302,6 +1409,114 @@ c           subtract 1 to account for occupation of N=0
         call flush(700+i)
       enddo
       end subroutine dump_wl_files
+
+      real(16) function grand_canonical_partition
+     &(idnode,ihist,beta,mu,maxn)
+c***********************************************************************
+c                                                                      *
+c     Determine the grand canonical partition function from the        *
+c     ln[Q(NVT)] histogram.                                            *
+c                                                                      * 
+c     PB - 12/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,ihist,i
+      real(8) mu,beta,shift,niter
+      grand_canonical_partition=0.d0 
+      shift=dos_hist(1,ihist)
+
+      do i=1,maxn
+c       shift the DOS by the value recorded for N=0.
+        dos_hist(i,ihist)=dos_hist(i,ihist)-shift
+        niter=dble(i)-1.d0
+        grand_canonical_partition = grand_canonical_partition 
+     &+ exp(dos_hist(i,ihist) + beta*mu*niter)
+      enddo
+
+      end function grand_canonical_partition
+
+      subroutine compute_isotherm(idnode,iguest,beta,ihist,maxn)
+c***********************************************************************
+c                                                                      *
+c     Determine the most probable adsorption value for the gas         *
+c     for a range of pressures (currently treated as an ideal gas).    *
+c     TODO(pboyd): make the pressure ranges user-definable             * 
+c                                                                      * 
+c     PB - 12/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      character*25 outfile
+      integer npress,idnode,iguest,ihist,ik,ip,maxn
+      real(8) mu,pmin,pmax,pinterval,p,beta,niter
+      real(kind=16) z_uvt,n,dos_sum  
+
+      pinterval=1.d-1
+      ! these are in bar.
+      pmin=0.d0
+      pmax=5.d0
+      npress=int((pmax-pmin)/pinterval)
+      ! temporary file writing...
+
+      outfile='isotherm.csv'
+      open(15,file=outfile,status="replace")
+
+      write(15,"('p/bar,mmol/g')")
+      do ip=1,npress
+        ! convert from bar to Pa
+        p=(ip*pmin)*1.d5
+        mu=log(p*dlambda(iguest)*beta)/beta 
+        z_uvt = grand_canonical_partition(idnode,ihist,beta,mu,maxn)
+        dos_sum=0.d0
+        do ik=1,maxn
+          niter=dble(ik)-1.d0
+          dos_sum=dos_sum+niter*exp(dos_hist(ik,ihist) + beta*mu*niter) 
+        enddo
+        n=dos_sum/z_uvt
+        write(15,"(f15.6,',',f15.6)")p,n
+      enddo 
+      close(15)
+      end subroutine compute_isotherm
+
+      subroutine divide_jobs
+     &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk)
+c***********************************************************************
+c                                                                      *
+c     Divide the jobs based on the node count. This is currently       *
+c     an asymptotic function.                                          *
+c     The function was designed to approach the max number of          *
+c     molecules for the last compute node allocated.                   *
+c     Thus the last node will sample large values for N, but very      *
+c     few bins (1 or 2 + tail).                                        *
+c     PB - 13/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,mxnode,maxmol,minmol,varchunk,maxn,minn
+      integer tail, nodex
+c     5% addition to both sides of a N distribution so that one can 
+c     stitch them together in post-processing.
+      !tail=int(dble(maxn)*0.05d0)
+      tail=5
+
+      nodex=idnode+1
+c     asymtotic function:
+c     f(x) = (Nmax * x^2 + Nmax/max_cpu * x^2) / (x^2 + x + 1)
+      maxmol=(maxn*nodex**2+maxn/mxnode*nodex**2)/(nodex**2+nodex+1)
+     &+tail
+      minmol=(maxn*idnode**2+maxn/mxnode*idnode**2)/(idnode**2+idnode+1)
+     &-tail
+c     TODO(pboyd): check if maxmol in N-1 is greater than N 
+c     (due to tail)
+      if(nodex.eq.1)minmol=minn
+      if(nodex.eq.mxnode)maxmol=maxn
+
+c      minmol=(maxn)/(mxnode)*(idnode)
+c      maxmol=(maxn)/(mxnode)*(idnode+1)
+      varchunk=maxmol-minmol
+
+      end subroutine divide_jobs
 
       subroutine terminate_wl
      &(idnode,ntpguest)
@@ -1316,6 +1531,8 @@ c***********************************************************************
       implicit none
       integer idnode,ntpguest,i
 
+      if(idnode.eq.0)write(nrite,"(/,/,'Successful termination of ',
+     & 'Wang-Landau simulation!')")
 c     close all i/o channels for each branch
       do i=1,ntpguest
         close (400+i)
