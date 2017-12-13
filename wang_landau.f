@@ -312,7 +312,7 @@ c       the visited state histogram is 'flat'
      &sweepsteps
           sweepsteps=0
           call dump_wl_files
-     &(idnode,ntpguest,nhist,minmol)
+     &(idnode,ntpguest,nhist,minmol,maxn)
           call flush(800+iguest)
         endif
         if(accepted)then
@@ -1421,7 +1421,7 @@ c     PB - 12/12/17                                                    *
 c                                                                      *
 c***********************************************************************
       implicit none
-      integer idnode,ihist,i
+      integer idnode,ihist,i,maxn
       real(8) mu,beta,shift,niter
       grand_canonical_partition=0.d0 
       shift=dos_hist(1,ihist)
@@ -1435,6 +1435,23 @@ c       shift the DOS by the value recorded for N=0.
       enddo
 
       end function grand_canonical_partition
+
+      subroutine stitch_branches(idnode,mxnode)
+c***********************************************************************
+c                                                                      *
+c     Routine to stitch together the density of states computed        *
+c     on each cpu. This is a MPI blocking routine, as they must be     *
+c     stitched incrementally, starting at node 0.                      * 
+c                                                                      * 
+c     PB - 13/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,mxnode
+
+
+
+      end subroutine stitch_branches
 
       subroutine compute_isotherm(idnode,iguest,beta,ihist,maxn)
 c***********************************************************************

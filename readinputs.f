@@ -700,9 +700,9 @@ c         set default writing numguests.out to 1000 steps
           if(wlprec.le.1.d0)call error(idnode,2319) 
         elseif (findstring('wl_prec_tolerance', directive, idum))then
           prectol=dblstr(directive,lenrec,idum)
-        elseif (findstring('wl_max_N', directive, idum))then
+        elseif (findstring('wl_max_n', directive, idum))then
           maxn=dblstr(directive,lenrec,idum)
-        elseif (findstring('wl_min_N', directive, idum))then
+        elseif (findstring('wl_min_n', directive, idum))then
           minn=dblstr(directive,lenrec,idum)
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
@@ -782,14 +782,13 @@ c 'ewald' is already read in initscan
     
 c     check if lwanglandau guest_max and guest_min are allocated
       mm=0
-      mi=1d99
+      mi=100000000
       if(lwanglandau)then
         do iguest=1,ngst
-          if(.not.lguest_min(iguest))then
-            guest_min(iguest)=minn
-          if(.not.lguest_max(iguest))then
-            guest_max(iguest)=maxn
-          endif
+          if(.not.lguest_min(iguest))
+     &guest_min(iguest)=minn
+          if(.not.lguest_max(iguest))
+     &guest_max(iguest)=maxn
           mm = max(guest_max(iguest),mm)
           mi = min(guest_min(iguest),mi)
         enddo
