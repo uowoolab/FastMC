@@ -23,7 +23,8 @@ c*****************************************************************************
       logical wlchk,loverlap,lnewsurf,lprod,accepted
       logical insert,delete,displace,jump,swap,tran,rota,switch
       logical production,converge
-      character*25 outfile,visfile,dosfile
+      character*25 outfile,visfile
+      character*31 dosfile
       character*8 outdir
       character*1 cfgname(80)      
       integer idnode,mxnode,imcon,keyfce,ntpguest,kmax1,kmax2,kmax3
@@ -66,16 +67,17 @@ c     make a new file to write some Wang-Landau data to
           open(800+i,file=outfile)
           write(visfile,"(a8,'/visited_hist',i2.2,'.csv')")outdir,i
           open(700+i,file=visfile)
-          write(dosfile,"(a17,i2.2,'.csv')")'density_of_states',i
+          write(dosfile,"(a8,'/denisty_of_states',i2.2,'.csv')")
+     &outdir,i
           open(600+i,file=dosfile)
         enddo
       else
         outfile=outdir // '/wang_landau.out'
         open(801,file=outfile,status="replace")
-        dosfile='density_of_states.csv'
-        open(701,file=dosfile,status="replace")
         visfile=outdir // '/visited_hist.csv'
-        open(601,file=visfile,status="replace")
+        open(701,file=visfile,status="replace")
+        dosfile=outdir // '/density_of_states.csv'
+        open(601,file=dosfile,status="replace")
       endif
       production=.false.
       rotangle=pi/3.d0
@@ -97,19 +99,16 @@ c     at a single temperature.
       call timchk(0,timelp)
 c     obtain the min/max number of molecules based on this node's identity
 c     and maxn
-c     NB:This is not an effective division of labour, since the higher
-c     loadings will be more computationally expensive.
       tail=0
       call divide_jobs
      &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk,tail)
       if(mxnode.eq.1)then
         write(nrite,
      &"('Sampling ',i5,' guest loadings on one node.',/)")
-     &(varchunk)
+     &(varchunk-1)
       else
-        if(idnode.eq.0)write(nrite,
-     &"(2x,'Sampling split into ',i2,' different jobs, each with ',i5, 
-     &' guest loadings to sample.')")mxnode,varchunk
+        if(idnode.eq.0)write(nrite,"('Sampling split into ',i2,
+     &' different jobs.')")mxnode
       endif
 c     loop is kind of pointless for now but keep it for future
 c     use.
@@ -170,14 +169,29 @@ c       Failover displace -- shouldn't reach here
 c       Border conditions. Insertion when nmol is greater or equal to
 c       maxmol
         nmol=nummols(imol)
-        if((nmol.ge.maxmol).and.(insert))then
+        if(nmol.lt.minmol)then
+          insert=.true.
+          delete=.false.
+          displace=.false.
+          jump=.false.
+          swap=.false.
+          tran=.false.
+          rota=.false.
+          switch=.false.
+c       Border condition. Deletion when nmol is less than or equal to
+c       minmol
+c       NB: by not changing the mcxyzf values, these border conditions
+c       are favouring another move, which may not be intended by the
+c       user. e.g. mcdisf has a large advantage now that mcdelf is
+c       removed.
+        elseif((nmol.le.minmol).and.(delete))then
 c         update edge case
           visit_hist(nmol+1,ihist)=visit_hist(nmol+1,ihist)+1
           dos_hist(nmol+1,ihist)=dos_hist(nmol+1,ihist)+logwlprec
           tmat_c(nmol+1,nmol+1)=tmat_c(nmol+1,nmol+1)+1.d0
-          insert=.false.
-          if(randmov.lt.mcdelf)then
-            delete = .true.
+          delete=.false.
+          if(randmov.lt.mcinsf)then
+            insert = .true.
           elseif(randmov.lt.mcdisf)then
             displace = .true.
           elseif(randmov.lt.mcjmpf)then
@@ -197,20 +211,23 @@ c         Failover displace -- shouldn't reach here
             displace=.true.
           endif
         endif
-c       Border condition. Deletion when nmol is less than or equal to
-c       minmol
-c       NB: by not changing the mcxyzf values, these border conditions
-c       are favouring another move, which may not be intended by the
-c       user. e.g. mcdisf has a large advantage now that mcdelf is
-c       removed.
-        if((nmol.le.minmol).and.(delete))then
+        if(nmol.gt.maxmol)then
+          insert=.false.
+          delete=.true.
+          displace=.false.
+          jump=.false.
+          swap=.false.
+          tran=.false.
+          rota=.false.
+          switch=.false.
+        elseif((nmol.ge.maxmol).and.(insert))then
 c         update edge case
           visit_hist(nmol+1,ihist)=visit_hist(nmol+1,ihist)+1
           dos_hist(nmol+1,ihist)=dos_hist(nmol+1,ihist)+logwlprec
           tmat_c(nmol+1,nmol+1)=tmat_c(nmol+1,nmol+1)+1.d0
-          delete=.false.
-          if(randmov.lt.mcinsf)then
-            insert = .true.
+          insert=.false.
+          if(randmov.lt.mcdelf)then
+            delete = .true.
           elseif(randmov.lt.mcdisf)then
             displace = .true.
           elseif(randmov.lt.mcjmpf)then
@@ -284,7 +301,8 @@ c       NB: Swap and Switch not used yet in these calcs.
           swap=.false.
         endif
 c       offset molidx by one to count for the '0' bin.
-        molidx=(nummols(imol)-minmol)+1
+        !molidx=(nummols(imol)-minmol)+1
+        molidx=nummols(imol)+1
 c       update the histograms (regardless of accept/reject)
 c       DOS Histogram is updated by an increment of log(wlprec)
 c       Visited state histogram incremented by 1.
@@ -293,10 +311,10 @@ c        this creates a monotonically increasing DOS. Maybe just for
 c        insert/deletes?
 c        visit_hist(molidx,ihist)=visit_hist(molidx,ihist)+1
 c        dos_hist(molidx,ihist)=dos_hist(molidx,ihist)+logwlprec
-
 c       Convergence of a particular 'sweep' is determined when
 c       the visited state histogram is 'flat'
-        converge=convergence_check(ihist,varchunk,flatcoeff,visittol)
+        converge=convergence_check
+     &(idnode,ihist,minmol,varchunk,flatcoeff,visittol)
         if(converge)then
           sweepcount=sweepcount+1
           ! update the precision factor
@@ -332,28 +350,35 @@ c       done if the precision factor is less than the tolerance
           ! only reset histogram if we are not at the end
           ! of the run. This way the 'dump_wl_files' will
           ! not produce a '0' histogram.
-          call reset_visit_hist(ihist,varchunk)
+          call reset_visit_hist(ihist,minmol,varchunk)
           
         endif
         if(wlstepcount.ge.eqsteps)production=.true.
       enddo
+      call timchk(0,timelp)
+      if(mxnode.gt.1)call report_timing
+     &(idnode,mxnode,timelp,varchunk)
+c     DUMP here, before everything gets merged to the 
+c     mother node.
+      call dump_wl_files
+     &(idnode,ntpguest,nhist,minmol,maxmol,varchunk)
+
 c     useful routine for summing DOS's from each node.
 c     HOWEVER - the normalization of the DOS is in this routine
 c     as well, so must keep and make sure it works for serial
 c     executions as well.
       call stitch_branches
      &(idnode,mxnode,maxn,minn,minmol,maxmol,tail,ihist,varchunk)
-
-      call compute_isotherm
-     &(idnode,iguest,beta,ihist,maxn,minn,varchunk)
       ! units = kcal/kg
-      call timchk(0,timelp)
       lprod=.true.
-      !DOSFILE is 701, VISITED file is 601
+      !DOSFILE is 601, VISITED file is 701
       call revive
      &(totatm,levcfg,lprod,ntpguest,maxmls,
      &imcon,cfgname,0.d0,outdir)
       if(idnode.eq.0)then
+
+        call compute_isotherm
+     &(idnode,iguest,beta,ihist,maxn,minn,varchunk)
         write(nrite,"(/,a100,/,33x,'Wang-Landau calculation complete!',
      &/,a100,/)")repeat('*',100),repeat('*',100)
         write(nrite, "(a35,f15.12)")'tolerance met: ',(wlprec-1.d0)
@@ -361,40 +386,39 @@ c     executions as well.
      &'total number of Monte Carlo steps: ',wlstepcount
         write(nrite,"(a35,i15)")
      &'number of W-L sweeps: ',sweepcount
+        
 
         write(nrite, "(a35,f15.3,' seconds')")
      &'Time elapsed for W-L calculation: ',timelp
         ! write DOS histogram for guest i
         ! first two loops are currently pointless.
       endif 
-      call dump_wl_files
-     &(idnode,ntpguest,nhist,minmol,maxmol,varchunk)
-
       call terminate_wl
      &(idnode,ntpguest)
       end subroutine wang_landau_sim
 
       logical function convergence_check
-     &(ihist,varchunk,flatcoeff,visittol)
+     &(idnode,ihist,minmol,varchunk,flatcoeff,visittol)
 c**********************************************************************
-c
-c     check to see if the histogram is converged. 
-c     PB - 15/11/2017
-c
+c                                                                     *
+c     check to see if the histogram is converged.                     *
+c     PB - 15/11/2017                                                 *
+c                                                                     *
 c**********************************************************************
-      implicit none
-      integer ihist,ik,ncount,varchunk,visittol
-      real(8) ave,var,std,vhist,delta,delta2,flatcoeff,mxvar,minvar
-      convergence_check=.false.
-      ave=0.d0
+      implicit none                                                   
+      integer ihist,ik,ncount,varchunk,visittol,minmol,idnode 
+      real(8) ave,var,std,vhist,delta,delta2,flatcoeff,mxvar,minvar 
+      convergence_check=.false.                                    
+      ave=0.d0                                                    
       var=0.d0
       ncount=0
       mxvar=0.d0
       minvar=1.d99 
       ! mean and std in one loop
-      do ik=1,varchunk
+      do ik=1,varchunk+1
         ncount=ncount+1
-        vhist=dble(visit_hist(ik,ihist))
+        
+        vhist=dble(visit_hist(minmol+ik,ihist))
         if(vhist.lt.minvar)minvar=vhist
         if(vhist.gt.mxvar)mxvar=vhist
         ave=ave+vhist
@@ -421,26 +445,73 @@ c     been visited yet.
       return
       end function convergence_check
 
-      subroutine reset_visit_hist(ihist,varchunk)
+      subroutine report_timing(idnode,mxnode,timelp,varchunk)
 c**********************************************************************
-c
-c     Reset the visit histogram to '0' 
-c     PB - 30/11/2017
-c
+c                                                                     * 
+c     Report the parallel timings of the code. Useful data            *
+c     for deciding on how to partition the N guest loadings, and      *
+c     other convergence criteria options.                             *
+c     PB - 14/12/2017                                                 *
+c                                                                     *
 c**********************************************************************
       implicit none
-      integer ik,ihist,varchunk
-      do ik=1,varchunk
-        visit_hist(ik,ihist)=0
+      integer idnode,mxnode,varchunk,varbuff,inode
+      real(8) timelp,timebuff,maxtime,mintime
+      real(8) :: timedata(mxnode)
+      integer :: chunkdata(mxnode)
+
+      maxtime=timelp
+      mintime=timelp
+      if(idnode.eq.0)then
+        timedata(1)=timelp
+        chunkdata(1)=varchunk
+        do inode=1,mxnode-1
+          call crecv(inode*mxnode*2+1,timebuff,1,2)  
+          call crecv(inode*mxnode*3+1,varbuff,1,3)
+          if(timebuff.gt.maxtime)maxtime=timebuff
+          if(timebuff.lt.mintime)mintime=timebuff
+          timedata(inode+1)=timebuff
+          chunkdata(inode+1)=varbuff 
+        enddo
+        write(nrite,"(a100,/,40x,'Timing Data',/,a100)")
+     &repeat('*',100),repeat('*',100)
+        write(nrite,"('Load imbalance: ',f7.2,' %')")
+     &(1.d0-mintime/maxtime)*100.d0
+        write(nrite,"(/,5x,a5,10x,a10,10x,a8,10x,a17,/,a79)")
+     &"node","data size","time(s)","load imbalance(%)",
+     &repeat('-',74)
+        do inode=1,mxnode
+          write(nrite,"(5x,i3,10x,i7,10x,f14.5,12x,f7.3)")inode-1,
+     &chunkdata(inode),timedata(inode),
+     &(1.d0-timedata(inode)/maxtime)*100.d0
+        enddo
+        timelp=maxtime
+      else
+        call csend(idnode*mxnode*2+1,timelp,1,0,2)
+        call csend(idnode*mxnode*3+1,varchunk,1,0,3)
+      endif
+      end subroutine report_timing
+
+      subroutine reset_visit_hist(ihist,minmol,varchunk)
+c**********************************************************************
+c                                                                     *
+c     Reset the visit histogram to '0'                                *
+c     PB - 30/11/2017                                                 *
+c                                                                     *
+c**********************************************************************
+      implicit none
+      integer ik,ihist,varchunk,minmol
+      do ik=1,varchunk+1
+        visit_hist(minmol+ik,ihist)=0
       enddo
       end subroutine reset_visit_hist
 
       real(8) function adjust_factor(f)
 c**********************************************************************
-c
-c     Function to decrease the density of states scaling factor
-c     PB - 15/11/2017
-c
+c                                                                     *
+c     Function to decrease the density of states scaling factor       *
+c     PB - 15/11/2017                                                 *
+c                                                                     *
 c**********************************************************************
       implicit none
       real(8) f
@@ -452,12 +523,12 @@ c**********************************************************************
      &(idnode,iguest,ihist,insert,delete,swap,estep,minmol,volm,
      &beta)
 c**********************************************************************
-c
-c     Acceptance criteria for the Wang-Landau algorithm. Currently
-c     hard-coded for ajusting the number of molecules as a macrostate
-c     variable.
-c     PB - 15/11/2017
-c
+c                                                                     *
+c     Acceptance criteria for the Wang-Landau algorithm. Currently    *
+c     hard-coded for ajusting the number of molecules as a macrostate *
+c     variable.                                                       *
+c     PB - 15/11/2017                                                 *
+c                                                                     *
 c**********************************************************************
       implicit none
       logical insert,delete,swap
@@ -466,7 +537,8 @@ c**********************************************************************
       eval_wl_move=.false.
       imol=locguest(iguest)
       nmol=nummols(imol)
-      molidx=(nmol-minmol)+1
+      !molidx=(nmol-minmol)+1
+      molidx=nmol+1
       if(insert)then
         unbiased=exp(-1.d0*beta*estep)*volm/(1+nmol)
         contrib=unbiased/dlambda(iguest)*
@@ -501,13 +573,13 @@ c**********************************************************************
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
      &overlap,accepted,temp,beta,accept_ins,minmol,ihist,logwlprec)
 c*******************************************************************************
-c
-c     keeps track of all the associated arrays and calls the 'insertion' 
-c     subroutine. Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled to a ?? ensemble.
-c
+c                                                                              *
+c     keeps track of all the associated arrays and calls the 'insertion'       *
+c     subroutine. Acceptance/rejection criteria based on Metropolis            *
+c     importance sampling coupled to a ?? ensemble.                            *
+c                                                                              *
 c*******************************************************************************
-      implicit none
+      implicit none                                                    
       logical lnewsurf,loverlap,accepted
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
       integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
@@ -542,8 +614,10 @@ c      accepted=.true.
 c     END DEBUG
 
 c     update TM arrays regardless of acceptance/rejection
-      molidx=(nmol-minmol)+2
-      old_molidx=(nmol-minmol)+1
+      !molidx=(nmol-minmol)+2
+      !old_molidx=(nmol-minmol)+1
+      molidx=nmol+2
+      old_molidx=nmol+1
       !TODO(pboyd) look up proper unbiased probability..
       unbiased=exp(-1.d0*beta*estep)*volm/(1+nmol)
       if(unbiased.gt.1.d0)then
@@ -592,11 +666,11 @@ c     &tmat_vis(molidx,old_molidx)+1
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
      &overlap,accepted,temp,beta,accept_del,minmol,ihist,logwlprec)
 c*******************************************************************************
-c
-c     keeps track of all the associated arrays and calls the 'deletion' 
-c     subroutine. Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled to 
-c
+c                                                                              *
+c     keeps track of all the associated arrays and calls the 'deletion'        *
+c     subroutine. Acceptance/rejection criteria based on Metropolis            *
+c     importance sampling coupled to                                           *
+c                                                                              *
 c*******************************************************************************
       implicit none
       logical linitsurf,accepted
@@ -628,8 +702,10 @@ c     nmol is the original number of molecules. i.e. not N-1
      &volm,beta)
 
 c     update TM arrays regardless of acceptance/rejection
-      molidx=(nmol-minmol)
-      old_molidx=(nmol-minmol)+1
+      !molidx=(nmol-minmol)
+      !old_molidx=(nmol-minmol)+1
+      molidx=nmol
+      old_molidx=nmol+1
       !TODO(pboyd) look up proper unbiased probability..
       ! NB: Witman has this as 1/exp(1.d0*beta*estep)
       unbiased=exp(-1.d0*beta*estep)*(nmol)/volm
@@ -682,18 +758,18 @@ c     the following occurs if the move is accepted.
      &beta,delrc,ntpatm,maxvdw,accept_tran,accept_rota,accept_disp,
      &ntpguest,ntpfram)
 c*******************************************************************************
-c
-c     Keeps track of all the associated arrays and calls the 
-c     'wl_displace_guest' subroutine. 
-c     The underlying mechanics of this code is a 'deletion/insertion'
-c     move, where the molecule is only perturbed as far as delrdisp and
-c     rotangle dictates.
-c     Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled to 
-c
+c                                                                              *
+c     Keeps track of all the associated arrays and calls the                   *
+c     'wl_displace_guest' subroutine.                                          *
+c     The underlying mechanics of this code is a 'deletion/insertion'          *
+c     move, where the molecule is only perturbed as far as delrdisp and        *
+c     rotangle dictates.                                                       *
+c     Acceptance/rejection criteria based on Metropolis                        *
+c     importance sampling coupled to                                           *
+c                                                                              *
 c*******************************************************************************
-      implicit none
-      logical tran,rota,loverlap,linitsurf,lnewsurf,accepted
+      implicit none                                                    
+      logical tran,rota,loverlap,linitsurf,lnewsurf,accepted          
       integer iguest,keyfce,imcon,idnode,tran_count,rota_count
       integer disp_count,mol,ik,newld,maxmls,totatm,maxvdw
       integer kmax1,kmax2,kmax3,randchoice,nmol,ntpatm
@@ -806,15 +882,15 @@ c          ckssnew(maxmls+1,ik)=0.d0
      &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_jump,ntpfram,
      &ntpguest)
 c*******************************************************************************
-c
-c     Keeps track of all the associated arrays and calls the 
-c     'wl_displace_guest' subroutine. 
-c     The underlying mechanics of this code is a 'deletion/insertion'
-c     move, where the molecule is randomly perturbed to another point  
-c     in the simulation cell.
-c     Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled to 
-c
+c                                                                              *
+c     Keeps track of all the associated arrays and calls the                   *
+c     'wl_displace_guest' subroutine.                                          *
+c     The underlying mechanics of this code is a 'deletion/insertion'          *
+c     move, where the molecule is randomly perturbed to another point          *
+c     in the simulation cell.                                                  *
+c     Acceptance/rejection criteria based on Metropolis                        *
+c     importance sampling coupled to                                           *
+c                                                                              *
 c*******************************************************************************
       implicit none
       logical accepted,linitsurf,lnewsurf,loverlap
@@ -897,20 +973,20 @@ c       tally surface molecules
      &rcut,delr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
      &ntpguest)
-c*******************************************************************************
-c
-c     Keeps track of all the associated arrays and calls the 
-c     The underlying mechanics of this code is a 
-c     'deletion / displacement / insertion'
-c     move, where two molecules of different types in the simulation cell 
-c     switch locations.
-c     Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled to 
-c
-c     *** Currently only one switch is performed, but one could possibly
-c         include multi switches as long as (detailed) balance isn't
-c         violated. ***
-c*******************************************************************************
+c********************************************************************************
+c                                                                               *
+c     Keeps track of all the associated arrays and calls the                    *
+c     The underlying mechanics of this code is a                                *
+c     'deletion / displacement / insertion'                                     *
+c     move, where two molecules of different types in the simulation cell       *
+c     switch locations.                                                         *
+c     Acceptance/rejection criteria based on Metropolis                         *
+c     importance sampling coupled to                                            *
+c                                                                               *
+c     *** Currently only one switch is performed, but one could possibly        *
+c         include multi switches as long as (detailed) balance isn't            *
+c         violated. ***                                                         *
+c********************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
       logical lnewsurf,lnewsurfj
@@ -1133,19 +1209,19 @@ c       restore original surfacemols if step is rejected
      &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
      &ntpguest,rotangle)
 c*******************************************************************************
-c
-c     Keeps track of all the associated arrays and calls the 
-c     'deletion' and 'insertion' subroutines. 
-c     The underlying mechanics of this code is a 'deletion/insertion'
-c     move, where a molecule in the simulation cell is swapped with a
-c     molecule with a different identity.
-c     Acceptance/rejection criteria based on Metropolis
-c     importance sampling coupled 
-c
+c                                                                              *
+c     Keeps track of all the associated arrays and calls the                   *
+c     'deletion' and 'insertion' subroutines.                                  *
+c     The underlying mechanics of this code is a 'deletion/insertion'          *
+c     move, where a molecule in the simulation cell is swapped with a          *
+c     molecule with a different identity.                                      *
+c     Acceptance/rejection criteria based on Metropolis                        *
+c     importance sampling coupled                                              *
+c                                                                              *
 c*******************************************************************************
-      implicit none
-      logical accepted,linitsurf,lnewsurf,loverlap
-      integer idnode,imcon,keyfce,iguest,jguest,totatm,swap_count
+      implicit none                                                     
+      logical accepted,linitsurf,lnewsurf,loverlap                     
+      integer idnode,imcon,keyfce,iguest,jguest,totatm,swap_count     
       integer maxmls,kmax1,kmax2,kmax3,origtotatm,ik,imol,jmol,iatm
       integer newld,ntpatm,maxvdw,accept_swap,randchoice
       integer nmols,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
@@ -1396,21 +1472,19 @@ c                                                                      *
 c***********************************************************************
       implicit none
       integer idnode,ntpguest,i,j,k,n
-      integer minmol,nhist,minmol,maxmol,varchunk
+      integer nhist,minmol,maxmol,varchunk
       do i=1,ntpguest
 c       Overwrite old data...
-        if(idnode.eq.0)then
-          rewind(700+i)
-          write(700+i,"('N,p(N)')")
-        endif
         rewind(600+i)
-        write(600+i,"('N,Visit(N)')")
+        write(600+i,"('N,ln[Q(N)]')")
+        rewind(700+i)
+        write(700+i,"('N,Visit(N)')")
         do j=1,nhist
-          do k=1,varchunk
+          do k=1,varchunk+1
 c           subtract 1 to account for occupation of N=0
             n=(minmol+k)-1
-            if(idnode.eq.0)write(700+i,"(i6,',',f50.10)")n,dos_hist(k,j)
-            write(600+i,"(i6,',',i20)")n,visit_hist(k,j)
+            write(600+i,"(i6,',',f50.10)")n,dos_hist(n+1,j)
+            write(700+i,"(i6,',',i20)")n,visit_hist(n+1,j)
           enddo
         enddo
         call flush(600+i)
@@ -1453,10 +1527,22 @@ c     PB - 13/12/17                                                    *
 c                                                                      *
 c***********************************************************************
       implicit none
-      integer nsample
-      real(8) :: obj(nsample), opt(nsample)
+      integer nsample,i
+      real(8) objav,optav
+      real(8), dimension(nsample) :: obj, opt
+      objav=0.d0
+      optav=0.d0
+      !do i=1,nsample
+      !  objav=objav+obj(i)
+      !  optav=optav+opt(i)
+      !enddo
+      !objav=objav/dble(nsample)
+      !optav=optav/dble(nsample)
 
-      obtain_min_shift=0.d0
+c      currently just a hack job.
+      obtain_min_shift=obj(1)-opt(1)
+c      obtain_min_shift=objav-optav
+c     TODO(pboyd): report error in fit.
       end function obtain_min_shift
 
       subroutine stitch_branches
@@ -1472,15 +1558,14 @@ c                                                                      *
 c***********************************************************************
       implicit none
       integer idnode,mxnode,inode,tail,ii,ik,ihist,idx,maxmol
-      integer minmol,minmol2,maxmol2,ij,i,varchunk
+      integer minmol,minmol2,maxmol2,ij,i,varchunk2,varchunk,minn,maxn
       real(8), allocatable :: dosbuff(:)
       ! objective and optimized
       real(8), allocatable :: obj(:), opt(:)
       real(8) const,shift
-      allocate(dosbuff(maxn))
-      allocate(obj(tail-2))
-      allocate(opt(tail-2))
-
+      allocate(dosbuff(maxn+1))
+      allocate(obj(2*tail-2))
+      allocate(opt(2*tail-2))
 
       if(idnode.eq.0)then
 c       normalize the dos_hist on the main node
@@ -1489,35 +1574,37 @@ c       normalize the dos_hist on the main node
 c         shift the DOS by the value recorded for N=0.
           dos_hist(i,ihist)=dos_hist(i,ihist)-shift
         enddo
-        do inode=1,mxnode
+        ! ranks start at 0, but FORTRAN starts at 1. Subtract
+        ! mxnode by one to properly iterate over nodes.
+        do inode=1,(mxnode-1)
 c         crecv([messagetag],[variable to send],[length],[destination],
 c     [dummy var])
 c         WARNING: setting the last variable to 1 will send a
 c         real(kind=16) type.
-          call crecv(inode*2+1,dosbuff,maxn,2)
+          call crecv(inode*2+1,dosbuff,maxn+1,2)
           ! ignore terminal entries
           ! merge the rest via min variance.
-          ik=0
+          ik=1
           ! obtain minmol and maxmol for the current node
           call divide_jobs
-     &(inode,mxnode,maxn,minn,maxmol2,minmol2,varchunk,tail)
-          do ii = 2,tail-1
+     &(inode,mxnode,maxn,minn,maxmol2,minmol2,varchunk2,tail)
+          do ii = 1, 2*tail-2
             ik=ik+1
-            opt(ik)=dosbuff(ii)
-            idx=maxmol-tail-1+ik
-            obj(ik)=dos_hist(idx,ihist)
+            opt(ii)=dosbuff(minmol2+ik)
+            idx=minmol2+ik
+            obj(ii)=dos_hist(idx,ihist)
           enddo
-          const = obtain_min_shift(obj,opt,tail-2)
+          const = obtain_min_shift(obj,opt,2*tail-2)
           ! report error in stitching with node inode
           ik=1
-          do ij=minmol2+1,maxmol2
+          do ij=minmol2+1,maxmol2+1
             ik=ik+1
             ! merge the tail portion by averaging.
-            if((ik.ge.2).and.(ik.le.tail-1))then
+            if((ik.ge.2).and.(ik.le.2*tail-1))then
               dos_hist(ij,ihist)=
-     &(dos_hist(ij,ihist)+dosbuff(ik)+const)/2.d0
+     &(dos_hist(ij,ihist)+dosbuff(ij)+const)/2.d0
             else
-              dos_hist(ij,ihist)=dosbuff(ik)+const
+              dos_hist(ij,ihist)=dosbuff(ij)+const
             endif
           enddo
         enddo
@@ -1525,7 +1612,10 @@ c         real(kind=16) type.
 c       csend([messagetag],[variable to send],[length],[destination],
 c     [dummy var])
 c       may have to reduce dos_hist to a 1D array..
-        call csend(idnode*2+1,dos_hist(:,ihist),maxn,0,1)
+        do ii=1,maxn+1
+          dosbuff(ii)=dos_hist(ii,ihist)
+        enddo
+        call csend(idnode*2+1,dosbuff,maxn+1,0,2)
       endif
 
       end subroutine stitch_branches
@@ -1542,25 +1632,44 @@ c     PB - 12/12/17                                                    *
 c                                                                      *
 c***********************************************************************
       implicit none
-      character*25 outfile
+      character*12 outfile
+      character*25 finaldos
       integer npress,idnode,iguest,ihist,ik,ip,maxn,minn,varchunk
+      integer k,nid
       real(8) mu,pmin,pmax,pinterval,p,beta,niter
       real(kind=16) z_uvt,n,dos_sum  
 
+      ! varchunk is now the total range of N, not the amount
+      ! allocated for each node
+      varchunk = maxn-minn+1
       pinterval=1.d-1
       ! these are in bar.
       pmin=0.d0
       pmax=5.d0
       npress=int((pmax-pmin)/pinterval)
-      ! temporary file writing...
 
+c     first write out the final dos in the main directory.
+c     If run in parallel, this will be the 'stitched' version
+c     of the DOS, performed on idnode=0
+c     in subroutine 'stitch_branches'
+      finaldos='final_dos.csv'
+      open(16,file=finaldos,status="replace")
+      write(16,"('N,ln[Q(N)]')")
+      do k=1,maxn+1
+c       subtract 1 to account for occupation of N=0
+        nid=k-1
+        write(16,"(i6,',',f50.10)")nid,dos_hist(k,ihist)
+      enddo
+
+c     compute isotherm data now.
       outfile='isotherm.csv'
       open(15,file=outfile,status="replace")
 
       write(15,"('p/bar,mmol/g')")
-      do ip=1,npress
+      do ip=1,npress+1
         ! convert from bar to Pa
-        p=(ip*pmin)*1.d5
+        ! add 1 Pa to each pressure so there isn't a DIV0 error
+        p=((dble(ip-1)+1d-5)*pinterval)*1.d5
         mu=log(p*dlambda(iguest)*beta)/beta 
         z_uvt = grand_canonical_partition
      &(idnode,ihist,beta,mu,minn,maxn,varchunk)
@@ -1570,7 +1679,8 @@ c***********************************************************************
           dos_sum=dos_sum+niter*exp(dos_hist(ik,ihist) + beta*mu*niter) 
         enddo
         n=dos_sum/z_uvt
-        write(15,"(f15.6,',',f15.6)")p,n
+        write(15,"(f15.6,',',f15.6)")p*1.d-5,n
+        !write(15,*)p,n
       enddo 
       close(15)
       end subroutine compute_isotherm
@@ -1590,21 +1700,21 @@ c                                                                      *
 c***********************************************************************
       implicit none
       integer idnode,mxnode,maxmol,minmol,varchunk,maxn,minn
-      integer tail, nodex
+      integer tail,nodex
 c     5% addition to both sides of a N distribution so that one can 
 c     stitch them together in post-processing.
       !tail=int(dble(maxn)*0.05d0)
-      tail=5
+      tail=3
       ! if run serially, just assume the user will add the tails
       ! if this calc will be stitched together in postprocessing.
       if(mxnode.eq.1)tail=0
       nodex=idnode+1
 c     asymtotic function:
 c     f(x) = (Nmax * x^2 + Nmax/max_cpu * x^2) / (x^2 + x + 1)
-      maxmol=(maxn*nodex**2+maxn/mxnode*nodex**2)/(nodex**2+nodex+1)
-     &+tail
-      minmol=(maxn*idnode**2+maxn/mxnode*idnode**2)/(idnode**2+idnode+1)
-     &-tail
+      maxmol=((maxn+1)*nodex**2+(maxn+1)/mxnode*nodex**2)/
+     &(nodex**2+nodex+1)+tail
+      minmol=((maxn+1)*idnode**2+(maxn+1)/mxnode*idnode**2)/
+     &(idnode**2+idnode+1)-tail
 c     TODO(pboyd): check if maxmol in N-1 is greater than N 
 c     (due to tail)
       if(nodex.eq.1)minmol=minn
@@ -1612,8 +1722,8 @@ c     (due to tail)
 
 c      minmol=(maxn)/(mxnode)*(idnode)
 c      maxmol=(maxn)/(mxnode)*(idnode+1)
+      ! increment by 1 to account for the zeroth entry
       varchunk=maxmol-minmol
-
       end subroutine divide_jobs
 
       subroutine terminate_wl

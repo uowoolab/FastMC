@@ -79,7 +79,8 @@ c*****************************************************************************
       iter=0
       ! just return if the user doesn't know what they are doing.
       if(nmol.ge.nguests)return
-      write(nrite,"(1x,'Inserting ',i6,' guests of type ',i3)")
+      if(idnode.eq.0)write(nrite,
+     &"(1x,'Inserting ',i6,' guests of type ',i3)")
      &guest_insert(iguest),iguest
 
       do while(nmol.lt.nguests)
@@ -109,11 +110,13 @@ c*****************************************************************************
         nmol=nummols(mol)
         iter=iter+1
       enddo 
-      write(nrite,"(1x,'Successful Insertion of ',i6,
+      if(idnode.eq.0)then
+        write(nrite,"(1x,'Successful Insertion of ',i6,
      &' guests of type ',i3)")
      &nummols(mol),iguest
-      write(nrite,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
+        write(nrite,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
      &iter,dble(nummols(mol))/dble(iter) * 100.d0
+      endif
       end subroutine insert_guests
       subroutine insertion
      &(imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,

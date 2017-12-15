@@ -144,13 +144,9 @@ c*********************************************************************
 c
 c     Intel-like  csend (double precision)
 c
-c     MPI version - t.forester may 1995
-c     CPP version - w.smith may 1995
-c
-c     wl
-c     2005/09/28 12:04:35
-c     1.1
-c     Exp
+c     idum=1 send real(kind=16)
+c     idum=2 send real(kind=8)
+c     idum=3 send integer
 c
 c*********************************************************************
 
@@ -172,12 +168,13 @@ c     x     MPI_COMM_WORLD,ierr)
 c     set idum value to mean quadruple precision... dont think it 
 c     was being used for anything
       if(idum.eq.1)then
-
         call MPI_send(buf,length,MPI_REAL16,pe,msgtag,
      x       MPI_COMM_WORLD,ierr)
-      else
-              
+      elseif(idum.eq.2)then
         call MPI_send(buf,length,MPI_DOUBLE_PRECISION,pe,msgtag,
+     x       MPI_COMM_WORLD,ierr)
+      else if(idum.eq.3)then
+        call MPI_send(buf,length,MPI_INTEGER,pe,msgtag,
      x       MPI_COMM_WORLD,ierr)
 
       endif
@@ -220,9 +217,11 @@ c     x     msgtag,MPI_COMM_WORLD,status,ierr)
       if(idum.eq.1)then
         call MPI_RECV(buf,length,MPI_REAL16,MPI_ANY_SOURCE,
      x       msgtag,MPI_COMM_WORLD,status,ierr)
-
-      else
+      elseif(idum.eq.2)then
         call MPI_RECV(buf,length,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,
+     x       msgtag,MPI_COMM_WORLD,status,ierr)
+      elseif(idum.eq.3)then
+        call MPI_RECV(buf,length,MPI_INTEGER,MPI_ANY_SOURCE,
      x       msgtag,MPI_COMM_WORLD,status,ierr)
       endif
 
