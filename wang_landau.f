@@ -111,9 +111,9 @@ c     and maxn
         if(idnode.eq.0)then
           write(nrite,"('Sampling split into ',i2,
      &' different jobs.')")mxnode
-         call divide_jobs
-     &(idnode,mxnode,maxn,minn,imaxmol,iminmol,ivarchunk,tail)
           do i=1,mxnode
+            call divide_jobs
+     &(i-1,mxnode,maxn,minn,imaxmol,iminmol,ivarchunk,tail)
             write(nrite, "(4x,'Rank ',i2,' running ',i4,' to ',i4)")
      &i-1,iminmol,imaxmol
 
