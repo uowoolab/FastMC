@@ -36,6 +36,7 @@ c*****************************************************************************
       integer switch_count,accept_swap,swap_count,mcsteps,eqsteps,tail
       integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx,nmol
       integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n,maxn,minn
+      integer ivarchunk,imaxmol,iminmol
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
@@ -107,8 +108,17 @@ c     and maxn
      &"('Sampling ',i5,' guest loadings on one node.',/)")
      &(varchunk-1)
       else
-        if(idnode.eq.0)write(nrite,"('Sampling split into ',i2,
+        if(idnode.eq.0)then
+          write(nrite,"('Sampling split into ',i2,
      &' different jobs.')")mxnode
+         call divide_jobs
+     &(idnode,mxnode,maxn,minn,imaxmol,iminmol,ivarchunk,tail)
+          do i=1,mxnode
+            write(nrite, "(4x,'Rank ',i2,' running ',i4,' to ',i4)")
+     &i-1,iminmol,imaxmol
+
+          enddo
+        endif
       endif
 c     loop is kind of pointless for now but keep it for future
 c     use.
