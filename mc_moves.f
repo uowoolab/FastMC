@@ -46,7 +46,7 @@ c      req = sig*(2.d0**(1.d0/6.d0))
       subroutine insert_guests
      &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,nguests,rcut,delr,
      &sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,kmax1,kmax2,
-     &kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls)
+     &kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,iter)
 c*****************************************************************************
 c
 c     routine that inserts guests to a desired number. 
@@ -56,7 +56,7 @@ c     are computed, but not used when keeping or discarding a particle.
 c 
 c     A maxiter counter is set to ensure that the loop doesn't continue
 c     forever. If one reaches this counter, the program will exit with
-c     an error. (currently set to 10,000 times the number of guests to
+c     an error. (currently set to 1,000 times the number of guests to
 c     insert)
 c
 c     NB: none of this is coupled to an ensemble. 
@@ -79,9 +79,6 @@ c*****************************************************************************
       iter=0
       ! just return if the user doesn't know what they are doing.
       if(nmol.ge.nguests)return
-      if(idnode.eq.0)write(nrite,
-     &"(1x,'Inserting ',i6,' guests of type ',i3)")
-     &guest_insert(iguest),iguest
 
       do while(nmol.lt.nguests)
         ! exit if the number of attempts exceeds the maximum number
@@ -110,13 +107,6 @@ c*****************************************************************************
         nmol=nummols(mol)
         iter=iter+1
       enddo 
-      if(idnode.eq.0)then
-        write(nrite,"(1x,'Successful Insertion of ',i6,
-     &' guests of type ',i3)")
-     &nummols(mol),iguest
-        write(nrite,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
-     &iter,dble(nummols(mol))/dble(iter) * 100.d0
-      endif
       end subroutine insert_guests
       subroutine insertion
      &(imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,

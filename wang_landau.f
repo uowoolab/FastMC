@@ -36,7 +36,7 @@ c*****************************************************************************
       integer switch_count,accept_swap,swap_count,mcsteps,eqsteps,tail
       integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx,nmol
       integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n,maxn,minn
-      integer ivarchunk,imaxmol,iminmol
+      integer ivarchunk,imaxmol,iminmol,iter
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
@@ -118,6 +118,7 @@ c     and maxn
      &i-1,iminmol,imaxmol
 
           enddo
+          call flush(nrite)
         endif
       endif
 c     loop is kind of pointless for now but keep it for future
@@ -129,12 +130,21 @@ c     use.
      &avo)/1.d-10
         dlambda(i) = lambda**3
         if((guest_insert(i).gt.0).or.(minmol.gt.0))then
+          imol=locguest(i)
           insmol=max(guest_insert(i), minmol)
+          write(800+i,
+     &"(1x,'Inserting ',i6,' guests of type ',i3)")
+     &insmol,i
           call insert_guests
      &(idnode,imcon,totatm,ntpguest,ntpfram,i,insmol,
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
-     &maxmls)
+     &maxmls,iter)
+          write(800+i,"(1x,'Successful Insertion of ',i6,
+     &' guests of type ',i3)")
+     &nummols(imol),i
+          write(800+i,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
+     &iter,dble(nummols(mol))/dble(iter) * 100.d0
         endif
       enddo
       minchk=min(400,nnumg)
@@ -553,6 +563,8 @@ c**********************************************************************
         unbiased=exp(-1.d0*beta*estep)*volm/(1+nmol)
         contrib=unbiased/dlambda(iguest)*
      &exp(dos_hist(molidx,ihist)-dos_hist(molidx+1,ihist))
+c       TODO(pboyd): Determine if biased contribution comes
+c       from tmat_c or dos_hist.
         !write(*,*)"INSERT unbiased: ",unbiased
       elseif(delete)then
         unbiased=exp(-1.d0*beta*estep)*(nmol)/volm

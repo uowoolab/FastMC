@@ -70,8 +70,8 @@ c*************************************************************
       logical lnewsurf, linitsurf, lnewsurfj,linitsurfj
       integer nfo(8)
       integer accept_ins,accept_del,accept_disp,totaccept,nnumg,nhis
-      integer accept_jump, accept_flex, accept_swap, scell_factor
-      integer accept_switch,minchk
+      integer accept_jump,accept_flex,accept_swap,scell_factor
+      integer accept_switch,minchk,iter
       integer accept_tran,accept_rota
       integer ins_count,del_count,disp_count,buffer,levcfg,nstat
       integer jump_count,flex_count,swap_count,np,widcount
@@ -86,7 +86,7 @@ c*************************************************************
       integer mxatm,imcon,keyfce,mxatyp,mcsteps,eqsteps,vstat
       integer iguest,ntpguest,ntpmls,natms,mol,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
-      integer ins_rollcount, nswapguest, num_swaps, swap_max
+      integer ins_rollcount,nswapguest,num_swaps,swap_max
       integer swap_guest_max,idnode,visittol
       integer ngrida,ngridb,ngridc,istat,avcount
       integer totalguests,globalnguests,globalsteps
@@ -679,11 +679,23 @@ c      call error(idnode,0)
 c     END DEBUG
       if(lgchk)then 
         do i=1,ntpguest
-          if(guest_insert(i).gt.0)call insert_guests
+          if(guest_insert(i).gt.0)then
+c           probably should write to a different file than
+c           'runningstats.out', but node specific so will do for now.
+            write(202,
+     &"(1x,'Inserting ',i6,' guests of type ',i3)")
+     &guest_insert(i),i
+            call insert_guests
      &(idnode,imcon,totatm,ntpguest,ntpfram,i,guest_insert(i),
      &rcut,delr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
-     &maxmls)
+     &maxmls,iter)
+            write(202,"(1x,'Successful Insertion of ',i6,
+     &' guests of type ',i3)")
+     &nummols(imol),i
+            write(202,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
+     &iter,dble(nummols(mol))/dble(iter) * 100.d0
+          endif
         enddo
       endif
 

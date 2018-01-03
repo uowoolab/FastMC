@@ -12,7 +12,7 @@ FLAGS =
 # debugging
 DEBUG =
 # gfortran debugging
-#DEBUG = -g -fbacktrace -ffpe-trap=zero,overflow,underflow
+#DEBUG = -g -fbacktrace #-ffpe-trap=zero,overflow,underflow
 # intel fortran debugging
 #DEBUG = -debug extended -g -check all -traceback
 
