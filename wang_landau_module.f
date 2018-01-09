@@ -8,6 +8,7 @@
       real(8), allocatable :: dos_hist(:,:)
       real(8), allocatable :: dlambda(:)
       real(8), allocatable :: tmat_c(:,:)
+      !real(8), parameter :: mpdpw = 14.449439791871d0
       save visit_hist
       save dos_hist,dlambda
       save tmat_c,tmat_vis

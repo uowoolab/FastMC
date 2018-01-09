@@ -18,9 +18,13 @@ DEBUG =
 
 SERIAL=ser
 PARALLEL=par
+# The arbitrary precision number library courtesy of David Bailey.
+# www.davidhbailey.com/dhbpapers/mpfun2015.pdf
+# the directory is a local copy provided for the user's convenience.
+# If one wishes to compile their own version, then change BNLIBDIR
+# to the full path of their preferred version.
 BNLIBDIR=mpfun2015
-.SUFFIXES: .f .f90 .o
-
+.SUFFIXES: .f .o
 
 OBJPAR = parse_module.o basic_comms.o utility_pack.o error.o \
 		 vdw_module.o vdw_terms.o nlist_builders.o \
@@ -31,6 +35,16 @@ OBJSER = parse_module.o setup_module.o serial.o utility_pack.o \
 		 error.o vdw_module.o vdw_terms.o nlist_builders.o \
 		 ewald_module.o ewald.o flex_module.o readinputs.o \
 		 mc_moves.o wang_landau_module.o wang_landau.o gcmc.o
+
+LIBOBJ = $(BNLIBDIR)/mpmodule.o \
+	 $(BNLIBDIR)/mpfuna.o \
+	 $(BNLIBDIR)/mpfunbq.o \
+	 $(BNLIBDIR)/mpfunc.o \
+	 $(BNLIBDIR)/mpfund.o \
+	 $(BNLIBDIR)/mpfune.o \
+	 $(BNLIBDIR)/mpfunf.o \
+	 $(BNLIBDIR)/mpfungq1.o \
+	 $(BNLIBDIR)/second.o
 
 # must choose a version to compile
 all:
@@ -66,10 +80,10 @@ mpfun:
 	
 # stuff that does the compilations
 ser: ${OBJSER}
-	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJSER}
+	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJSER} $(LIBOBJ)
 
 par: ${OBJPAR}
-	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJPAR}
+	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJPAR} $(LIBOBJ)
 
 clean:
 	rm -f *.o *.mod
@@ -78,9 +92,6 @@ clean-all:
 	$(MAKE) -C $(BNLIBDIR) clean 
 	rm -f *.o *.mod 
 
-%.o: ${BNLIBDIR}/%.f90
-	${FC} ${FFLAGS} ${DEBUG} -c $< -o $@
-
 %.o: %.f 
-	${FC} ${FFLAGS} ${DEBUG} -c $< -o $@
+	${FC} -I$(BNLIBDIR) ${FFLAGS} ${DEBUG} -c $< -o $@
 

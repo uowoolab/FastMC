@@ -1,4 +1,5 @@
       module wang_landau
+      use mpmodule
       use utility_pack
       use wang_landau_module
       use mc_moves
@@ -1514,7 +1515,7 @@ c           subtract 1 to account for occupation of N=0
       enddo
       end subroutine dump_wl_files
 
-      real(16) function grand_canonical_partition
+      type(mp_real) function grand_canonical_partition
      &(idnode,ihist,beta,mu,minn,maxn,varchunk)
 c***********************************************************************
 c                                                                      *
@@ -1653,14 +1654,21 @@ c                                                                      *
 c     PB - 12/12/17                                                    *
 c                                                                      *
 c***********************************************************************
+      use mpmodule
       implicit none
       character*12 outfile
       character*25 finaldos
       integer npress,idnode,iguest,ihist,ik,ip,maxn,minn,varchunk
-      integer k,nid
+      integer k,nid,nwds
       real(8) mu,pmin,pmax,pinterval,p,beta,niter
-      real(kind=16) z_uvt,n,dos_sum  
+      !real(kind=16) z_uvt,n,dos_sum  
+      type(mp_real) z_uvt,n,dos_sum  
 
+      ! mpdpw is a parameter declared in the mpfuna.f90 file,
+      ! but i've also declared it (commented out) in
+      ! wang_landau_module.f in case the parameter in the mpfun package
+      ! is not 'seen' by this program.
+      nwds = int(1100/mpdpw + 2)
       ! varchunk is now the total range of N, not the amount
       ! allocated for each node
       varchunk = maxn-minn+1
@@ -1695,10 +1703,11 @@ c     compute isotherm data now.
         mu=log(p*dlambda(iguest)*beta)/beta 
         z_uvt = grand_canonical_partition
      &(idnode,ihist,beta,mu,minn,maxn,varchunk)
-        dos_sum=0.d0
+        dos_sum=mpreal(0.d0, nwds)
         do ik=1,maxn
-          niter=dble(ik)-1.d0
-          dos_sum=dos_sum+niter*exp(dos_hist(ik,ihist) + beta*mu*niter) 
+          niter=dble(ik)-1.q0
+          dos_sum=dos_sum+
+     &mpreal(niter*exp(dos_hist(ik,ihist) + beta*mu*niter), nwds) 
         enddo
         n=dos_sum/z_uvt
         write(15,"(f15.6,',',f15.6)")p*1.d-5,n
