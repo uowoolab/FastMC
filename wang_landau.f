@@ -1515,29 +1515,6 @@ c           subtract 1 to account for occupation of N=0
       enddo
       end subroutine dump_wl_files
 
-      type(mp_real) function grand_canonical_partition
-     &(idnode,ihist,beta,mu,minn,maxn,varchunk)
-c***********************************************************************
-c                                                                      *
-c     Determine the grand canonical partition function from the        *
-c     ln[Q(NVT)] histogram.                                            *
-c                                                                      * 
-c     PB - 12/12/17                                                    *
-c                                                                      *
-c***********************************************************************
-      implicit none
-      integer idnode,ihist,i,maxn,minn,varchunk
-      real(8) mu,beta,niter
-      grand_canonical_partition=0.d0 
-      do i=1,varchunk
-c       shift the DOS by the value recorded for N=0.
-        niter=dble(i)-1.d0-dble(minn)
-        grand_canonical_partition = grand_canonical_partition 
-     &+ exp(dos_hist(i,ihist) + beta*mu*niter)
-      enddo
-
-      end function grand_canonical_partition
-
       real(8) function obtain_min_shift(obj,opt,nsample)
 c***********************************************************************
 c                                                                      *
@@ -1662,7 +1639,7 @@ c***********************************************************************
       integer k,nid,nwds
       real(8) mu,pmin,pmax,pinterval,p,beta,niter
       !real(kind=16) z_uvt,n,dos_sum  
-      type(mp_real) z_uvt,n,dos_sum  
+      type(mp_real) z_uvt,n,dos_sum,temp1,ktmp,dosmp,exp1 
 
       ! mpdpw is a parameter declared in the mpfuna.f90 file,
       ! but i've also declared it (commented out) in
@@ -1702,19 +1679,50 @@ c     compute isotherm data now.
         p=((dble(ip-1)+1d-5)*pinterval)*1.d5
         mu=log(p*dlambda(iguest)*beta)/beta 
         z_uvt = grand_canonical_partition
-     &(idnode,ihist,beta,mu,minn,maxn,varchunk)
-        dos_sum=mpreal(0.d0, nwds)
+     &(idnode,ihist,beta,mu,minn,maxn,varchunk,nwds)
+        dos_sum=mpreald(0.d0)
         do ik=1,maxn
           niter=dble(ik)-1.q0
-          dos_sum=dos_sum+
-     &mpreal(niter*exp(dos_hist(ik,ihist) + beta*mu*niter), nwds) 
+          dosmp = mpreald(dos_hist(ik,ihist))
+          ktmp = mpreald(beta*mu*niter)
+          exp1 = exp(dosmp+ktmp)
+          temp1 = mpreald(niter) * exp1
+          dos_sum=dos_sum+temp1
         enddo
         n=dos_sum/z_uvt
         write(15,"(f15.6,',',f15.6)")p*1.d-5,n
-        !write(15,*)p,n
+       !write(15,*)p,n
       enddo 
       close(15)
       end subroutine compute_isotherm
+
+      type(mp_real) function grand_canonical_partition
+     &(idnode,ihist,beta,mu,minn,maxn,varchunk,nwds)
+c***********************************************************************
+c                                                                      *
+c     Determine the grand canonical partition function from the        *
+c     ln[Q(NVT)] histogram.                                            *
+c                                                                      * 
+c     PB - 12/12/17                                                    *
+c                                                                      *
+c***********************************************************************
+      implicit none
+      integer idnode,ihist,i,maxn,minn,varchunk,nwds
+      real(8) mu,beta,niter
+      type(mp_real) ktmp,dosmp
+
+      grand_canonical_partition=mpreal(0.d0,nwds) 
+      do i=1,varchunk
+c       shift the DOS by the value recorded for N=0.
+        niter=dble(i)-1.d0-dble(minn)
+        dosmp = mpreald(dos_hist(i,ihist))
+        ktmp = mpreald(beta*mu*niter)
+
+        grand_canonical_partition = grand_canonical_partition 
+     &+ exp(dosmp + ktmp)
+      enddo
+
+      end function grand_canonical_partition
 
       subroutine divide_jobs
      &(idnode,mxnode,maxn,minn,maxmol,minmol,varchunk,tail)
