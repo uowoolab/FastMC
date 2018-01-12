@@ -12,7 +12,7 @@
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
      &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
      &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
-     &maxn,minn)
+     &maxn,minn,ebins)
 c*****************************************************************************
 c     
 c     Main routine for computing the weighted histogram of Wang and
@@ -37,7 +37,7 @@ c*****************************************************************************
       integer switch_count,accept_swap,swap_count,mcsteps,eqsteps,tail
       integer wlstepcount,prod_count,minmol,maxmol,insmol,molidx,nmol
       integer varchunk,visittol,sweepcount,sweepsteps,i,j,k,n,maxn,minn
-      integer ivarchunk,imaxmol,iminmol,iter
+      integer ivarchunk,imaxmol,iminmol,iter,ebins
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
@@ -92,7 +92,7 @@ c     make a new file to write some Wang-Landau data to
       ! guests for now... 
       nhist=1
       ihist=nhist
-      call alloc_wl_arrays(idnode,nhist,ntpguest,maxn)
+      call alloc_wl_arrays(idnode,nhist,ntpguest,maxn,ebins)
 c     Temporary: exit if more than one guest included in the
 c     FIELD/CONTROL files. Make clear that this currently works
 c     for estimating the partition function for a single guest

@@ -82,7 +82,7 @@ c*************************************************************
       integer k,p,i,j,ik,jj,kk,l,ntpatm,gridsize
       integer kmax1,kmax2,kmax3,ntpvdw,maxvdw,maxmls,mxnode
       integer ntpfram,randchoice,nmols,ngsts
-      integer ichoice,jchoice,iswap,origtotatm,maxn,minn
+      integer ichoice,jchoice,iswap,origtotatm,maxn,minn,ebins
       integer mxatm,imcon,keyfce,mxatyp,mcsteps,eqsteps,vstat
       integer iguest,ntpguest,ntpmls,natms,mol,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
@@ -186,6 +186,9 @@ c     default Wang-Landau DOS precision tolerance
 c     default maximum number of guest species to sample with WL sim
       maxn=200
       minn=0
+c     ebins is the number of bins to store the energy in during
+c     flat histogram sampling
+      ebins=100
 c     scoping issues
       delrc = 0
 
@@ -312,7 +315,7 @@ c     produce unit cell for folding purposes
      &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
      &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
      &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,
-     &lwanglandau,wlprec,flatcoeff,visittol,prectol,maxn,minn)
+     &lwanglandau,wlprec,flatcoeff,visittol,prectol,maxn,minn,ebins)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -654,7 +657,7 @@ c             no rolling average here, just div by widcount at the end
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
      &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
      &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
-     &maxn,minn)
+     &maxn,minn,ebins)
       endif
 
 

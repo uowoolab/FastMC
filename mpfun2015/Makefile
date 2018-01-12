@@ -14,9 +14,9 @@ DEBUG =
 # intel fortran debugging
 #DEBUG = -debug extended -g -check all -traceback
 
-#FC=gfortran
+FC=gfortran
 #FC=mpifort
-FC=ifort
+#FC=ifort
 
 OBJNUM = mpmodule.f90 mpfuna.f90 mpfunbq.f90 mpfunc.f90 mpfund.f90 mpfune.f90 mpfunf.f90 mpfungq1.f90 second.f90
 

@@ -518,7 +518,7 @@ c     halt program if potential cutoff exceeds cell width
      &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
      &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
      &fwk_step_max,fwk_initial,lwidom,lwanglandau,wlprec,flatcoeff,
-     &visittol,prectol,maxn,minn)
+     &visittol,prectol,maxn,minn,ebins)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -537,7 +537,7 @@ c*************************************************************************
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
-      integer minn
+      integer minn,ebins
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
       real(8) mcswif,wlprec,flatcoeff 
       real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
@@ -704,6 +704,8 @@ c         set default writing numguests.out to 1000 steps
           maxn=dblstr(directive,lenrec,idum)
         elseif (findstring('wl_min_n', directive, idum))then
           minn=dblstr(directive,lenrec,idum)
+        elseif (findstring('wl_ebins', directive, idum))then
+          ebins=intstr(directive,lenrec,idum)
         elseif (findstring('uvt',directive,idum))then
           if(idnode.eq.0)write(nrite, 
      &"(/,'gcmc requested')")
