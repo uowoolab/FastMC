@@ -1691,6 +1691,7 @@ c     compute isotherm data now.
         enddo
         n=dos_sum/z_uvt
         write(15,"(f15.6,',',f15.6)")p*1.d-5,n
+        write(*,*)ip,p*1.d-5,pinterval
        !write(15,*)p,n
       enddo 
       close(15)

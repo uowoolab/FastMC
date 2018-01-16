@@ -55,7 +55,7 @@ c************************************************************************
             tmat_vis(i,j)=0
             tmat_vis(j,i)=0
           enddo
-          do j=1,ebins
+          do k=1,ebins
             energy_hist(k,j,i)=0.d0
           enddo
         enddo
