@@ -1688,10 +1688,12 @@ c     compute isotherm data now.
           exp1 = exp(dosmp+ktmp)
           temp1 = mpreald(niter) * exp1
           dos_sum=dos_sum+temp1
+          
         enddo
+        write(*,*)dos_sum
         n=dos_sum/z_uvt
         write(15,"(f15.6,',',f15.6)")p*1.d-5,n
-        write(*,*)ip,p*1.d-5,pinterval
+        !write(*,*)ip,p*1.d-5,pinterval
        !write(15,*)p,n
       enddo 
       close(15)
@@ -1712,7 +1714,8 @@ c***********************************************************************
       real(8) mu,beta,niter
       type(mp_real) ktmp,dosmp
 
-      grand_canonical_partition=mpreal(0.d0,nwds) 
+      !grand_canonical_partition=mpreal(0.d0,nwds) 
+      grand_canonical_partition=mpreald(0.d0)
       do i=1,varchunk
 c       shift the DOS by the value recorded for N=0.
         niter=dble(i)-1.d0-dble(minn)
