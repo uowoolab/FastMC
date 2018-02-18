@@ -24,6 +24,7 @@ PARALLEL=par
 # If one wishes to compile their own version, then change BNLIBDIR
 # to the full path of their preferred version.
 BNLIBDIR=mpfun2015
+DOS=ddos
 .SUFFIXES: .f .o
 
 OBJPAR = parse_module.o basic_comms.o utility_pack.o error.o \
@@ -46,6 +47,11 @@ LIBOBJ = $(BNLIBDIR)/mpmodule.o \
 	 $(BNLIBDIR)/mpfungq1.o \
 	 $(BNLIBDIR)/second.o
 
+OBJDOS = parse_module.o setup_module.o serial.o utility_pack.o \
+	 error.o vdw_module.o vdw_terms.o nlist_builders.o \
+	 ewald_module.o ewald.o readinputs.o \
+	 mc_moves.o wang_landau_module.o dos_to_isotherm.o\
+
 # must choose a version to compile
 all:
 	@echo "[1m>> Please specify the target:[0m"
@@ -58,6 +64,10 @@ all:
 	@echo "NUMERICAL LIBRARY:"
 	@echo 
 	@echo "[1;32m * [0mmpfun"
+	@echo
+	@echo "TOOLS:"
+	@echo 
+	@echo "[1;32m * [0mdos_tool"
 	@echo
 
 # parameters for different versions
@@ -77,13 +87,16 @@ mpfun:
 	for i in {1..2}; do\
 	  $(MAKE) -C $(BNLIBDIR);\
 	done 
-	
+dos_tool:
+	${MAKE} FC="gfortran" \
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="dos_to_isotherm" $(DOS)
+
 # stuff that does the compilations
 ser: ${OBJSER}
-	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJSER} $(LIBOBJ)
+	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} $(LIBOBJ) $(OBJSER)
 
 par: ${OBJPAR}
-	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} ${OBJPAR} $(LIBOBJ)
+	${FC} ${FFLAGS} ${DEBUG} -o ${EXE} $(LIBOBJ) $(OBJPAR)
 
 clean:
 	rm -f *.o *.mod
@@ -91,6 +104,9 @@ clean:
 clean-all:
 	$(MAKE) -C $(BNLIBDIR) clean 
 	rm -f *.o *.mod 
+
+ddos: $(OBJDOS)
+	$(FC) $(FFLAGS) $(DEBUG) -o $(EXE) $(LIBOBJ) $(OBJDOS) 
 
 %.o: %.f 
 	${FC} -I$(BNLIBDIR) ${FFLAGS} ${DEBUG} -c $< -o $@

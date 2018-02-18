@@ -1635,6 +1635,7 @@ c***********************************************************************
       implicit none
       character*12 outfile
       character*25 finaldos
+      character*1 ads(50)
       integer npress,idnode,iguest,ihist,ik,ip,maxn,minn,varchunk
       integer k,nid,nwds
       real(8) mu,pmin,pmax,pinterval,p,beta,niter
@@ -1690,9 +1691,19 @@ c     compute isotherm data now.
           dos_sum=dos_sum+temp1
           
         enddo
-        write(*,*)dos_sum
         n=dos_sum/z_uvt
-        write(15,"(f15.6,',',f15.6)")p*1.d-5,n
+        call mpwrite(6, 20, 7, z_uvt)
+        call mpwrite(6, 20, 7, dos_sum)
+        ! convert to char, then write to file?
+c       mpeform(r1, i1, i2, s1)
+c       coverts the MPR number 'r1' to the char*1 array 's1'
+c       'i1' is the length of the output string,
+c       'i2' is the number of digits past the decimal
+c       CONDITION: i1 >= i2 + 20
+        call mpeform(n,30,9,ads)
+        write(15,"(30a)")ads
+        !write(15,"(f15.6,',',30a)")p*1.d-5,ads
+        !call mpwrite(15, 20, 7, n)
         !write(*,*)ip,p*1.d-5,pinterval
        !write(15,*)p,n
       enddo 
