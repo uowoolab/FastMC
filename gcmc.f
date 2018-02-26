@@ -686,7 +686,6 @@ c     END DEBUG
 c           probably should write to a different file than
 c           'runningstats.out', but node specific so will do for now.
             imol=locguest(i)
-            insmol=max(guest_insert(i), minmol)
             write(202,
      &"(1x,'Inserting ',i6,' guests of type ',i3)")
      &guest_insert(i),i

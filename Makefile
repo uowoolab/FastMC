@@ -83,6 +83,9 @@ intel:
 parallel:
 	${MAKE} FC="mpifort" \
 	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-par.x" ${PARALLEL}
+parallel-cray:
+	${MAKE} FC="ftn -f fixed" \
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-cray-par.x" ${PARALLEL}
 mpfun: 
 	for i in {1..2}; do\
 	  $(MAKE) -C $(BNLIBDIR);\
