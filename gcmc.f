@@ -87,7 +87,7 @@ c*************************************************************
       integer iguest,ntpguest,ntpmls,natms,mol,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
       integer ins_rollcount,nswapguest,num_swaps,swap_max
-      integer swap_guest_max,idnode,visittol
+      integer swap_guest_max,idnode,visittol,nwidstep
       integer ngrida,ngridb,ngridc,istat,avcount
       integer totalguests,globalnguests,globalsteps
       integer, allocatable :: fwksumbuff(:)
@@ -151,6 +151,7 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
       integer, parameter, dimension(3) :: revision = (/1, 4, 4 /)
+      nwidstep=10
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
@@ -314,7 +315,7 @@ c     produce unit cell for folding purposes
      &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,nwind,
      &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
      &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
-     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,
+     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,nwidstep,
      &lwanglandau,wlprec,flatcoeff,visittol,prectol,maxn,minn,ebins)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
@@ -611,43 +612,47 @@ c       Widom insertion method begins
 c
 c******************************************************************
       if(lwidom)then
-        lgchk=.false.
-        gcmccount=0 
+c        lgchk=.false.
+c        gcmccount=0 
         do iguest=1,ntpguest
-          mol=locguest(i) 
-          istat=1+16*(iguest-1)
-          widchk=.true.
-          widcount=0
-          do while(widchk)
-            ins(iguest)=1
-            ins_count=ins_count+1
-            delE=0.d0
-            call random_ins(idnode,natms,iguest,rcut,delr)
-            estep = 0.d0
-            call insertion
-     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
-            gcmccount = gcmccount + 1
-            call reject_move
-     &  (iguest,0,.true.,.false.,.false.,.false.)
-            if(.not.loverlap)then
-              if(lprobeng(iguest))then
-                call storeenprob(iguest,0,rucell,ntpguest,ngrida,
-     &            ngridb,ngridc,estep)
-              endif
-              H_const=dexp(-1.d0*estep/kboltz/temp)
-c             no rolling average here, just div by widcount at the end
-              chainstats(istat+7) = chainstats(istat+7)+H_const
-              widcount = widcount + 1
-            endif
-            if(widcount.ge.mcsteps)widchk=.false.
-          enddo
-          chainstats(istat+7) = chainstats(istat+7)/dble(widcount)
+          call widom_grid(idnode,iguest,nwidstep,ngrida,ngridb,ngridc,
+     &rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,
+     &kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,
+     &overlap,newld,surftol,sumchg,rucell,prodcount,temp)
+c          mol=locguest(i) 
+c          istat=1+16*(iguest-1)
+c          widchk=.true.
+c          widcount=0
+c          do while(widchk)
+c            ins(iguest)=1
+c            ins_count=ins_count+1
+c            delE=0.d0
+c            call random_ins(idnode,natms,iguest,rcut,delr)
+c            estep = 0.d0
+c            call insertion
+c     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+c     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+c     & loverlap,lnewsurf,surftol,overlap,newld)
+c            gcmccount = gcmccount + 1
+c            call reject_move
+c     &  (iguest,0,.true.,.false.,.false.,.false.)
+c            if(.not.loverlap)then
+c              if(lprobeng(iguest))then
+c                call storeenprob(iguest,0,rucell,ntpguest,ngrida,
+c     &            ngridb,ngridc,estep)
+c              endif
+c              H_const=dexp(-1.d0*estep/kboltz/temp)
+cc             no rolling average here, just div by widcount at the end
+c              chainstats(istat+7) = chainstats(istat+7)+H_const
+c              widcount = widcount + 1
+c            endif
+c            if(widcount.ge.mcsteps)widchk=.false.
+c          enddo
+c          chainstats(istat+7) = chainstats(istat+7)/dble(widcount)
         enddo
-        prodcount=widcount
-        chainstats(1) = dble(widcount)
+c        prodcount=widcount
+c        chainstats(1) = dble(widcount)
       endif
       if (lwanglandau)then
         lgchk=.false.
@@ -2562,6 +2567,82 @@ c       restore original surfacemols if step is rejected
       return
       end subroutine mc_swap
 
+      subroutine widom_grid
+     &(idnode,iguest,nstep,ngrida,ngridb,ngridc,rotangle,imcon,keyfce,
+     &alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
+     &ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,sumchg,
+     &rucell,prodcount,temp)
+c*****************************************************************************
+c
+c     perform widom insertions on a grid of pre-defined resolution 
+c
+c*****************************************************************************
+      implicit none
+      logical loverlap,lnewsurf
+      integer i,j,k,istep,nstep,ngrida,ngridb,ngridc,widomcount,idnode
+      integer natms,iguest,mol,nmols,keyfce,imcon,totatm,ntpatm,maxvdw
+      integer kmax1,kmax2,kmax3,maxmls,newld,prodcount,istat,aa
+      real(8) afr,bfr,cfr,cartx,carty,cartz,q1,q2,q3,q4,rotangle,surftol
+      real(8) alpha,rcut,delr,delrc,drewd,volm,epsq,dlrpot,engunit
+      real(8) overlap,chgtmp,engsictmp,sumchg,H_const,temp,estep
+      real(8), dimension(9) :: rucell
+      widomcount=0
+      mol=locguest(iguest)
+      natms=numatoms(mol)
+      istat=1+16*(iguest-1)
+
+      do i=1,ngrida
+        do j=1,ngridb
+          do k=1,ngridc
+            afr=dble(i)/dble(ngrida)
+            bfr=dble(j)/dble(ngridb)
+            cfr=dble(k)/dble(ngridc)
+            call cartesian(afr,bfr,cfr,cartx,carty,cartz)
+            do istep=1,nstep
+c             populate newx,newy,newz with guestx,guesty,guestz
+              do aa=1,natms
+                newx(aa)=guestx(iguest,aa)
+                newy(aa)=guesty(iguest,aa)
+                newz(aa)=guestz(iguest,aa)
+              enddo
+c             random rotation
+              call random_rot(idnode,rotangle,q1,q2,q3,q4)
+              call rotation(newx,newy,newz,comx,comy,comz,natms,
+     &q1,q2,q3,q4)
+c             insert COM at gridpoint
+              do aa=1,natms
+                newx(aa)=newx(aa)+comx
+                newy(aa)=newy(aa)+comy
+                newz(aa)=newz(aa)+comz
+              enddo
+              estep = 0.d0
+              loverlap=.false.
+              lnewsurf=.false.
+              call insertion
+     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
+     & loverlap,lnewsurf,surftol,overlap,newld)
+              widomcount = widomcount + 1
+              call reject_move
+     &  (iguest,0,.true.,.false.,.false.,.false.)
+
+              if(lprobeng(iguest))then
+                call storeenprob(iguest,0,rucell,ntpguest,ngrida,
+     &            ngridb,ngridc,estep)
+              endif
+              H_const=dexp(-1.d0*estep/kboltz/temp)
+c             no rolling average here, just div by widcount at the end
+              chainstats(istat+7) = chainstats(istat+7)+H_const
+            enddo
+          enddo
+        enddo
+      enddo
+      chainstats(istat+7) = chainstats(istat+7)/dble(widomcount)
+      prodcount=widomcount
+      chainstats(1) = dble(widomcount)
+
+      end subroutine widom_grid
       subroutine single_point
      &(imcon,keyfce,alpha,drewd,rcut,delr,totatm,ntpfram,
      &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,

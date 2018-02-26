@@ -517,8 +517,8 @@ c     halt program if potential cutoff exceeds cell width
      &laccsample,lnumg,nnumg,nhis,nwind,mcinsf,mcdelf,mcdisf,mcjmpf,
      &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
      &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
-     &fwk_step_max,fwk_initial,lwidom,lwanglandau,wlprec,flatcoeff,
-     &visittol,prectol,maxn,minn,ebins)
+     &fwk_step_max,fwk_initial,lwidom,nwidstep,lwanglandau,wlprec,
+     &flatcoeff,visittol,prectol,maxn,minn,ebins)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -537,7 +537,7 @@ c*************************************************************************
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
-      integer minn,ebins
+      integer minn,ebins,nwidstep
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
       real(8) mcswif,wlprec,flatcoeff 
       real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
@@ -589,6 +589,8 @@ c     allocate guest mole fractions
 c       record is commented out
         else if(findstring('henry', directive, idum))then
           lwidom=.true.
+        else if(findstring('widom ins', directive,idum))then
+          nwidstep=intstr(directive,lenrec,idum)
         else if(findstring('restart',directive,idum))then
           keyres=1
           if(idnode.eq.0)write(nrite,'(/,3x,a)')
