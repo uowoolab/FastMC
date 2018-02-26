@@ -685,6 +685,8 @@ c     END DEBUG
           if(guest_insert(i).gt.0)then
 c           probably should write to a different file than
 c           'runningstats.out', but node specific so will do for now.
+            imol=locguest(i)
+            insmol=max(guest_insert(i), minmol)
             write(202,
      &"(1x,'Inserting ',i6,' guests of type ',i3)")
      &guest_insert(i),i
@@ -697,7 +699,7 @@ c           'runningstats.out', but node specific so will do for now.
      &' guests of type ',i3)")
      &nummols(imol),i
             write(202,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
-     &iter,dble(nummols(mol))/dble(iter) * 100.d0
+     &iter,dble(nummols(imol))/dble(iter) * 100.d0
           endif
         enddo
       endif

@@ -145,7 +145,7 @@ c     use.
      &' guests of type ',i3)")
      &nummols(imol),i
           write(800+i,"(1x,i9,' trials. Success rate: ',f6.2,' %'/)")
-     &iter,dble(nummols(mol))/dble(iter) * 100.d0
+     &iter,dble(nummols(imol))/dble(iter) * 100.d0
         endif
       enddo
       minchk=min(400,nnumg)
