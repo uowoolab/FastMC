@@ -2585,12 +2585,16 @@ c*****************************************************************************
       real(8) afr,bfr,cfr,cartx,carty,cartz,q1,q2,q3,q4,rotangle,surftol
       real(8) alpha,rcut,delr,delrc,drewd,volm,epsq,dlrpot,engunit
       real(8) overlap,chgtmp,engsictmp,sumchg,H_const,temp,estep
+      real(8) comx,comy,comz
       real(8), dimension(9) :: rucell
       widomcount=0
       mol=locguest(iguest)
       natms=numatoms(mol)
       istat=1+16*(iguest-1)
 
+      comx=0.d0
+      comy=0.d0
+      comz=0.d0
       do i=1,ngrida
         do j=1,ngridb
           do k=1,ngridc
@@ -2611,9 +2615,9 @@ c             random rotation
      &q1,q2,q3,q4)
 c             insert COM at gridpoint
               do aa=1,natms
-                newx(aa)=newx(aa)+comx
-                newy(aa)=newy(aa)+comy
-                newz(aa)=newz(aa)+comz
+                newx(aa)=newx(aa)+cartx
+                newy(aa)=newy(aa)+carty
+                newz(aa)=newz(aa)+cartz
               enddo
               estep = 0.d0
               loverlap=.false.
