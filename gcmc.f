@@ -612,7 +612,7 @@ c       Widom insertion method begins
 c
 c******************************************************************
       if(lwidom)then
-c        lgchk=.false.
+        lgchk=.false.
 c        gcmccount=0 
         do iguest=1,ntpguest
           call widom_grid(idnode,iguest,nwidstep,ngrida,ngridb,ngridc,
