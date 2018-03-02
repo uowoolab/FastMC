@@ -88,7 +88,7 @@ c*************************************************************
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
       integer ins_rollcount,nswapguest,num_swaps,swap_max
       integer swap_guest_max,idnode,visittol,nwidstep
-      integer ngrida,ngridb,ngridc,istat,avcount
+      integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
       integer totalguests,globalnguests,globalsteps
       integer, allocatable :: fwksumbuff(:)
       real(8), allocatable :: gridbuff(:)
@@ -614,11 +614,15 @@ c******************************************************************
       if(lwidom)then
         lgchk=.false.
 c        gcmccount=0 
+        wngrida=ceiling(celprp(1)/(griddim))
+        wngridb=ceiling(celprp(2)/(griddim))
+        wngridc=ceiling(celprp(3)/(griddim))
         do iguest=1,ntpguest
-          call widom_grid(idnode,iguest,nwidstep,ngrida,ngridb,ngridc,
-     &rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,
-     &kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,
-     &overlap,newld,surftol,sumchg,rucell,prodcount,temp)
+          call widom_grid(idnode,iguest,nwidstep,wngrida,wngridb,
+     &wngridc,rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,
+     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,
+     &overlap,newld,surftol,sumchg,rucell,prodcount,temp,ngrida,ngridb,
+     &ngridc)
 c          mol=locguest(i) 
 c          istat=1+16*(iguest-1)
 c          widchk=.true.
@@ -2568,10 +2572,10 @@ c       restore original surfacemols if step is rejected
       end subroutine mc_swap
 
       subroutine widom_grid
-     &(idnode,iguest,nstep,ngrida,ngridb,ngridc,rotangle,imcon,keyfce,
-     &alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
-     &ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,sumchg,
-     &rucell,prodcount,temp)
+     &(idnode,iguest,nstep,wngrida,wngridb,wngridc,rotangle,imcon,
+     &keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
+     &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
+     &sumchg,rucell,prodcount,temp,ngrida,ngridb,ngridc)
 c*****************************************************************************
 c
 c     perform widom insertions on a grid of pre-defined resolution 
@@ -2582,6 +2586,7 @@ c*****************************************************************************
       integer i,j,k,istep,nstep,ngrida,ngridb,ngridc,widomcount,idnode
       integer natms,iguest,mol,nmols,keyfce,imcon,totatm,ntpatm,maxvdw
       integer kmax1,kmax2,kmax3,maxmls,newld,prodcount,istat,aa
+      integer wngrida,wngridb,wngridc
       real(8) afr,bfr,cfr,cartx,carty,cartz,q1,q2,q3,q4,rotangle,surftol
       real(8) alpha,rcut,delr,delrc,drewd,volm,epsq,dlrpot,engunit
       real(8) overlap,chgtmp,engsictmp,sumchg,H_const,temp,estep
@@ -2595,12 +2600,12 @@ c*****************************************************************************
       comx=0.d0
       comy=0.d0
       comz=0.d0
-      do i=1,ngrida
-        do j=1,ngridb
-          do k=1,ngridc
-            afr=dble(i)/dble(ngrida)
-            bfr=dble(j)/dble(ngridb)
-            cfr=dble(k)/dble(ngridc)
+      do i=1,wngrida
+        do j=1,wngridb
+          do k=1,wngridc
+            afr=dble(i)/dble(wngrida)
+            bfr=dble(j)/dble(wngridb)
+            cfr=dble(k)/dble(wngridc)
             call cartesian(afr,bfr,cfr,cartx,carty,cartz)
             do istep=1,nstep
 c             populate newx,newy,newz with guestx,guesty,guestz
@@ -2627,17 +2632,19 @@ c             insert COM at gridpoint
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      & loverlap,lnewsurf,surftol,overlap,newld)
-              widomcount = widomcount + 1
               call reject_move
      &  (iguest,0,.true.,.false.,.false.,.false.)
 
-              if(lprobeng(iguest))then
+              if((.not.loverlap).and.(lprobeng(iguest)))then
                 call storeenprob(iguest,0,rucell,ntpguest,ngrida,
      &            ngridb,ngridc,estep)
               endif
-              H_const=dexp(-1.d0*estep/kboltz/temp)
-c             no rolling average here, just div by widcount at the end
-              chainstats(istat+7) = chainstats(istat+7)+H_const
+              if(.not.loverlap)then
+                widomcount = widomcount + 1
+                H_const=dexp(-1.d0*estep/kboltz/temp)
+c               no rolling average here, just div by widcount at the end
+                chainstats(istat+7) = chainstats(istat+7)+H_const
+              endif
             enddo
           enddo
         enddo

@@ -488,7 +488,7 @@ c
 c*********************************************************************
       implicit none
       integer mol,imol,np,iguest,itprob
-      integer jj,nmols,natms,itatm
+      integer jj,nmols,natms,itatm,aidx,bidx,cidx,gidx
       integer ngrida,ngridb,ngridc,ntpguest
       integer j,jguest
       real(8) comx,comy,comz,energy
@@ -521,13 +521,6 @@ c     center of mass - calculated for the energy position.
 c     convert centre of mass to fractional coordinates
 
       call frac2(comx,comy,comz,rcell)
-c      aidx=int(ngrida*(comx))
-c      bidx=int(ngridb*(comy))
-c      cidx=int(ngridc*(comz))
-
-c      if(aidx.eq.0)aidx=aidx+1
-c      if(bidx.eq.0)bidx=bidx+1
-c      if(cidx.eq.0)cidx=cidx+1
 
       itprob=0
       do jguest=1,ntpguest+1
@@ -542,9 +535,16 @@ c     TODO(pboyd): check indices here...
      &j,energy)
       call equitable_bin(comx,comy,comz,ngrida,ngridb,ngridc,
      &itprob,1.d0)
+c      aidx=int(ngrida*(comx))
+c      bidx=int(ngridb*(comy))
+c      cidx=int(ngridc*(comz))
+c
+c      if(aidx.eq.0)aidx=aidx+1
+c      if(bidx.eq.0)bidx=bidx+1
+c      if(cidx.eq.0)cidx=cidx+1
 c      gidx=(aidx)*ngridb*ngridc+(bidx)*ngridc+(cidx)
 c      grid(j,gidx)=grid(j,gidx)+energy
-c      grid(j+1,gidx)=grid(j+1,gidx)+1.d0
+c      grid(itprob,gidx)=grid(j+1,gidx)+1.d0
 
       return
       end subroutine storeenprob
@@ -710,7 +710,7 @@ c       conditions for writing to a new line
       end subroutine writeenprob
 
       subroutine writeprob
-     &(iguest,itprob,iprob,cell,ntpfram,gridsize,
+     &(iguest,itprob,iprob,gcell,ntpfram,gridsize,
      &ngrida,ngridb,ngridc,steps,scell_factor)
 c*********************************************************************
 c
@@ -724,14 +724,14 @@ c*********************************************************************
       integer igrid,ngrida,ngridb,ngridc,ntpfram
       integer nfram,framol,nmol,natms,iatm,m,n,o
       integer gridsize,steps,iprob,ip
-      real(8), dimension(9) :: cell
+      real(8), dimension(9) :: gcell
 
-      vol=(cell(2)*cell(6)-cell(3)*cell(5))/(ngrida*ngridb)*
-     &cell(7)/ngridc+
-     &(cell(3)*cell(4)-cell(1)*cell(6))/(ngrida*ngridb)*
-     &cell(8)/ngridc+
-     &(cell(1)*cell(5)-cell(2)*cell(4))/(ngrida*ngridb)*
-     &cell(9)/ngridc
+      vol=(gcell(2)*gcell(6)-gcell(3)*gcell(5))/(ngrida*ngridb)*
+     &gcell(7)/ngridc+
+     &(gcell(3)*gcell(4)-gcell(1)*gcell(6))/(ngrida*ngridb)*
+     &gcell(8)/ngridc+
+     &(gcell(1)*gcell(5)-gcell(2)*gcell(4))/(ngrida*ngridb)*
+     &gcell(9)/ngridc
 c     get number of framework atoms
       nfram=0
       do i=1,ntpfram
@@ -747,15 +747,21 @@ c     write header stuff for cube
       write(i,"('probability cube file',/,'outer loop a, middle loop
      & b, inner loop c')")
       write(i,'(i6, 3f12.6)')nfram,0.d0,0.d0,0.d0
-      write(i,'(i6,3f12.6)')ngrida,cell(1)/ngrida,cell(2)/ngrida,
-     &cell(3)/ngrida
-      write(i,'(i6,3f12.6)')ngridb,cell(4)/ngridb,cell(5)/ngridb,
-     &cell(6)/ngridb
-      write(i,'(i6,3f12.6)')ngridc,cell(7)/ngridc,cell(8)/ngridc,
-     &cell(9)/ngridc
+      write(i,'(i6,3f12.6)')ngrida,gcell(1)/ngrida,gcell(2)/ngrida,
+     &gcell(3)/ngrida
+      write(i,'(i6,3f12.6)')ngridb,gcell(4)/ngridb,gcell(5)/ngridb,
+     &gcell(6)/ngridb
+      write(i,'(i6,3f12.6)')ngridc,gcell(7)/ngridc,gcell(8)/ngridc,
+     &gcell(9)/ngridc
 c     write cartesians of framework
       do m=1,ntpfram
         framol=locfram(m)
+c       NOTE: here we are assuming that the supercell replication
+c       of the atoms is done by duplicating the unit cell and
+c       setting these duplicated cells as an additional molecule
+c       in the FIELD file (i.e. NUMMOLS 2,3,4 etc)
+c       This will break if all atoms are explicitly listed in the
+c       FIELD file.
         nmol=nummols(framol)/(dble(scell_factor))
         natms=numatoms(framol)
         iatm=0
@@ -2305,6 +2311,7 @@ c a?idx and b?idx are 0 based index and c?idx is 1 based
         if(aidx.le.1)then
           alidx = (ngrida-1)*ngridb*ngridc
           aridx = 0
+          !aridx = 1
         else
           alidx = (aidx-2)*ngridb*ngridc
           aridx = (aidx-1)*ngridb*ngridc
@@ -2319,7 +2326,7 @@ c equitable spread for b vector
       if(bpart.gt.0.5)then
         if(bidx.ge.ngridb)then
           blidx = (ngridb-1)*ngridc
-          bridx = 0
+          bridx = 1
         else
           blidx = (bidx-1)*ngridc
           bridx = (bidx)*ngridc
@@ -2330,6 +2337,7 @@ c equitable spread for b vector
         if(bidx.le.1)then
           blidx = (ngridb-1)*ngridc
           bridx = 0
+          !bridx = 1
         else
           blidx = (bidx-2)*ngridc
           bridx = (bidx-1)*ngridc
