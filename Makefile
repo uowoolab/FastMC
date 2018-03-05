@@ -59,7 +59,9 @@ all:
 	@echo "[1;32m * [0mintel"
 	@echo "[1;32m * [0mcray"
 	@echo "[1;32m * [0mgfortran"
-	@echo "[1;32m * [0mparallel"
+	@echo "[1;32m * [0mparallel-gfort"
+	@echo "[1;32m * [0mparallel-cray"
+	@echo "[1;32m * [0mparallel-intel"
 	@echo 
 	@echo "NUMERICAL LIBRARY:"
 	@echo 
@@ -80,8 +82,11 @@ cray:
 intel:
 	${MAKE} FC="ifort" \
 	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc.x" ${SERIAL}
-parallel:
+parallel-gfort:
 	${MAKE} FC="mpifort" \
+	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-par.x" ${PARALLEL}
+parallel-intel:
+	${MAKE} FC="mpiifort" \
 	FFLAGS="${OPTIM} ${FLAGS}" EXE="gcmc-par.x" ${PARALLEL}
 parallel-cray:
 	${MAKE} FC="ftn -f fixed" \
