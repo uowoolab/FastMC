@@ -405,7 +405,8 @@ c     initialize jobcontrol file
       
 
 c       initialize rotangle 
-        rotangle=pi/3.d0
+c        rotangle=pi/3.d0
+        rotangle=2.d0*pi
    
 c==========================================================================        
 c       if restart requested then descend into the branch
@@ -2597,6 +2598,7 @@ c*****************************************************************************
       natms=numatoms(mol)
       istat=1+16*(iguest-1)
 
+      rotangle=2.d0*pi
       comx=0.d0
       comy=0.d0
       comz=0.d0
