@@ -923,6 +923,7 @@ c*******************************************************************************
       real(8) volm,statvolm,jumpangle,alpha,rcut,delr,drewd,epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estep,gpress,rande,engsictmp,chgtmp
+      real(8) comx,comy,comz,xc,yc,zc
 
       mol=locguest(iguest)
       nmol=nummols(mol)
@@ -941,10 +942,13 @@ c     find which index the molecule "randchoice" is
       enddo
       call get_guest(iguest,randchoice,mol,natms,nmol)
 
+      call com(natms,mol,newx,newy,newz,comx,comy,comz)
       call random_jump
-     &(idnode,a,b,c,jumpangle)
+     &(idnode,xc,yc,zc,jumpangle)
       call random_rot(idnode,jumpangle,q1,q2,q3,q4)
-
+      a = xc - comx
+      b = yc - comy
+      c = zc - comz
       call wl_displace_guest
      &(imcon,alpha,rcut,delr,drewd,totatm,newld,maxmls,volm,kmax1,
      &kmax2,kmax3,epsq,engunit,overlap,surftol,linitsurf,lnewsurf,
