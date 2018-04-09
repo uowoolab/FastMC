@@ -405,8 +405,10 @@ c     initialize jobcontrol file
       
 
 c       initialize rotangle 
-        !rotangle=pi/3.d0
-        rotangle=2.d0*pi 
+c        rotangle=pi/3.d0
+        rotangle=2.d0*pi
+        jumpangle=2.d0*pi
+   
 c==========================================================================        
 c       if restart requested then descend into the branch
 c       and read the REVIVE and REVCON for the appropriate
@@ -2003,10 +2005,9 @@ c     choose a molecule from the list
       randchoice=floor(duni(idnode)*nmol)+1
 
       call displace_guest
-     &(imcon,alpha,rcut,delr,drewd,totatm,newld,
-     &maxmls,volm,kmax1,kmax2,kmax3,
-     &epsq,engunit,overlap,surftol,linitsurf,lnewsurf,loverlap,
-     &iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+     &(imcon,alpha,rcut,delr,drewd,totatm,newld,maxmls,volm,kmax1,
+     &kmax2,kmax3,epsq,engunit,overlap,surftol,linitsurf,lnewsurf,
+     &loverlap,iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
       accepted=.false.
       if (.not.loverlap)then
         if(estep.lt.0.d0)then
@@ -2092,7 +2093,7 @@ c*******************************************************************************
       real(8) volm,statvolm,jumpangle,alpha,rcut,delr,drewd,epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estep,gpress,rande,engsictmp,chgtmp
-
+      real(8) xc,yc,zc,comx,comy,comz
       mol=locguest(iguest)
       nmol=nummols(mol)
       natms=numatoms(mol)
@@ -2110,10 +2111,21 @@ c     find which index the molecule "randchoice" is
       enddo
       call get_guest(iguest,randchoice,mol,natms,nmol)
 
-      call random_jump
-     &(idnode,a,b,c,jumpangle)
+      call com(natms,mol,newx,newy,newz,comx,comy,comz)
+      call random_jump(idnode,xc,yc,zc,jumpangle)
       call random_rot(idnode,jumpangle,q1,q2,q3,q4)
+c      call random_disp(idnode,10.d0,a,b,c)
+c     have to shift the a,b,c values by the com of the current guest
+c     so the displace_guest routine can be used here..
+      a = xc - comx
+      b = yc - comy
+      c = zc - comz
 
+c     displace is a translation + rotation of a guest based on
+c     cartesian a,b,c and quaternion q1,q2,q3,q4.
+c     Jump is technically a deletion + insertion so the above
+c     manipulation of the randomly generated a,b,c values
+c     converts it to a translation.
       call displace_guest
      &(imcon,alpha,rcut,delr,drewd,totatm,newld,maxmls,volm,kmax1,
      &kmax2,kmax3,epsq,engunit,overlap,surftol,linitsurf,lnewsurf,
@@ -2597,6 +2609,7 @@ c*****************************************************************************
       natms=numatoms(mol)
       istat=1+16*(iguest-1)
 
+      rotangle=2.d0*pi
       comx=0.d0
       comy=0.d0
       comz=0.d0

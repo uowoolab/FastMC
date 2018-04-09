@@ -3192,7 +3192,7 @@ c      do while(.not.done)
       end subroutine random_disp
 
       subroutine random_jump
-     &(idnode,randa,randb,randc,rotangle)
+     &(idnode,xc,yc,zc,rotangle)
 c*****************************************************************************
 c
 c     place molecule at a completely random position in the cell
@@ -3202,14 +3202,15 @@ c*****************************************************************************
       implicit none
       integer idnode
       real(8) randa,randb,randc,rotangle
+      real(8) xc,yc,zc
 
       randa=duni(idnode) 
       randb=duni(idnode) 
       randc=duni(idnode) 
-
+      call cartesian(randa,randb,randc,xc,yc,zc)
 c     rotate randomly up to 2 pies 
       rotangle = 8.D0*datan(1.D0)
-
+      
       return
       end subroutine random_jump
 
