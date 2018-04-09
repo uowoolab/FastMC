@@ -405,8 +405,8 @@ c     initialize jobcontrol file
       
 
 c       initialize rotangle 
-        rotangle=pi/3.d0
-   
+        !rotangle=pi/3.d0
+        rotangle=2.d0*pi 
 c==========================================================================        
 c       if restart requested then descend into the branch
 c       and read the REVIVE and REVCON for the appropriate
