@@ -116,7 +116,7 @@ c     DEBUG
       real(8) E,aN,EN,E2,N2,H_const,avgH,stdH
       real(8) avgN,stdN,avgE,stdE,avgEN,stdEN,avgN2,stdN2,avgE2,stdE2
       real(8) avgNF,NF,stdNF,surftol,guest_toten
-      real(8) griddim,grvol,prectol
+      real(8) griddim,griddima,griddimb,griddimc,grvol,prectol
       real(8) a,b,c,q1,q2,q3,q4 
       real(8) delE_fwk
       integer m, indatm, indfwk, gstidx
@@ -150,8 +150,8 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcdisf/0.3333333/
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
-      integer, parameter, dimension(3) :: revision = (/1, 4, 4 /)
-      nwidstep=10
+      integer, parameter, dimension(3) :: revision = (/1, 4, 6 /)
+      nwidstep=20
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
@@ -270,17 +270,32 @@ c     volume reported in m^3 for statistical calculations
       if(lprob)then
 c      calculate number of grid points in a,b,and c directions
 c      calculate the volume of a grid point (differs from griddim^3)
+        griddima = celprp(1) 
+     &/ceiling(celprp(1)/gridfactor(1)/griddim)
+     &/gridfactor(1) 
+        griddimb = celprp(2) 
+     &/ceiling(celprp(2)/gridfactor(2)/griddim)
+     &/gridfactor(2) 
+        griddimc = celprp(3) 
+     &/ceiling(celprp(3)/gridfactor(3)/griddim)
+     &/gridfactor(3) 
 c NB these are allocated before assigning to guests in readconfig
 c        ngrida=gridfactor(1)*ceiling(celprp(1)/(griddim*gridfactor(1)))
 c        ngridb=gridfactor(2)*ceiling(celprp(2)/(griddim*gridfactor(2)))
 c        ngridc=gridfactor(3)*ceiling(celprp(3)/(griddim*gridfactor(3)))
-        ngrida=ceiling(celprp(1)/(griddim*gridfactor(1)))
-        ngridb=ceiling(celprp(2)/(griddim*gridfactor(2)))
-        ngridc=ceiling(celprp(3)/(griddim*gridfactor(3)))
+        ngrida=ceiling(celprp(1)/(griddima*gridfactor(1)))
+        ngridb=ceiling(celprp(2)/(griddimb*gridfactor(2)))
+        ngridc=ceiling(celprp(3)/(griddimc*gridfactor(3)))
+        grvol = celprp(10)/dble(ngrida*ngridb*ngridc)
         gridsize=ngrida*ngridb*ngridc
-        if(idnode.eq.0)
-     &write(nrite,"(/,' Probability grid size:',
-     &i8,i8,i8)")ngrida,ngridb,ngridc
+        if(idnode.eq.0)then
+          write(nrite,"(/,' Probability grid size    :',i8,i8,i8)")
+     &ngrida,ngridb,ngridc
+          write(nrite,"(/,' Grid voxel dimensions (A):',
+     &f9.4,f9.4,f9.4)")griddima,griddimb,griddimc
+          write(nrite,"(/,' Grid voxel volume (A^3)  :  ',f12.5)")
+     &grvol
+        endif
         allocate(gridbuff(gridsize))
         call alloc_prob_arrays(idnode,ntpguest,ntpsite,ntprob,gridsize)
         grvol=celprp(1)/dble(ngrida)*celprp(2)/dble(ngridb)*
@@ -616,9 +631,9 @@ c******************************************************************
       if(lwidom)then
         lgchk=.false.
 c        gcmccount=0 
-        wngrida=ceiling(celprp(1)/(griddim))
-        wngridb=ceiling(celprp(2)/(griddim))
-        wngridc=ceiling(celprp(3)/(griddim))
+        wngrida=ceiling(celprp(1)/(griddima))
+        wngridb=ceiling(celprp(2)/(griddimb))
+        wngridc=ceiling(celprp(3)/(griddimc))
         do iguest=1,ntpguest
           call widom_grid(idnode,iguest,nwidstep,wngrida,wngridb,
      &wngridc,rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,

@@ -589,6 +589,8 @@ c     allocate guest mole fractions
 c       record is commented out
         else if(findstring('henry', directive, idum))then
           lwidom=.true.
+c       number of widom insertion orientations to attempt at each
+c       grid point.
         else if(findstring('widom ins', directive,idum))then
           nwidstep=intstr(directive,lenrec,idum)
         else if(findstring('restart',directive,idum))then
