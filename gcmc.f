@@ -638,8 +638,8 @@ c        gcmccount=0
           call widom_grid(idnode,iguest,nwidstep,wngrida,wngridb,
      &wngridc,rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,
-     &overlap,newld,surftol,sumchg,rucell,prodcount,temp,ngrida,ngridb,
-     &ngridc)
+     &overlap,newld,surftol,sumchg,rucell,prodcount,widcount,temp,
+     &ngrida,ngridb,ngridc)
 c          mol=locguest(i) 
 c          istat=1+16*(iguest-1)
 c          widchk=.true.
@@ -1446,6 +1446,7 @@ c     constant volume heat capacity
      &         'Heat capacity error: ', stdCv,
      &         '<surface adsorbed N>:', avgNF
            elseif(lwidom)then
+             gcmccount=widcount
              write(nrite,"(5x,a60,E20.9,/)")
      &         "Henry's Constant (mol /kg /bar): ",
      &         avgH/avo/boltz/temp*1.d5
@@ -2602,7 +2603,7 @@ c       restore original surfacemols if step is rejected
      &(idnode,iguest,nstep,wngrida,wngridb,wngridc,rotangle,imcon,
      &keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
      &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
-     &sumchg,rucell,prodcount,temp,ngrida,ngridb,ngridc)
+     &sumchg,rucell,prodcount,widomcount,temp,ngrida,ngridb,ngridc)
 c*****************************************************************************
 c
 c     perform widom insertions on a grid of pre-defined resolution 
@@ -2613,7 +2614,7 @@ c*****************************************************************************
       integer i,j,k,istep,nstep,ngrida,ngridb,ngridc,widomcount,idnode
       integer natms,iguest,mol,nmols,keyfce,imcon,totatm,ntpatm,maxvdw
       integer kmax1,kmax2,kmax3,maxmls,newld,prodcount,istat,aa
-      integer wngrida,wngridb,wngridc
+      integer wngrida,wngridb,wngridc,loopa,loopb,loopc
       real(8) afr,bfr,cfr,cartx,carty,cartz,q1,q2,q3,q4,rotangle,surftol
       real(8) alpha,rcut,delr,delrc,drewd,volm,epsq,dlrpot,engunit
       real(8) overlap,chgtmp,engsictmp,sumchg,H_const,temp,estep
@@ -2628,9 +2629,15 @@ c*****************************************************************************
       comx=0.d0
       comy=0.d0
       comz=0.d0
-      do i=1,wngrida
-        do j=1,wngridb
-          do k=1,wngridc
+      !TODO(pboyd): add option to iterate over super/or unit cell
+      ! may improve sampling if supercell, but otherwise pointless
+      loopa = ngrida
+      loopb = ngridb
+      loopc = ngridc
+      do i=1,loopa
+        do j=1,loopb
+          do k=1,loopc
+            ! I think this works!
             afr=dble(i)/dble(wngrida)
             bfr=dble(j)/dble(wngridb)
             cfr=dble(k)/dble(wngridc)
@@ -2655,6 +2662,7 @@ c             insert COM at gridpoint
               estep = 0.d0
               loverlap=.false.
               lnewsurf=.false.
+              widomcount = widomcount + 1
               call insertion
      & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
@@ -2668,7 +2676,7 @@ c             insert COM at gridpoint
      &            ngridb,ngridc,estep)
               endif
               if(.not.loverlap)then
-                widomcount = widomcount + 1
+                prodcount = prodcount + 1
                 H_const=dexp(-1.d0*estep/kboltz/temp)
 c               no rolling average here, just div by widcount at the end
                 chainstats(istat+7) = chainstats(istat+7)+H_const
@@ -2677,9 +2685,8 @@ c               no rolling average here, just div by widcount at the end
           enddo
         enddo
       enddo
-      chainstats(istat+7) = chainstats(istat+7)/dble(widomcount)
-      prodcount=widomcount
-      chainstats(1) = dble(widomcount)
+      chainstats(istat+7) = chainstats(istat+7)/dble(prodcount)
+      chainstats(1) = dble(prodcount)
 
       end subroutine widom_grid
       subroutine single_point
