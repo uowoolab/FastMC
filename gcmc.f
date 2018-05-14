@@ -420,8 +420,8 @@ c     initialize jobcontrol file
       
 
 c       initialize rotangle 
-c        rotangle=pi/3.d0
-        rotangle=2.d0*pi
+        rotangle=pi/3.d0
+c        rotangle=2.d0*pi
         jumpangle=2.d0*pi
    
 c==========================================================================        
