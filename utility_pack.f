@@ -46,7 +46,7 @@
       real(8), allocatable :: origenergy(:),molmass(:)
       real(8), allocatable :: surfacemols(:),origsurfmols(:)
       real(8), allocatable :: node_std(:,:)
-      real(8), allocatable :: avgwindow(:), varwindow(:), sumwindowav(:)
+      real(8), allocatable :: avgwindow(:,:),varwindow(:),sumwindowav(:)
 c     Fugacity stuff
       real(8), allocatable :: gstpress(:)
       real(8), allocatable :: gstfuga(:), gstmolfract(:)
@@ -167,7 +167,7 @@ c     statistics file input channel
       subroutine initscan
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
      &delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
-     &griddim, gridfactor)
+     &griddim, gridfactor,nwind,nwindsteps)
 c**********************************************************************
 c
 c     scans input files for relevant maximums to allocate to arrays
@@ -178,11 +178,11 @@ c**********************************************************************
       integer, parameter :: mmk=1000
 
       logical loop,loop2,loop3,loop4,loop5,safe,lewald,lcut
-      logical lrvdw,check,ldelr,kill,lprob
+      logical lrvdw,check,ldelr,kill,lprob,lwind
       character*8 name, chr(mmk)
       integer imcon,keyfce,idnode,idum,ntpvdw,maxmls,mxatm
-      integer n,nummls,numsit,kmax1,kmax2,kmax3
-      integer mxatyp,nrept,ifrz,nneu,ksite,isite
+      integer n,nummls,numsit,kmax1,kmax2,kmax3,nwind,mcsteps
+      integer mxatyp,nrept,ifrz,nneu,ksite,isite,nwindsteps
       integer j,ntpguest,ntprob,ntpsite,temp,gsite,iprob,qprob
       real(8) alpha,delr,rvdw,ppp,width
       real(8) fac,tol,tol1,rcut,eps,volm
@@ -195,9 +195,10 @@ c**********************************************************************
       ntprob=0
       ntpsite=0
       ntpguest=0
+      mcsteps=0
       data loop/.true./,loop2/.false./,loop4/.false./,lewald/.false./
       data lrvdw/.false./,ldelr/.false./,kill/.false./,loop5/.false./
-
+      data lwind/.false./
       if(idnode.eq.0)open(nfield,file='FIELD',status='old')
 
       call getrec(safe,idnode,nfield)
@@ -347,6 +348,11 @@ c            record is commented out
         elseif(findstring('delr',record,idum))then
           delr=dblstr(record,lenrec,idum)
           ldelr=.true.
+        elseif (findstring('averaging window',record,idum))then
+          nwind=intstr(record,lenrec,idum)
+          lwind=.true.
+        elseif (findstring('steps',record,idum))then
+          mcsteps=intstr(record,lenrec,idum)
         elseif(findstring('finish',record,idum))then
           loop3=.false.
         elseif(findstring('ewald',record,idum))then
@@ -405,6 +411,18 @@ c Need to find the grid parameters in first scan, before allocating
       if(imcon.eq.5)width=cell(1)/2.d0
       if(imcon.eq.6)width=min(celprp(7),celprp(8))/2.d0
 
+      if(.not.lwind)then
+          if(mcsteps.gt.1000)then
+            nwind=1000
+          else
+            nwind=1
+          endif
+          if(idnode.eq.0)write(nrite, '(/a,i10,a)')
+     &'*** warning the averaging window was not specified in the
+     & CONTROL file, defaulting to ',nwind,' windows.'
+      endif
+    
+      nwindsteps=mcsteps/nwind
 c     halt program if cutoff exceeds cell width
 
       if(rcut.gt.width)call error(idnode,95)
@@ -859,7 +877,7 @@ c*********************************************************************
 
       subroutine alloc_config_arrays
      &(idnode,mxnode,maxmls,mxatm,mxatyp,volm,
-     &ntpguest,rcut,rvdw,delr)
+     &ntpguest,rcut,rvdw,delr,nwind)
 c*********************************************************************
 c
 c     allocation of some arrays
@@ -911,13 +929,12 @@ c      avgwindow(5) = <E2>
 c      avgwindow(6) = <NF>
 c      avgwindow(7) = <Qst>
 c      avgwindow(8) = <Cv>
-c      avgwindow(9) = <exp(-E/kb/T)>
 c
 c*********************************************************************
       implicit none
       integer, parameter :: na = 87
       integer maxmls,mxatm,maxalloc,ntpguest,i,j
-      integer mxatyp,idnode,mxnode,mxcmls
+      integer mxatyp,idnode,mxnode,mxcmls,nwind
       real(8) density,ratio,cut,volm,rcut,rvdw,delr
       integer, dimension(na) :: fail
 
@@ -990,7 +1007,7 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(energy(maxmls+1),stat=fail(53))
       allocate(origenergy(maxmls+1),stat=fail(54))
       allocate(delE(mxcmls),stat=fail(55))
-      allocate(avgwindow(ntpguest*9),stat=fail(56))
+      allocate(avgwindow(1+ntpguest*9,nwind+1),stat=fail(56))
       allocate(sumwindowav(ntpguest*9),stat=fail(57))
       allocate(varwindow(ntpguest*9),stat=fail(58))
       allocate(nodeweight(mxnode),stat=fail(59))
@@ -1047,7 +1064,7 @@ c     module
         enddo
       enddo
       do i=1,ntpguest*9
-        avgwindow(i)=0.d0
+        avgwindow(i,:)=0.d0
         varwindow(i)=0.d0
         sumwindowav(i)=0.d0
       enddo
@@ -2790,9 +2807,11 @@ c     computes the isosteric heat of adsorption
 c
 c***********************************************************************
       implicit none
-      real(8) calc_Qst, E, N, N2, EN, temp
-
-      calc_Qst = -1.d0*(EN - E*N)/(N2-N*N) + Rgas*temp
+      real(8) calc_Qst, E, N, N2, EN, temp, denom 
+      calc_Qst=0.d0
+      denom=(N2-N*N)
+      if(abs(denom).gt.0.d0)
+     &calc_Qst = -1.d0*(EN - E*N)/denom + Rgas*temp
       end function calc_Qst
 
       function old_cv(E2, E, N, N2, EN, temp)
@@ -2815,10 +2834,12 @@ c     computes the heat capacity at constant volume from Tildesley
 c
 c***********************************************************************
       implicit none
-      real(8) calc_Cv, E2, E, N, N2, EN, temp
-
-      calc_Cv = (3.d0/2.d0 * Rgas) + (E2 - (E*E) - (EN - E*N)**2
-     &   / (N2 - N*N)) / (N * kboltz * temp*temp) 
+      real(8) calc_Cv, E2, E, N, N2, EN, temp, denom
+      calc_Cv=0.d0
+      denom=(N2 - N*N)
+      if((abs(denom).gt.0.d0).and.(N.gt.0.d0))
+     & calc_Cv = (3.d0/2.d0 * Rgas) + (E2 - (E*E) - (EN - E*N)**2
+     &   / denom) / (N * kboltz * temp*temp) 
       end function calc_Cv
 
       function errorcv(w, delw, x, delx, y, dely, z, delz, q, delq, 

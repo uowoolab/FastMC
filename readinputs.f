@@ -514,7 +514,7 @@ c     halt program if potential cutoff exceeds cell width
 
       subroutine readcontrol
      &(idnode,lspe,temp,ljob,mcsteps,eqsteps,ntpguest,lrestart,
-     &laccsample,lnumg,nnumg,nhis,nwind,mcinsf,mcdelf,mcdisf,mcjmpf,
+     &laccsample,lnumg,nnumg,nhis,mcinsf,mcdelf,mcdisf,mcjmpf,
      &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
      &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
      &fwk_step_max,fwk_initial,lwidom,nwidstep,lwanglandau,wlprec,
@@ -535,7 +535,7 @@ c*************************************************************************
       logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
-      integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,nwind,swap_max
+      integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
       integer minn,ebins,nwidstep
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
@@ -727,9 +727,8 @@ c         set default writing numguests.out to 1000 steps
           surftol=dblstr(directive,lenrec,idum)
         elseif (findstring('delr',directive,idum))then
           delr=dblstr(directive,lenrec,idum)
-        elseif (findstring('averaging window',directive,idum))then
-          nwind=intstr(directive,lenrec,idum)
-          lwind=.true.
+        elseif (findstring('averaging window',record,idum))then
+            ! already recorded in 'initscan' utility_pack.f
         elseif (findstring('fram', directive, idum))then
           if (findstring('cou', directive, idum))then
             n_fwk=intstr(directive, lenrec, idum)
@@ -853,18 +852,6 @@ c     check if lwanglandau guest_max and guest_min are allocated
      &'*** warning no gcmc production steps 
      &specified in CONTROL file, assuming single point calculation ***'
       endif
-      if(.not.lwind)then
-          if(mcsteps.gt.1000)then
-            nwind=mcsteps/1000
-          else
-            nwind=1
-          endif
-          if(idnode.eq.0)write(nrite, '(/a,i10,a)')
-     &'*** warning the averaging window was not specified in the
-     & CONTROL file, defaulting to ',nwind,' windows.'
-      endif
-    
-      nwind=mcsteps/nwind
       if((ngst.ne.ntpguest))call error(idnode,2312)      
       if(.not.ltemp)then
         call error(idnode,380)

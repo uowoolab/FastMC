@@ -79,7 +79,7 @@ c*************************************************************
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
       integer ibuff,iprob,cprob,prevnodes,nwind,rollstat,ci
-      integer k,p,i,j,ik,jj,kk,l,ntpatm,gridsize
+      integer k,p,i,j,ik,jj,kk,l,ntpatm,gridsize,nwindsteps
       integer kmax1,kmax2,kmax3,ntpvdw,maxvdw,maxmls,mxnode
       integer ntpfram,randchoice,nmols,ngsts
       integer ichoice,jchoice,iswap,origtotatm,maxn,minn,ebins
@@ -112,10 +112,10 @@ c     DEBUG
       real(8) ewld2sum,vdwsum,comx,comy,comz,ewaldaverage
       real(8) dmolecules,molecules2,energy2,Q_st,C_v
       real(8) weight,tw,spenergy,dlpeng,estep,thrd,twothrd
-      real(8) estepi,estepj
+      real(8) estepi,estepj,sumweight,sweight
       real(8) E,aN,EN,E2,N2,H_const,avgH,stdH
       real(8) avgN,stdN,avgE,stdE,avgEN,stdEN,avgN2,stdN2,avgE2,stdE2
-      real(8) avgNF,NF,stdNF,surftol,guest_toten
+      real(8) avgNF,NF,avgCv,avgQst,stdNF,surftol,guest_toten
       real(8) griddim,griddima,griddimb,griddimc,grvol,prectol
       real(8) a,b,c,q1,q2,q3,q4 
       real(8) delE_fwk
@@ -174,7 +174,7 @@ c     surface tolerance default set to -1 angstroms (off)
       ins_rollcount=0
       avcount = 0
 c     averaging window to calculate errors
-      nwind=100000
+      nwindsteps=100000
 c     default flatness tolerance for Wang-Landau simulations.
       flatcoeff=0.7
 c     default min number of visits for each histogram bin
@@ -247,11 +247,11 @@ c     open main output file.
       call initscan
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
      & delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
-     & griddim, gridfactor)
+     & griddim,gridfactor,nwind,nwindsteps)
 
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
-      call alloc_config_arrays
-     & (idnode,mxnode,maxmls,mxatm,mxatyp,volm,ntpguest,rcut,rvdw,delr)
+      call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
+     &volm,ntpguest,rcut,rvdw,delr,nwind)
 
       call alloc_vdw_arrays(idnode,maxvdw,maxmls,mxatyp)
       call readfield
@@ -327,7 +327,7 @@ c     produce unit cell for folding purposes
         endif
       enddo
       call readcontrol(idnode,lspe,temp,ljob,mcsteps,eqsteps,
-     &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,nwind,
+     &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,
      &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
      &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
      &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,nwidstep,
@@ -1215,94 +1215,61 @@ c           otherwise re-sum the old list.
               surfmol=real(surfacemols(mol))
 
               istat=1+16*(i-1)
-c           Rolling <N>
-              delta = dmolecules - chainstats(istat+1)
-              aN = chainstats(istat+1) + delta/prodcount
-              chainstats(istat+1) = aN 
-c           Rolling <E>
-              delta = energy(mol) - chainstats(istat+2)
-              E = chainstats(istat+2) + delta/prodcount
-              chainstats(istat+2) = E 
-c           Rolling <EN>
-              delta = energy(mol)*dmolecules - chainstats(istat+3)
-              EN = chainstats(istat+3) + delta/prodcount
-              chainstats(istat+3) = EN 
-c           Rolling <N^2>
-              delta = molecules2 - chainstats(istat+4)
-              N2 = chainstats(istat+4) + delta/prodcount
-              chainstats(istat+4) = N2 
-c           Rolling <E^2>
-              delta = energy2 - chainstats(istat+5)
-              E2 = chainstats(istat+5) + delta/prodcount
-              chainstats(istat+5) = E2
-c           Rolling <NF>
-              delta = surfmol - chainstats(istat+6)
-              NF = chainstats(istat+6) + delta/prodcount
-              chainstats(istat+6) = NF
+c           avg <N>
+              chainstats(istat+1) = chainstats(istat+1) + dmolecules
+c           avg <E>
+              chainstats(istat+2) = chainstats(istat+2) + energy(mol)
+c           avg <EN>
+              chainstats(istat+3) = chainstats(istat+3) +
+     &energy(mol)*dmolecules 
+c           avg <N^2>
+              chainstats(istat+4) = chainstats(istat+4) + molecules2
+c           avg <E^2>
+              chainstats(istat+5) = chainstats(istat+5) + energy2
+c           avg <NF>
+              chainstats(istat+6) = chainstats(istat+6) + surfmol 
 c           Sampling the Henry's coefficient (This requires an
 c              energy calculation between the guest and framework
 c              only.) Widom insertion is better for this purpos
 c              as it more evenly samples configuration space.
               rollstat=9*(i-1)
-c              if((ins(i).eq.1).and.(accepted))then
-cc             Rolling <exp(-E/kT)>
-c                H_const=dexp(-1.d0*delE(mol)/kboltz/temp)
-c                ins_rollcount = ins_rollcount + 1
-c                delta = H_const - chainstats(istat+7)
-c                H_const = chainstats(istat+7) + delta/accept_ins
-c                chainstats(istat+7) = H_const
-cc             Rolling <exp(E/k/T)> for window
-c                avgwindow(rollstat+9)=
-c     &((ins_rollcount-1)*avgwindow(rollstat+9)+H_const)/
-c     &dble(ins_rollcount)
-c              endif
-c           Rolling <N> for window
-              avgwindow(rollstat+1)=
-     &((rollcount-1)*avgwindow(rollstat+1)+dmolecules)/dble(rollcount)
-c           Rolling <E> for window
-              avgwindow(rollstat+2)=
-     &((rollcount-1)*avgwindow(rollstat+2)+energy(mol))/dble(rollcount)
-c           Rolling <EN> for window
-              avgwindow(rollstat+3)=
-     &((rollcount-1)*avgwindow(rollstat+3)+
-     &energy(mol)*dmolecules)/dble(rollcount)
-c           Rolling <N^2> for window
-              avgwindow(rollstat+4)=
-     &((rollcount-1)*avgwindow(rollstat+4)+molecules2)/dble(rollcount)
-c           Rolling <E^2> for window
-              avgwindow(rollstat+5)=
-     &((rollcount-1)*avgwindow(rollstat+5)+energy2)/dble(rollcount)
-c           Rolling <NF> for window
-              avgwindow(rollstat+6)=
-     &((rollcount-1)*avgwindow(rollstat+6)+NF)/dble(rollcount)
             enddo
           endif
-          if((mod(prodcount,nwind).eq.0).or.(.not.lgchk))then
+          if((mod(prodcount,nwindsteps).eq.0).or.(.not.lgchk))then
 c         store averages for standard deviations
 c         reset windows to zero
             avcount = avcount + 1
-            weight = dble(rollcount) / dble(nwind)
+            avgwindow(1,avcount) = dble(rollcount)
             do i=1,ntpguest
               istat = 1+(i-1)*16
-              rollstat = (i-1)*9
-c           get the rolled averages for all the variables
-              aN = chainstats(istat+1) 
-              E = chainstats(istat+2)
-              EN = chainstats(istat+3)
-              N2 = chainstats(istat+4)
-              E2 = chainstats(istat+5)
+              rollstat = 1+(i-1)*9
+c           get the averages for all the variables
+              aN = chainstats(istat+1)/dble(rollcount) 
+              E = chainstats(istat+2)/dble(rollcount)
+              EN = chainstats(istat+3)/dble(rollcount)
+              N2 = chainstats(istat+4)/dble(rollcount)
+              E2 = chainstats(istat+5)/dble(rollcount)
+              NF = chainstats(istat+6)/dble(rollcount)
+c           store averages in separate array
+              avgwindow(rollstat+1,avcount) = aN
+              avgwindow(rollstat+2,avcount) = E
+              avgwindow(rollstat+3,avcount) = EN
+              avgwindow(rollstat+4,avcount) = N2
+              avgwindow(rollstat+5,avcount) = E2
+              avgwindow(rollstat+6,avcount) = NF
 c           compute C_v and Q_st for the windowed averages
-              avgwindow(rollstat+7) = calc_Qst(E, aN, N2, EN, temp)
-              avgwindow(rollstat+8) = calc_Cv(E2, E, aN, N2, EN, temp)
+              avgwindow(rollstat+7,avcount) = 
+     &calc_Qst(E, aN, N2, EN, temp)
+              avgwindow(rollstat+8,avcount) = 
+     &calc_Cv(E2, E, aN, N2, EN, temp)
+c             reset chainstats 
+              chainstats(istat+1)=0.d0
+              chainstats(istat+2)=0.d0
+              chainstats(istat+3)=0.d0
+              chainstats(istat+4)=0.d0
+              chainstats(istat+5)=0.d0
+              chainstats(istat+6)=0.d0
             enddo 
-            do i=1,ntpguest*9
-              delta = weight * (avgwindow(i) - sumwindowav(i))
-              sumwindowav(i) = sumwindowav(i) + delta/avcount
-              varwindow(i) = varwindow(i) + 
-     &delta*weight*(avgwindow(i) - sumwindowav(i))
-              avgwindow(i)=0.d0
-            enddo
-            
             rollcount = 0
           endif
           if((lprob).and.(.not.lwidom))then
@@ -1355,33 +1322,86 @@ c      print *, "Ewald1 average", ewaldaverage/accept_ins
         weight = chainstats(1)
         do i=1,ntpguest
           istat = 1+(i-1)*16
-          vstat = (i-1)*9
+          vstat = 1+(i-1)*9
+          avgn = 0.d0
+          avge = 0.d0
+          avgen = 0.d0
+          avgn2 = 0.d0
+          avge2 = 0.d0
+          avgnf = 0.d0
+          avgQst = 0.d0
+          avgCv = 0.d0
+          sumweight=0.d0
+          do j = 1, avcount
+            sweight = avgwindow(1,j)
+            sumweight = sumweight+sweight
+            avgn = avgn + sweight*avgwindow(vstat+1,j) 
+            avge = avge + sweight*avgwindow(vstat+2,j)
+            avgen = avgen + sweight*avgwindow(vstat+3,j) 
+            avgn2 = avgn2 + sweight*avgwindow(vstat+4,j) 
+            avge2 = avge2 + sweight*avgwindow(vstat+5,j) 
+            avgnf = avgnf + sweight*avgwindow(vstat+6,j)
+            avgQst = avgQst + sweight*avgwindow(vstat+7,j)
+            avgCv = avgCv + sweight*avgwindow(vstat+8,j) 
+          enddo
+          avgn = avgn/sumweight
+          avge = avge/sumweight
+          avgen = avgen/sumweight
+          avgn2 = avgn2/sumweight
+          avge2 = avge2/sumweight
+          avgnf = avgnf/sumweight
+          avgQst = avgQst/sumweight
+          avgCv = avgCv/sumweight
+c         overwrite chainstats to communicate to other nodes
+          chainstats(istat+1) = avgn
+          chainstats(istat+2) = avge
+          chainstats(istat+3) = avgen
+          chainstats(istat+4) = avgn2
+          chainstats(istat+5) = avge2
+          chainstats(istat+6) = avgnf
+          chainstats(istat+7) = avgQst
+          chainstats(istat+8) = avgCv 
 
-          avgN = chainstats(istat+1)
-          avgE = chainstats(istat+2)
-          avgEN = chainstats(istat+3)
-          avgN2 = chainstats(istat+4)
-          avgE2 = chainstats(istat+5)
-          avgNF = chainstats(istat+6)
-          avgH = chainstats(istat+7)
-          stdN = sqrt(varwindow(vstat+1)/avcount)
-          stdE = sqrt(varwindow(vstat+2)/avcount)
-          stdEN = sqrt(varwindow(vstat+3)/avcount)
-          stdN2 = sqrt(varwindow(vstat+4)/avcount)
-          stdE2 = sqrt(varwindow(vstat+5)/avcount)
-          stdNF = sqrt(varwindow(vstat+6)/avcount)
-          stdQst = sqrt(varwindow(vstat+7)/avcount)
-          stdCv = sqrt(varwindow(vstat+8)/avcount)
-          stdH = sqrt(varwindow(vstat+9)/avcount)
-          chainstats(istat+8) = stdN
-          chainstats(istat+9) = stdE
-          chainstats(istat+10) = stdEN
-          chainstats(istat+11) = stdN2
-          chainstats(istat+12) = stdE2
-          chainstats(istat+13) = stdNF
-          chainstats(istat+14) = stdQst
-          chainstats(istat+15) = stdCv
-          chainstats(istat+16) = stdH
+c         standard deviations.
+          stdN = 0.d0
+          stdE = 0.d0
+          stdEN = 0.d0
+          stdN2 = 0.d0
+          stdE2 = 0.d0
+          stdNF = 0.d0
+          stdQst = 0.d0
+          stdCv = 0.d0
+          sumweight=0.d0
+          do j = 1, avcount
+            sweight = avgwindow(1,j)
+            sumweight = sumweight+sweight
+            stdN = stdN + sweight*(avgn - avgwindow(vstat+1,j))**2.d0
+            stdE = stdE + sweight*(avge - avgwindow(vstat+2,j))**2.d0
+            stdEN = stdEN + sweight*(avgen - avgwindow(vstat+3,j))**2.d0
+            stdN2 = stdN2 + sweight*(avgn2 - avgwindow(vstat+4,j))**2.d0
+            stdE2 = stdE2 + sweight*(avge2 - avgwindow(vstat+5,j))**2.d0
+            stdNF = stdNF + sweight*(avgnf - avgwindow(vstat+6,j))**2.d0
+            stdQst = stdQst + 
+     & sweight*(avgQst - avgwindow(vstat+7,j))**2.d0
+            stdCv = stdCv + 
+     &sweight*(avgCv - avgwindow(vstat+8,j))**2.d0 
+          enddo
+          stdN = sqrt(stdN/sumweight)
+          stdE = sqrt(stdE/sumweight)
+          stdEN = sqrt(stdEN/sumweight)
+          stdN2 = sqrt(stdN2/sumweight)
+          stdE2 = sqrt(stdE2/sumweight)
+          stdNF = sqrt(stdNF/sumweight)
+          stdQst = sqrt(stdQst/sumweight)
+          stdCv = sqrt(stdCv/sumweight)
+          chainstats(istat+9) = stdN
+          chainstats(istat+10) = stdE
+          chainstats(istat+11) = stdEN
+          chainstats(istat+12) = stdN2
+          chainstats(istat+13) = stdE2
+          chainstats(istat+14) = stdNF
+          chainstats(istat+15) = stdQst
+          chainstats(istat+16) = stdCv
         enddo
       endif
 
@@ -1412,20 +1432,17 @@ c     subroutine so it looks less messy in the main program.
            avgN2 = chainstats(istat+4)
            avgE2 = chainstats(istat+5)
            avgNF = chainstats(istat+6)
-           avgH = chainstats(istat+7)
-           stdN = chainstats(istat+8) 
-           stdE = chainstats(istat+9) 
-           stdEN = chainstats(istat+10) 
-           stdN2 = chainstats(istat+11) 
-           stdE2 = chainstats(istat+12) 
-           stdNF = chainstats(istat+13)
-           stdQst = chainstats(istat+14)
-           stdCv = chainstats(istat+15)
-           stdH = chainstats(istat+16)
-c     isosteric heat calculation 
-           Q_st = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
-c     constant volume heat capacity
-           C_v = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
+           avgQst = chainstats(istat+7)
+           avgCv = chainstats(istat+8)
+           
+           stdN = chainstats(istat+9) 
+           stdE = chainstats(istat+10) 
+           stdEN = chainstats(istat+11) 
+           stdN2 = chainstats(istat+12) 
+           stdE2 = chainstats(istat+13) 
+           stdNF = chainstats(istat+14)
+           stdQst = chainstats(istat+15)
+           stdCv = chainstats(istat+16)
 
            write(nrite,"(5x,'guest ',i2,': ',40a,/)")i,
      &       (molnam(p,mol),p=1,40)
@@ -1440,25 +1457,23 @@ c     constant volume heat capacity
      &         '<N*N>: ', avgN2,
      &         '<E*E>: ', avgE2,
      &         'Multiplier: ',prodcount,
-     &         'Isosteric heat of adsorption (kcal/mol): ',Q_st,
+     &         'Isosteric heat of adsorption (kcal/mol): ',avgQst,
      &         'Isosteric heat error: ', stdQst,
-     &         'Heat capacity, Cv (kcal/mol/K): ', C_v,
+     &         'Heat capacity, Cv (kcal/mol/K): ', avgCv,
      &         'Heat capacity error: ', stdCv,
      &         '<surface adsorbed N>:', avgNF
            elseif(lwidom)then
              gcmccount=widcount
+             avgH = chainstats(istat+7)
              write(nrite,"(5x,a60,E20.9,/)")
      &         "Henry's Constant (mol /kg /bar): ",
      &         avgH/avo/boltz/temp*1.d5
            endif
            nstat = (i-1)*9
-           node_avg(1,(nstat+1):(nstat+6)) =
-     &                    chainstats((istat+1):(istat+6))
-           node_avg(1, nstat+7) = Q_st
-           node_avg(1, nstat+8) = C_v
-           node_avg(1, nstat+9) = chainstats(istat+7)
-           node_std(1,nstat+1:nstat+9) =
-     &                   chainstats(istat+8:istat+16)
+           node_avg(1,(nstat+1):(nstat+8)) =
+     &                    chainstats((istat+1):(istat+8))
+           node_std(1,nstat+1:nstat+8) =
+     &                   chainstats(istat+9:istat+16)
          enddo
          tw=tw+weight
          do i=1,mxnode-1
@@ -1484,19 +1499,20 @@ c        prodcount used for weighting the mean and stdev
              avgN2 = statbuff(istat+4)
              avgE2 = statbuff(istat+5)
              avgNF = statbuff(istat+6)
-             avgH = statbuff(istat+7)
-             stdN = statbuff(istat+8)
-             stdE = statbuff(istat+9)
-             stdEN = statbuff(istat+10)
-             stdN2 = statbuff(istat+11)
-             stdE2 = statbuff(istat+12)
-             stdNF = statbuff(istat+13)
-             stdQst = statbuff(istat+14)
-             stdCv = statbuff(istat+15)
-             stdH = statbuff(istat+16)
+             avgQst = statbuff(istat+7)
+             avgCv = statbuff(istat+8)
+            
+             stdN = statbuff(istat+9)  
+             stdE = statbuff(istat+10)
+             stdEN = statbuff(istat+11)
+             stdN2 = statbuff(istat+12)
+             stdE2 = statbuff(istat+13)
+             stdNF = statbuff(istat+14)
+             stdQst = statbuff(istat+15)
+             stdCv = statbuff(istat+16)
 
-             Q_st = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
-             C_v = calc_cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
+             !Q_st = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
+             !C_v = calc_cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
              if((.not.lwidom).and.(.not.lwanglandau))then
                write(nrite,"(5x,a60,f20.9,/,5x,a60,f20.9,/,
      &           5x,a60,f20.9,/,5x,a60,f20.9,/,5x,a60,f20.9,/,
@@ -1508,9 +1524,9 @@ c        prodcount used for weighting the mean and stdev
      &           '<N*N>: ', avgN2,
      &           '<E*E>: ', avgE2,
      &           'Multiplier: ',prodcount,
-     &           'Isosteric heat of adsorption (kcal/mol): ',Q_st,
+     &           'Isosteric heat of adsorption (kcal/mol): ',avgQst,
      &           'Isosteric heat error: ', stdQst,
-     &           'Heat capacity, Cv (kcal/mol/K): ', C_v,
+     &           'Heat capacity, Cv (kcal/mol/K): ', avgCv,
      &           'Heat capacity error: ', stdCv,
      &           '<surface adsorbed N>:', avgNF
              elseif(lwidom)then
@@ -1519,11 +1535,8 @@ c        prodcount used for weighting the mean and stdev
      &            avgH/avo/boltz/temp*1.d5
              endif
              nstat = (j-1)*9
-             node_avg(i+1,nstat+1:nstat+6) = statbuff(istat+1:istat+6)
-             node_avg(i+1,nstat+7) = Q_st
-             node_avg(i+1,nstat+8) = C_v
-             node_avg(i+1,nstat+9) = statbuff(istat+7)
-             node_std(i+1,nstat+1:nstat+9) = statbuff(istat+8:istat+16)
+             node_avg(i+1,nstat+1:nstat+8) = statbuff(istat+1:istat+8)
+             node_std(i+1,nstat+1:nstat+8) = statbuff(istat+9:istat+16)
           enddo
         enddo
       endif
@@ -1645,7 +1658,8 @@ c             add counters again for the tally grid.
           avgN2 = 0.d0
           avgE2 = 0.d0
           avgNF = 0.d0
-          avgH = 0.d0
+          avgQst = 0.d0
+          avgCv = 0.d0
           stdN = 0.d0
           stdE = 0.d0
           stdEN = 0.d0
@@ -1654,16 +1668,16 @@ c             add counters again for the tally grid.
           stdNF = 0.d0
           stdQst = 0.d0
           stdCv = 0.d0
-          stdH = 0.d0
 c         compute unions of averages and standard deviations
-          call avunion(i,mxnode,avgN,avgE,avgEN,avgN2,avgE2,avgNF,avgH)
+          call avunion(i,mxnode,avgN,avgE,avgEN,avgN2,
+     &avgE2,avgNF,avgQst,avgCv)
 c       isosteric heat of adsorption 
-          Q_st = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
+          !Q_st = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
 c       heat capacity
-          C_v = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
+          !C_v = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
           call stdunion
-     &(i,mxnode,stdN,stdE,stdEN,stdN2,stdE2, stdNF,stdQst,stdCv,stdH,
-     &avgN,avgE,avgEN,avgN2,avgE2,avgNF,Q_st,C_v)
+     &(i,mxnode,stdN,stdE,stdEN,stdN2,stdE2,stdNF,stdQst,stdCv,
+     &avgN,avgE,avgEN,avgN2,avgE2,avgNF,avgQst,avgCv)
 
           write(nrite,"(/,a100,/,'final stats for guest ',
      &          i2,3x,40a,/,a100,/)")
@@ -1684,7 +1698,7 @@ c       heat capacity
      &        'average number of guests: ',avgN,
      &        'standard error: ',stdN
             write(nrite,"(a60,f15.6,/,a60,f15.6)")
-     &        'Isosteric heat of adsorption (kcal/mol): ',Q_st,
+     &        'Isosteric heat of adsorption (kcal/mol): ',avgQst,
      &        'Isosteric heat error: ', stdQst
 c           I added surface data here so that faps would read it in
 c           as the [useless IMO] heat capacity of the guest. This
@@ -1694,7 +1708,7 @@ c           in the C_v column of the faps results .csv file
      &        'average surface adsorption: ',avgNF,
      &        'standard error: ',stdNF
             write(nrite,"(a60,f15.6,/,a60,f15.6,/,a60,i15,/)")
-     &        'Heat capacity, Cv (kcal/mol/K): ', C_v,
+     &        'Heat capacity, Cv (kcal/mol/K): ', avgCv,
      &        'Heat capacity error: ', stdCv,
      &        'Total steps counted: ',int(tw)
           elseif(lwidom)then
@@ -1739,11 +1753,11 @@ c       close(nang)
       return
       end function month
       subroutine avunion(iguest,mxnode,avgN,avgE,avgEN,avgN2,avgE2,
-     &avgNF,avgH)
+     &avgNF,avgQst,avgCv)
 
       implicit none
-      real(8) avgE,avgN,avgEN,avgN2,avgE2,avgH,sumweight,weight
-      real(8) avgNF
+      real(8) avgE,avgN,avgEN,avgN2,avgE2,sumweight,weight
+      real(8) avgNF,avgQst,avgCv
       integer iguest,node,mxnode,istat
       istat=(iguest-1)*9
       sumweight=0.d0
@@ -1756,7 +1770,8 @@ c       close(nang)
         avgN2 = avgN2 + weight*node_avg(node,istat+4)
         avgE2 = avgE2 + weight*node_avg(node,istat+5)
         avgNF = avgNF + weight*node_avg(node,istat+6)
-        avgH = avgH + weight*node_avg(node,istat+9)
+        avgQst = avgQst + weight*node_avg(node,istat+7)
+        avgCv = avgCv + weight*node_avg(node,istat+8)
       enddo
 
       avgE = avgE/sumweight
@@ -1765,15 +1780,16 @@ c       close(nang)
       avgN2 = avgN2/sumweight
       avgE2 = avgE2/sumweight
       avgNF = avgNF/sumweight
-      avgH = avgH/sumweight
+      avgQst = avgQst/sumweight
+      avgCv = avgCv/sumweight
       end subroutine avunion
        
       subroutine stdunion(iguest,mxnode,stdN,stdE,stdEN,stdN2,stdE2,
-     &stdNF,stdQst,stdCv,stdH,avgN,avgE,avgEN,avgN2,avgE2,avgNF,
+     &stdNF,stdQst,stdCv,avgN,avgE,avgEN,avgN2,avgE2,avgNF,
      &Q_st,C_v)
 
       implicit none
-      real(8) stdN,stdE,stdEN,stdN2,stdE2,stdQst,stdCv,stdH
+      real(8) stdN,stdE,stdEN,stdN2,stdE2,stdQst,stdCv
       real(8) weight,sumweight, stdNF
       real(8) avgN,avgE,avgEN,avgN2,avgE2,Q_st,C_v,avgNF
       integer mxnode,iguest,istat,node
@@ -1800,8 +1816,6 @@ c       close(nang)
      &(node_std(node,istat+7)**2+node_avg(node,istat+7)**2)
         stdCv = stdCv + weight*
      &(node_std(node,istat+8)**2+node_avg(node,istat+8)**2)
-        stdH = stdH + weight*
-     &(node_std(node,istat+9)**2+node_avg(node,istat+9)**2)
       enddo
       stdN = sqrt((stdN/sumweight) - avgN**2)
       stdE = sqrt((stdE/sumweight) - avgE**2)
@@ -1811,7 +1825,6 @@ c       close(nang)
       stdNF = sqrt((stdNF/sumweight) - avgNF**2)
       stdQst = sqrt((stdQst/sumweight) - Q_st**2)
       stdCv = sqrt((stdCv/sumweight) - C_v**2)
-c      stdH = sqrt((stdH/sumweight) - avgH**2)
       end subroutine stdunion
       subroutine hisarchive(ntpguest,gcmccount)
 c*****************************************************************************
