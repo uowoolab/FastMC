@@ -417,12 +417,16 @@ c Need to find the grid parameters in first scan, before allocating
           else
             nwind=1
           endif
-          if(idnode.eq.0)write(nrite, '(/a,i10,a)')
+          if(idnode.eq.0)write(nrite, '(/a)')
      &'*** warning the averaging window was not specified in the
-     & CONTROL file, defaulting to ',nwind,' windows.'
+     & CONTROL file ***' 
       endif
-    
-      nwindsteps=mcsteps/nwind
+      nwindsteps = ceiling(dble(mcsteps)/dble(nwind))
+      nwind = floor(dble(mcsteps)/dble(nwindsteps)) 
+      
+      if(idnode.eq.0)write(nrite, '(/a31,i6,a20,a30,i10,a7)')
+     &'Averages will be computed from ',nwind,' averaging windows. ',
+     &'Each window will average over ', nwindsteps, ' steps.'
 c     halt program if cutoff exceeds cell width
 
       if(rcut.gt.width)call error(idnode,95)
