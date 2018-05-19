@@ -173,8 +173,6 @@ c     surface tolerance default set to -1 angstroms (off)
       rollcount=0
       ins_rollcount=0
       avcount = 0
-c     averaging window to calculate errors
-      nwindsteps=100000
 c     default flatness tolerance for Wang-Landau simulations.
       flatcoeff=0.7
 c     default min number of visits for each histogram bin

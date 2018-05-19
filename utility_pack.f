@@ -413,7 +413,7 @@ c Need to find the grid parameters in first scan, before allocating
 
       if(.not.lwind)then
           if(mcsteps.gt.1000)then
-            nwind=1000
+            nwind=5
           else
             nwind=1
           endif
