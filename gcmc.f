@@ -21,22 +21,22 @@ c     Varwindow will be a rolling variance calculation of    *
 c     the windowed averages.                                 * 
 c     currently the order is:                                *
 c     chainstats(1) = production gcmc step count             *
-c     chainstats(2) = rolling average number of guests <N>   *
-c     chainstats(3) = rolling average energy <E>             *
-c     chainstats(4) = rolling average for energy*guests <EN> *
-c     chainstats(5) = rolling average for N^2 <N2>           *
-c     chainstats(6) = rolling average for (energy)^2 <E2>    *
-c     chainstats(7) = rolling average for <N surface>        *
-c     chainstats(8) = rolling average for <exp(-E/kb/T)>     *
-c     chainstats(9) = rolling stdev value for <N>            *
-c     chainstats(10) = rolling stdev value for <E>           *
-c     chainstats(11) = rolling stdev value for <EN>          *
-c     chainstats(12) = rolling stdev value for <N2>          *
-c     chainstats(13) = rolling stdev value for <E2>          *
-c     chainstats(14) = rolling stdev value for <N surface>   *
-c     chainstats(15) = rolling stdev value for <Q_st>        *
-c     chainstats(16) = rolling stdev value for <C_v>         *
-c     chainstats(17) = rolling stdev value for <exp(-E/kb/T)>*
+c     chainstats(istat+1) =  average number of guests <N>    *
+c     chainstats(istat+2) =  average energy <E>              *
+c     chainstats(istat+3) =  average for energy*guests <EN>  *
+c     chainstats(istat+4) =  average for N^2 <N2>            *
+c     chainstats(istat+5) =  average for (energy)^2 <E2>     *
+c     chainstats(istat+6) =  average for <N surface>         *
+c     chainstats(istat+7) =  average for Q_st                *
+c     chainstats(istat+8) =  average for C_v                 *
+c     chainstats(istat+9) =  stdev value for <N>             *
+c     chainstats(istat+10) = stdev value for <E>             *
+c     chainstats(istat+11) = stdev value for <EN>            *
+c     chainstats(istat+12) = stdev value for <N2>            *
+c     chainstats(istat+13) = stdev value for <E2>            *
+c     chainstats(istat+14) = stdev value for <N surface>     *
+c     chainstats(istat+15) = stdev value for <Q_st>          *
+c     chainstats(istat+16) = stdev value for <C_v>           *
 c*************************************************************
 
 
@@ -107,7 +107,7 @@ c*************************************************************
 c     DEBUG
       real(8) pewld1,pewld2,pelrc,pvdw
 c     DEBUG
-      real(8) ecoul,evdw
+      real(8) ecoul,evdw,molenergy
       real(8) ecoulg,evdwg,overlap,surfmol
       real(8) ewld2sum,vdwsum,comx,comy,comz,ewaldaverage
       real(8) dmolecules,molecules2,energy2,Q_st,C_v
@@ -160,8 +160,8 @@ c     coinciding between the CONTROL file and the FIELD file.
       guest_toten=0.d0
       ecoul=0.d0
       evdw=0.d0
-c     default overlap to 2.0 Angstroms instead of 0.
-      overlap=2.d0
+c     default overlap to 1.5 Angstroms instead of 0.
+      overlap=1.5d0
 c     surface tolerance default set to -1 angstroms (off)
       surftol=0.d0
       ntpatm=0
@@ -1209,28 +1209,24 @@ c           otherwise re-sum the old list.
               mol=locguest(i) 
               dmolecules=real(nummols(mol))
               molecules2=dmolecules*dmolecules
-              energy2=energy(mol)*energy(mol)
+              molenergy = energy(mol)
+              energy2=molenergy*molenergy
               surfmol=real(surfacemols(mol))
 
               istat=1+16*(i-1)
 c           avg <N>
               chainstats(istat+1) = chainstats(istat+1) + dmolecules
 c           avg <E>
-              chainstats(istat+2) = chainstats(istat+2) + energy(mol)
+              chainstats(istat+2) = chainstats(istat+2) + molenergy
 c           avg <EN>
               chainstats(istat+3) = chainstats(istat+3) +
-     &energy(mol)*dmolecules 
+     &molenergy*dmolecules 
 c           avg <N^2>
               chainstats(istat+4) = chainstats(istat+4) + molecules2
 c           avg <E^2>
               chainstats(istat+5) = chainstats(istat+5) + energy2
 c           avg <NF>
               chainstats(istat+6) = chainstats(istat+6) + surfmol 
-c           Sampling the Henry's coefficient (This requires an
-c              energy calculation between the guest and framework
-c              only.) Widom insertion is better for this purpos
-c              as it more evenly samples configuration space.
-              rollstat=9*(i-1)
             enddo
           endif
           if((mod(prodcount,nwindsteps).eq.0).or.(.not.lgchk))then
@@ -1508,9 +1504,9 @@ c        prodcount used for weighting the mean and stdev
              stdNF = statbuff(istat+14)
              stdQst = statbuff(istat+15)
              stdCv = statbuff(istat+16)
-
-             !Q_st = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
-             !C_v = calc_cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
+c            recompute, these seem like more accurate values.
+             avgQst = calc_Qst(avgE, avgN, avgN2, avgEN, temp)
+             avgCv = calc_cv(avgE2, avgE, avgN, avgN2, avgEN, temp)
              if((.not.lwidom).and.(.not.lwanglandau))then
                write(nrite,"(5x,a60,f20.9,/,5x,a60,f20.9,/,
      &           5x,a60,f20.9,/,5x,a60,f20.9,/,5x,a60,f20.9,/,
@@ -1670,9 +1666,9 @@ c         compute unions of averages and standard deviations
           call avunion(i,mxnode,avgN,avgE,avgEN,avgN2,
      &avgE2,avgNF,avgQst,avgCv)
 c       isosteric heat of adsorption 
-          !Q_st = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
+          avgQst = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
 c       heat capacity
-          !C_v = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
+          avgCv = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
           call stdunion
      &(i,mxnode,stdN,stdE,stdEN,stdN2,stdE2,stdNF,stdQst,stdCv,
      &avgN,avgE,avgEN,avgN2,avgE2,avgNF,avgQst,avgCv)
