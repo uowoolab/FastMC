@@ -1666,9 +1666,9 @@ c         compute unions of averages and standard deviations
           call avunion(i,mxnode,avgN,avgE,avgEN,avgN2,
      &avgE2,avgNF,avgQst,avgCv)
 c       isosteric heat of adsorption 
-          avgQst = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
+          !avgQst = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
 c       heat capacity
-          avgCv = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
+          !avgCv = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
           call stdunion
      &(i,mxnode,stdN,stdE,stdEN,stdN2,stdE2,stdNF,stdQst,stdCv,
      &avgN,avgE,avgEN,avgN2,avgE2,avgNF,avgQst,avgCv)
