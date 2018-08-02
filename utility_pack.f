@@ -167,7 +167,7 @@ c     statistics file input channel
       subroutine initscan
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
      &delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
-     &griddim, gridfactor,nwind,nwindsteps)
+     &griddim,gridfactor,nwind,nwindsteps,lwidom)
 c**********************************************************************
 c
 c     scans input files for relevant maximums to allocate to arrays
@@ -178,7 +178,7 @@ c**********************************************************************
       integer, parameter :: mmk=1000
 
       logical loop,loop2,loop3,loop4,loop5,safe,lewald,lcut
-      logical lrvdw,check,ldelr,kill,lprob,lwind
+      logical lrvdw,check,ldelr,kill,lprob,lwind,lwidom
       character*8 name, chr(mmk)
       integer imcon,keyfce,idnode,idum,ntpvdw,maxmls,mxatm
       integer n,nummls,numsit,kmax1,kmax2,kmax3,nwind,mcsteps
@@ -345,6 +345,8 @@ c            record is commented out
              endif    
            enddo 
 
+        else if(findstring('henry', record, idum))then
+          lwidom=.true.
         elseif(findstring('delr',record,idum))then
           delr=dblstr(record,lenrec,idum)
           ldelr=.true.

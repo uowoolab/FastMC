@@ -155,6 +155,8 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
+      ntprob=0
+      gridsize=1
       ewaldaverage=0.d0
       ewld1old=0.d0
       guest_toten=0.d0
@@ -245,7 +247,7 @@ c     open main output file.
       call initscan
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
      & delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
-     & griddim,gridfactor,nwind,nwindsteps)
+     & griddim,gridfactor,nwind,nwindsteps,lwidom)
 
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
@@ -270,7 +272,7 @@ c      calculate number of grid points in a,b,and c directions
 c      calculate the volume of a grid point (differs from griddim^3)
         griddima = celprp(1) 
      &/ceiling(celprp(1)/gridfactor(1)/griddim)
-     &/gridfactor(1) 
+     &/gridfactor(1)
         griddimb = celprp(2) 
      &/ceiling(celprp(2)/gridfactor(2)/griddim)
      &/gridfactor(2) 
@@ -294,19 +296,10 @@ c        ngridc=gridfactor(3)*ceiling(celprp(3)/(griddim*gridfactor(3)))
           write(nrite,"(/,' Grid voxel volume (A^3)  :  ',f12.5)")
      &grvol
         endif
-        if(lprob)then
-          allocate(gridbuff(gridsize))
-          call alloc_prob_arrays(idnode,ntpguest,ntpsite,
+        allocate(gridbuff(gridsize))
+        call alloc_prob_arrays(idnode,ntpguest,ntpsite,
      &ntprob,gridsize)
-        endif
-      else
-c       this is in case we run into allocation problems later on
-
-        ntprob=0
-        gridsize=1
-        call alloc_prob_arrays(idnode,ntpguest,ntpsite,ntprob,gridsize)
       endif
-
 c     produce unit cell for folding purposes
       do i=1, 9
         ci = ceiling(dble(i)/3.d0)
@@ -329,7 +322,7 @@ c     produce unit cell for folding purposes
      &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,
      &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
      &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
-     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,lwidom,nwidstep,
+     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,nwidstep,
      &lwanglandau,wlprec,flatcoeff,visittol,prectol,maxn,minn,ebins)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
@@ -1591,9 +1584,9 @@ c             add counters again for the tally grid.
 c       hack to include widom accepted steps in the printout
         if(lwidom)accept_ins = chainstats(1)
         write(nrite,"(/,a17,i9,a15,f13.3,a8)")
-     &'time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
+     &'Time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
         write(nrite,"(/,a30,i9)")
-     &'total accepted steps : ',accept_ins+accept_del+accept_disp+
+     &'Total accepted steps : ',accept_ins+accept_del+accept_disp+
      &accept_jump+accept_flex+accept_swap+accept_tran+accept_rota
         if(ins_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")

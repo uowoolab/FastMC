@@ -517,7 +517,7 @@ c     halt program if potential cutoff exceeds cell width
      &laccsample,lnumg,nnumg,nhis,mcinsf,mcdelf,mcdisf,mcjmpf,
      &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
      &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
-     &fwk_step_max,fwk_initial,lwidom,nwidstep,lwanglandau,wlprec,
+     &fwk_step_max,fwk_initial,nwidstep,lwanglandau,wlprec,
      &flatcoeff,visittol,prectol,maxn,minn,ebins)
 c*************************************************************************
 c
@@ -531,7 +531,7 @@ c*************************************************************************
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,lprob,loop3,rprob,lrestart,laccsample
-      logical leng,l_fwk_seq,lwidom,lwanglandau
+      logical leng,l_fwk_seq,lwanglandau
       logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
@@ -587,10 +587,10 @@ c     allocate guest mole fractions
 
         if(record(1).eq.'#'.or.record(1).eq.' ')then
 c       record is commented out
-        else if(findstring('henry', directive, idum))then
-          lwidom=.true.
 c       number of widom insertion orientations to attempt at each
 c       grid point.
+        else if(findstring('henry', directive, idum))then
+          
         else if(findstring('widom ins', directive,idum))then
           nwidstep=intstr(directive,lenrec,idum)
         else if(findstring('restart',directive,idum))then
