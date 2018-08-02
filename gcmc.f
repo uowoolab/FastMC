@@ -652,7 +652,8 @@ c         assume a 0.0004 s cost per energy calculation (overestimate).
      &(idnode,iguest,nwidstep,wngrida,wngridb,wngridc,rotangle,imcon,
      &keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
      &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
-     &sumchg,rucell,prodcount,widcount,temp,ngrida,ngridb,ngridc)
+     &sumchg,rucell,prodcount,widcount,temp,ngrida,ngridb,
+     &ngridc)
         enddo
       endif
       if (lwanglandau)then
@@ -1294,7 +1295,7 @@ c     run statistics on uptake, energies locally
 c     then add the sums globally for a global weighted
 c     average
 c      print *, "Ewald1 average", ewaldaverage/accept_ins
-      if(prodcount.gt.0)then
+      if((prodcount.gt.0).and.(.not.lwidom))then
         weight = chainstats(1)
         do i=1,ntpguest
           istat = 1+(i-1)*16
@@ -1476,8 +1477,8 @@ c        prodcount used for weighting the mean and stdev
              avgE2 = statbuff(istat+5)
              avgNF = statbuff(istat+6)
              avgQst = statbuff(istat+7)
+             avgH = statbuff(istat+7) 
              avgCv = statbuff(istat+8)
-            
              stdN = statbuff(istat+9)  
              stdE = statbuff(istat+10)
              stdEN = statbuff(istat+11)
@@ -1586,8 +1587,9 @@ c             add counters again for the tally grid.
           endif
         enddo
       endif
-      
       if(idnode.eq.0)then
+c       hack to include widom accepted steps in the printout
+        if(lwidom)accept_ins = chainstats(1)
         write(nrite,"(/,a17,i9,a15,f13.3,a8)")
      &'time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
         write(nrite,"(/,a30,i9)")
@@ -1691,7 +1693,7 @@ c           in the C_v column of the faps results .csv file
             write(nrite,"(/a60,E15.6,/,a60,i15,/)")
      &        "Henry's Constant (mol /kg /bar): ", 
      &         avgH/avo/boltz/temp*1.d5,
-     &        "Total steps counted: ",int(tw)
+     &        "Total steps counted: ",int(prodcount)
           endif
         enddo
       endif
@@ -2592,7 +2594,8 @@ c       restore original surfacemols if step is rejected
      &(idnode,iguest,nstep,wngrida,wngridb,wngridc,rotangle,imcon,
      &keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
      &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
-     &sumchg,rucell,prodcount,widomcount,temp,ngrida,ngridb,ngridc)
+     &sumchg,rucell,prodcount,widomcount,temp,ngrida,ngridb,
+     &ngridc)
 c*****************************************************************************
 c
 c     perform widom insertions on a grid of pre-defined resolution 
@@ -2652,6 +2655,8 @@ c             insert COM at gridpoint
               loverlap=.false.
               lnewsurf=.false.
               widomcount = widomcount + 1
+              ! neighbour list re-computed each time.. is this
+              ! necessary?
               call insertion
      & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
@@ -2674,7 +2679,9 @@ c               no rolling average here, just div by widcount at the end
           enddo
         enddo
       enddo
-      chainstats(istat+7) = chainstats(istat+7)/dble(prodcount)
+c     average over all the steps counted, not just the accepted ones
+c     to ensure no biasing in the results.
+      chainstats(istat+7) = chainstats(istat+7)/dble(widomcount)
       chainstats(1) = dble(prodcount)
 
       end subroutine widom_grid
