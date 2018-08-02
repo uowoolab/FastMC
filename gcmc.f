@@ -89,7 +89,7 @@ c*************************************************************
       integer ins_rollcount,nswapguest,num_swaps,swap_max
       integer swap_guest_max,idnode,visittol,nwidstep
       integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
-      integer totalguests,globalnguests,globalsteps
+      integer totalguests,globalnguests,globalsteps,totgrid
       integer, allocatable :: fwksumbuff(:)
       real(8), allocatable :: gridbuff(:)
       real(8), dimension(10) :: celprp
@@ -265,7 +265,7 @@ c     volume reported in m^3 for statistical calculations
       statvolm=volm*1d-30
       call invert(cell,rcell,det)
 
-      if(lprob)then
+      if(lprob.or.lwidom)then
 c      calculate number of grid points in a,b,and c directions
 c      calculate the volume of a grid point (differs from griddim^3)
         griddima = celprp(1) 
@@ -294,10 +294,11 @@ c        ngridc=gridfactor(3)*ceiling(celprp(3)/(griddim*gridfactor(3)))
           write(nrite,"(/,' Grid voxel volume (A^3)  :  ',f12.5)")
      &grvol
         endif
-        allocate(gridbuff(gridsize))
-        call alloc_prob_arrays(idnode,ntpguest,ntpsite,ntprob,gridsize)
-        grvol=celprp(1)/dble(ngrida)*celprp(2)/dble(ngridb)*
-     &  celprp(3)/dble(ngridc)
+        if(lprob)then
+          allocate(gridbuff(gridsize))
+          call alloc_prob_arrays(idnode,ntpguest,ntpsite,
+     &ntprob,gridsize)
+        endif
       else
 c       this is in case we run into allocation problems later on
 
@@ -632,46 +633,27 @@ c        gcmccount=0
         wngrida=ceiling(celprp(1)/(griddima))
         wngridb=ceiling(celprp(2)/(griddimb))
         wngridc=ceiling(celprp(3)/(griddimc))
+        totgrid = ngrida*ngridb*ngridc
+        if(idnode.eq.0)then
+          write(nrite,"(a35,i22)")
+     &'Number of grid points :', totgrid
+          write(nrite,"(a35,i22)")
+     &'Number of energy calcs per grid :',nwidstep
+          write(nrite,"(a35,i22)")
+     &'Total number of energy calcs :',totgrid*nwidstep
+c         assume a 0.0004 s cost per energy calculation (overestimate).
+          write(nrite,"(a35,f22.2,' s (', f6.2, ' h )')")
+     &'Estimated elapsed time :',
+     &dble(totgrid)*dble(nwidstep)*0.001d0,
+     &dble(totgrid)*dble(nwidstep)*0.001d0/3600.d0
+        endif
         do iguest=1,ntpguest
-          call widom_grid(idnode,iguest,nwidstep,wngrida,wngridb,
-     &wngridc,rotangle,imcon,keyfce,alpha,rcut,delr,drewd,totatm,volm,
-     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,
-     &overlap,newld,surftol,sumchg,rucell,prodcount,widcount,temp,
-     &ngrida,ngridb,ngridc)
-c          mol=locguest(i) 
-c          istat=1+16*(iguest-1)
-c          widchk=.true.
-c          widcount=0
-c          do while(widchk)
-c            ins(iguest)=1
-c            ins_count=ins_count+1
-c            delE=0.d0
-c            call random_ins(idnode,natms,iguest,rcut,delr)
-c            estep = 0.d0
-c            call insertion
-c     & (imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
-c     & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-c     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-c     & loverlap,lnewsurf,surftol,overlap,newld)
-c            gcmccount = gcmccount + 1
-c            call reject_move
-c     &  (iguest,0,.true.,.false.,.false.,.false.)
-c            if(.not.loverlap)then
-c              if(lprobeng(iguest))then
-c                call storeenprob(iguest,0,rucell,ntpguest,ngrida,
-c     &            ngridb,ngridc,estep)
-c              endif
-c              H_const=dexp(-1.d0*estep/kboltz/temp)
-cc             no rolling average here, just div by widcount at the end
-c              chainstats(istat+7) = chainstats(istat+7)+H_const
-c              widcount = widcount + 1
-c            endif
-c            if(widcount.ge.mcsteps)widchk=.false.
-c          enddo
-c          chainstats(istat+7) = chainstats(istat+7)/dble(widcount)
+          call widom_grid
+     &(idnode,iguest,nwidstep,wngrida,wngridb,wngridc,rotangle,imcon,
+     &keyfce,alpha,rcut,delr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
+     &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
+     &sumchg,rucell,prodcount,widcount,temp,ngrida,ngridb,ngridc)
         enddo
-c        prodcount=widcount
-c        chainstats(1) = dble(widcount)
       endif
       if (lwanglandau)then
         lgchk=.false.
