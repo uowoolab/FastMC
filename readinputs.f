@@ -530,12 +530,12 @@ c*************************************************************************
       character*1 sysname(80)
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
-      logical lmcsteps,leqsteps,lprob,loop3,rprob,lrestart,laccsample
+      logical lmcsteps,leqsteps,loop3,rprob,lrestart,laccsample
       logical leng,l_fwk_seq,lwanglandau
       logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,delr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
-      integer n,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
+      integer nnprob,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
       integer minn,ebins,nwidstep
       real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
@@ -543,7 +543,7 @@ c*************************************************************************
       real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
       real(8) surftol,prectol
 
-      data ltemp/.false./,lprob/.false./,loop3/.false./
+      data ltemp/.false./
       data lmcsteps/.false./,leqsteps/.false./,lwind/.false./
 
       lguest_min(:)=.false.
@@ -611,7 +611,9 @@ c       guest related stuff
           ngst=ngst+1
           idguest=intstr(directive,lenrec,idum)
           loop2=.true.
+          loop3=.false.
           rprob=.false.
+          cprob=0
           do while(loop2)
             call getrec(safe,idnode,ncontrol)
             
@@ -633,11 +635,10 @@ c           record is commented out
             elseif(findstring('press',record,idum))then
               gstpress(idguest)=dblstr(record,lenrec,idum)*1.d5
             elseif(findstring('probability',record,idum))then
-              lprob=.true.
               rprob=.true.
               leng=.false.
-              n=intstr(record,lenrec,idum)
-              nprob(idguest)=n
+              nnprob=intstr(record,lenrec,idum)
+              nprob(idguest)=nnprob
               loop3=.true.
               cprob=0
               do while(loop3)
@@ -657,7 +658,7 @@ c           record is commented out
                     lprobsites(iprob,j)=intstr(record,lenrec,idum)
                   enddo
                 endif
-                if(cprob.eq.n)loop3=.false.
+                if(cprob.eq.nnprob)loop3=.false.
               enddo
 c             add an extra grid for the average counting..
               if(leng)then
@@ -668,7 +669,7 @@ c             add an extra grid for the average counting..
               loop2=.false.
             endif    
           enddo
-          if(.not.rprob)nprob(idguest)=0
+          if(.not.rprob)nprob(ngst)=0
         elseif (findstring('steps',directive,idum))then
           mcsteps=intstr(directive,lenrec,idum)
           lmcsteps=.true.
@@ -801,7 +802,6 @@ c     check if lwanglandau guest_max and guest_min are allocated
         minn=mi
       endif
 
-      
       if(idnode.eq.0)write(nrite,
      &"(/,'tolerance for automatic failure of gcmc move if nearby atoms
      & within: ',f12.5, ' angstroms.')")overlap
@@ -858,7 +858,6 @@ c     check if lwanglandau guest_max and guest_min are allocated
       endif
 
       if(idnode.eq.0)close(ncontrol)
- 
       return
       end subroutine
 

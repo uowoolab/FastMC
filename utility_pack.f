@@ -478,7 +478,7 @@ c*********************************************************************
       do i=1,np
         fail(i) = 0
       enddo
-
+    
       allocate(nprob(ntpguest),stat=fail(1))
       allocate(nprobsites(ntprob),stat=fail(2))
       allocate(lprobsites(ntprob,ntpsite),stat=fail(3))

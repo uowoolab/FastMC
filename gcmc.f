@@ -299,7 +299,15 @@ c        ngridc=gridfactor(3)*ceiling(celprp(3)/(griddim*gridfactor(3)))
         allocate(gridbuff(gridsize))
         call alloc_prob_arrays(idnode,ntpguest,ntpsite,
      &ntprob,gridsize)
+      else
+        gridsize=1
+        ntprob=1
+        allocate(gridbuff(gridsize))
+        call alloc_prob_arrays(idnode,ntpguest,ntpsite,
+     &ntprob,gridsize)
+
       endif
+
 c     produce unit cell for folding purposes
       do i=1, 9
         ci = ceiling(dble(i)/3.d0)
@@ -680,6 +688,7 @@ c     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
 c     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap)
 c      call error(idnode,0)
 c     END DEBUG
+
       if(lgchk)then 
         do i=1,ntpguest
           if(guest_insert(i).gt.0)then
@@ -1283,7 +1292,6 @@ c*************************************************************************
 c     END OF GCMC RUN
 c*************************************************************************
       call timchk(0,timelp)
-
 c     run statistics on uptake, energies locally
 c     then add the sums globally for a global weighted
 c     average
