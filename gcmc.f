@@ -248,7 +248,6 @@ c     open main output file.
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
      & delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
      & griddim,gridfactor,nwind,nwindsteps,lwidom)
-
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
      &volm,ntpguest,rcut,rvdw,delr,nwind)
@@ -839,14 +838,18 @@ c Randomly decide which MC move to do
 c Failover displace -- shouldn't reach here
           displace=.true.
         endif
-        if((nhis.ne.0).and.(mod(gcmccount,abs(nhis)).eq.0))then
-          write(202,'(a35,f20.15,a15,f15.10,a15,f15.10)')
+c        mod(num,0) causing segfault with gfortran
+c        if((mod(gcmccount,abs(nhis)).eq.0).and.(nhis.ne.0))then
+        if(nhis.ne.0)then
+          if(mod(gcmccount,abs(nhis)).eq.0)then
+            write(202,'(a35,f20.15,a15,f15.10,a15,f15.10)')
      &'displacement acceptance ratio: ',
      &(dble(accept_disp)/dble(disp_count)),
      &'delr: ',delrdisp,'angle: ',rotangle
-          if(nhis.lt.0)call hisarchive(ntpguest,gcmccount)
-          if((nhis.gt.0).and.(prodcount.gt.0))call hisarchive
-     &      (ntpguest,gcmccount) 
+            if(nhis.lt.0)call hisarchive(ntpguest,gcmccount)
+            if((nhis.gt.0).and.(prodcount.gt.0))call hisarchive
+     &        (ntpguest,gcmccount)
+          endif
         endif
         if(nmols.ge.1.and.disp_count.ge.1)then
           if(mod(disp_count,100).eq.0)then
@@ -1611,11 +1614,6 @@ c       hack to include widom accepted steps in the printout
         if(flex_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'flex ratio: ',dble(accept_flex)/dble(flex_count)
-        do jj=1,n_fwk
-          write(nrite,"(/,6x,a26,i6,60a1,e13.6)")
-     &'Framework population for: ',jj,(fwk_name(jj, kk),kk=1,60),
-     & dble(fwk_counts(jj))/dble(prodcount)
-        enddo
         if(swap_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'swap ratio: ',dble(accept_swap)/dble(swap_count)
@@ -1628,6 +1626,11 @@ c       hack to include widom accepted steps in the printout
         if(rota_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'rotation ratio: ',dble(accept_rota)/dble(rota_count)
+        do jj=1,n_fwk
+          write(nrite,"(/,6x,a26,i6,60a1,e13.6)")
+     &'Framework population for: ',jj,(fwk_name(jj, kk),kk=1,60),
+     & dble(fwk_counts(jj))/dble(prodcount)
+        enddo
         do i=1,ntpguest
           mol=locguest(i)
 
@@ -1650,10 +1653,6 @@ c       hack to include widom accepted steps in the printout
 c         compute unions of averages and standard deviations
           call avunion(i,mxnode,avgN,avgE,avgEN,avgN2,
      &avgE2,avgNF,avgQst,avgCv)
-c       isosteric heat of adsorption 
-          !avgQst = calc_Qst(avgE, avgN, avgN2, avgEN,temp)
-c       heat capacity
-          !avgCv = calc_Cv(avgE2, avgE, avgN, avgN2, avgEN,temp)
           call stdunion
      &(i,mxnode,stdN,stdE,stdEN,stdN2,stdE2,stdNF,stdQst,stdCv,
      &avgN,avgE,avgEN,avgN2,avgE2,avgNF,avgQst,avgCv)

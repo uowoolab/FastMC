@@ -1123,7 +1123,7 @@ c     dummy entry
         elseif (kode.eq.2312) then
           write(nrite,'(/,/,a70,/,14x,a,/,a70,/,/)')
      &'*****************************************************************
-     &********','premature termination of GCMC simulation.','**********
+     &********','premature termination of GCMC simulation.','***********
      &****************************************************************'
 
         elseif(kode.eq.2313)then

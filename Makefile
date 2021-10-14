@@ -24,6 +24,7 @@ PARALLEL=par
 # If one wishes to compile their own version, then change BNLIBDIR
 # to the full path of their preferred version.
 BNLIBDIR=mpfun2015
+# BNLIBDIR=/home/pboyd/modules/mpfun20-fort-v10/fortran-var1
 DOS=ddos
 .SUFFIXES: .f .o
 
