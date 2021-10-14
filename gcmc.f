@@ -559,8 +559,6 @@ c     beta is a constant used in the acceptance criteria for the gcmc
 c     moves
       beta=1.d0/(kboltz*temp)
 c     this is the relative dielectric constant. default is 1
-c     we don't need this....
-
       epsq=1.d0
 
 c     create ewald interpolation arrays 
@@ -794,7 +792,7 @@ c               reset the cycles for production
             endif
           endif
         endif
-
+c
 c       randomly choose a guest type to move 
         if(ntpguest.gt.1)then
           iguest=floor(duni(idnode)*ntpguest)+1
@@ -842,7 +840,8 @@ c        mod(num,0) causing segfault with gfortran
 c        if((mod(gcmccount,abs(nhis)).eq.0).and.(nhis.ne.0))then
         if(nhis.ne.0)then
           if(mod(gcmccount,abs(nhis)).eq.0)then
-            write(202,'(a35,f20.15,a15,f15.10,a15,f15.10)')
+            if(disp_count.gt.0)
+     &      write(202,'(a35,f20.15,a15,f15.10,a15,f15.10)')
      &'displacement acceptance ratio: ',
      &(dble(accept_disp)/dble(disp_count)),
      &'delr: ',delrdisp,'angle: ',rotangle
@@ -1178,6 +1177,7 @@ c***********************************************************************
      &ntpguest,rotangle)
           swap = .false.
         endif
+        if(production)prodcount=prodcount+1
 c=========================================================================
 c       once GCMC move is done, check if production is requested
 c       if so, store averages, probability plots etc..
