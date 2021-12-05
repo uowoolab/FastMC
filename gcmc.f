@@ -101,7 +101,7 @@ c*************************************************************
       real(8) engsrp,randmov,rande,delta
       real(8) stdQst,stdCv,rotangle,delrc
       real(8) tzero,timelp,engunit,rvdw,temp,beta
-      real(8) dlrpot,rcut,eps,alpha,delr,delrdisp,gpress
+      real(8) dlrpot,rcut,eps,alpha,initdelr,delrdisp,gpress
       real(8) init,wlprec
       real(8) ewld1eng,flatcoeff
 c     DEBUG
@@ -122,9 +122,7 @@ c     DEBUG
       integer m, indatm, indfwk, gstidx
       logical isguest
 c Cumulative move probabilities, remeber to zero and include in normalising
-      real(8) mcinsf,mcdelf,mcdisf,mcswpf,mcflxf,mcjmpf,mcmvnorm
-      real(8) mctraf,mcrotf,mcswif,mcmvsum
-      real(8) disp_ratio,tran_ratio,rota_ratio,tran_delr
+      real(8) tran_delr
       real(8) rota_rotangle,jumpangle
       integer, dimension(3) :: gridfactor
       integer fwk_step_magnitude
@@ -150,7 +148,7 @@ c     Default these to grand canonical.. can turn 'off' in CONTROL file
       data mcdisf/0.3333333/
       data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
 
-      integer, parameter, dimension(3) :: revision = (/1, 4, 6 /)
+      integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
       nwidstep=20
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
@@ -192,11 +190,6 @@ c     flat histogram sampling
       ebins=100
 c     scoping issues
       delrc = 0
-
-c     Default target acceptance ratios of 0.5      
-      disp_ratio = 0.5d0
-      tran_ratio = 0.5d0
-      rota_ratio = 0.5d0
 
       thrd=1.d0/3.d0
       twothrd=2.d0/3.d0
@@ -246,11 +239,21 @@ c     open main output file.
       endif
       call initscan
      &(idnode,imcon,volm,keyfce,rcut,eps,alpha,kmax1,kmax2,kmax3,lprob,
-     & delr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
+     & initdelr,rvdw,ntpguest,ntprob,ntpsite,ntpvdw,maxmls,mxatm,mxatyp,
      & griddim,gridfactor,nwind,nwindsteps,lwidom)
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
-     &volm,ntpguest,rcut,rvdw,delr,nwind)
+     &volm,ntpguest,rcut,rvdw,initdelr,nwind)
+      delr(:) = initdelr
+      accept_disp(:)=0.d0
+      accept_tran(:)=0.d0
+      disp_count(:)=0.d0
+      tran_count(:)=0.d0
+
+c     default target acceptance ratios of 0.5
+      disp_ratio(:)=0.5d0
+      tran_ratio(:)=0.5d0
+      rota_ratio(:)=0.5d0
 
       call alloc_vdw_arrays(idnode,maxvdw,maxmls,mxatyp)
       call readfield
@@ -326,11 +329,10 @@ c     produce unit cell for folding purposes
         endif
       enddo
       call readcontrol(idnode,lspe,temp,ljob,mcsteps,eqsteps,
-     &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,
-     &mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,swap_max,mcswif,
-     &mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio,lfuga,overlap,
-     &surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,nwidstep,
-     &lwanglandau,wlprec,flatcoeff,visittol,prectol,maxn,minn,ebins)
+     &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,swap_max,
+     &lfuga,overlap,surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,
+     &nwidstep,lwanglandau,wlprec,flatcoeff,visittol,prectol,
+     &maxn,minn,ebins)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -565,7 +567,7 @@ c     create ewald interpolation arrays
       call erfcgen(keyfce,alpha,rcut,drewd)
 c     populate ewald3 arrays
       call single_point
-     &(imcon,keyfce,alpha,drewd,rcut,delr,totatm,ntpfram,
+     &(imcon,keyfce,alpha,drewd,rcut,initdelr,totatm,ntpfram,
      &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,
      &dlrpot,ntpatm,maxvdw,spenergy,vdwsum,ecoul,dlpeng,
      &maxmls,surftol)
@@ -2686,7 +2688,7 @@ c     to ensure no biasing in the results.
 
       end subroutine widom_grid
       subroutine single_point
-     &(imcon,keyfce,alpha,drewd,rcut,delr,totatm,ntpfram,
+     &(imcon,keyfce,alpha,drewd,rcut,tmpdelr,totatm,ntpfram,
      &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,
      &ntpatm,maxvdw,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
 c*****************************************************************************
@@ -2701,7 +2703,7 @@ c*****************************************************************************
       integer totatm,newld,sittyp,ntpatm,maxvdw
       integer mol,ntpguest,ntpfram,maxmls
       integer jatm,iatm,ntpmls,step,iguest
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr,ecoul
+      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,tmpdelr,ecoul
       real(8) engsic,chg
       real(8) ewald1sum,ewald2sum,vdwsum
       real(8) ewald1eng,ewald2eng,ewald3eng,vdweng
@@ -2732,7 +2734,7 @@ c     "gstlrcorrect"
 
 c     generate neighbour list
       call condense(totatm,ntpfram,ntpguest)
-      call parlst(imcon,totatm,rcut,delr)
+      call parlst(imcon,totatm,rcut,tmpdelr)
 c     reciprocal space ewald calculation
       call ewald1(imcon,ewald1sum,engsic,totatm,volm,alpha,sumchg,
      &kmax1,kmax2,kmax3,epsq,newld,maxmls)

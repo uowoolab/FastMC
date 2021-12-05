@@ -514,9 +514,8 @@ c     halt program if potential cutoff exceeds cell width
 
       subroutine readcontrol
      &(idnode,lspe,temp,ljob,mcsteps,eqsteps,ntpguest,lrestart,
-     &laccsample,lnumg,nnumg,nhis,mcinsf,mcdelf,mcdisf,mcjmpf,
-     &mcflxf,mcswpf,swap_max,mcswif,mctraf,mcrotf,disp_ratio,
-     &tran_ratio,rota_ratio,lfuga,overlap,surftol,n_fwk,l_fwk_seq,
+     &laccsample,lnumg,nnumg,nhis,swap_max,lfuga,overlap,surftol,
+     &n_fwk,l_fwk_seq,
      &fwk_step_max,fwk_initial,nwidstep,lwanglandau,wlprec,
      &flatcoeff,visittol,prectol,maxn,minn,ebins)
 c*************************************************************************
@@ -533,14 +532,16 @@ c*************************************************************************
       logical lmcsteps,leqsteps,loop3,rprob,lrestart,laccsample
       logical leng,l_fwk_seq,lwanglandau
       logical lguest_min(ntpguest), lguest_max(ntpguest)
-      real(8) drdf,dzdn,zlen,temp,rcut,delr
+      real(8) drdf,dzdn,zlen,temp,rcut,tmpdelr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer nnprob,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
       integer minn,ebins,nwidstep
-      real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,overlap 
-      real(8) mcswif,wlprec,flatcoeff 
-      real(8) mctraf,mcrotf,disp_ratio,tran_ratio,rota_ratio
+      real(8) tmpmcinsf,tmpmcdelf,tmpmcdisf,tmpmcjmpf,tmpmcflxf,
+      real(8) tmpmcswpf,overlap 
+      real(8) tmpmcswif,wlprec,flatcoeff 
+      real(8) tmpmctraf,tmpmcrotf,tmpdisp_ratio,tmptran_ratio,
+      real(8) tmprota_ratio
       real(8) surftol,prectol
 
       data ltemp/.false./
@@ -665,6 +666,37 @@ c             add an extra grid for the average counting..
                 lprobeng(idguest) = .true.
                 nprob(idguest) = nprob(idguest)+1
               endif
+            elseif(findstring('move',record,idum))then
+              if (findstring('ins',directive,idum))then
+                mcinsf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('del',directive,idum))then
+                mcdelf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('dis',directive,idum))then
+                mcdisf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('jum',directive,idum))then
+                mcjmpf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('fle',directive,idum))then
+                mcflxf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('swa',directive,idum))then
+                mcswpf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('swi',directive,idum))then
+                mcswif(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('tra',directive,idum))then
+                mctraf(idguest) = dblstr(directive,lenrec,idum)
+              elseif (findstring('rot',directive,idum))then
+                mcrotf(idguest) = dblstr(directive,lenrec,idum)
+              else
+                if(idnode.eq.0)
+     &write(nrite,"(/,'ignoring unknown move for guest', i4)")idguest
+              endif
+            elseif(findstring('delr',directive,idum))then
+              delr(idguest) = dblstr(record,lenrec,idum)
+            elseif(findstring('accep',record,idum))then
+              if (findstring('dis',record,idum))then
+                disp_ratio(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('tra',record,idum))then
+                tran_ratio(idguest) = dblstr(record,lenrec,idum)
+              endif
             elseif(findstring('&end',record,idum))then
               loop2=.false.
             endif    
@@ -727,7 +759,7 @@ c         set default writing numguests.out to 1000 steps
         elseif (findstring('surface',directive,idum))then
           surftol=dblstr(directive,lenrec,idum)
         elseif (findstring('delr',directive,idum))then
-          delr=dblstr(directive,lenrec,idum)
+          tmpdelr=dblstr(directive,lenrec,idum)
         elseif (findstring('averaging window',record,idum))then
             ! already recorded in 'initscan' utility_pack.f
         elseif (findstring('fram', directive, idum))then
@@ -746,33 +778,33 @@ c         set default writing numguests.out to 1000 steps
           endif 
         elseif (findstring('move',directive,idum))then
           if (findstring('ins',directive,idum))then
-            mcinsf = dblstr(directive,lenrec,idum)
+            tmpmcinsf = dblstr(directive,lenrec,idum)
           elseif (findstring('del',directive,idum))then
-            mcdelf = dblstr(directive,lenrec,idum)
+            tmpmcdelf = dblstr(directive,lenrec,idum)
           elseif (findstring('dis',directive,idum))then
-            mcdisf = dblstr(directive,lenrec,idum)
+            tmpmcdisf = dblstr(directive,lenrec,idum)
           elseif (findstring('jum',directive,idum))then
-            mcjmpf = dblstr(directive,lenrec,idum)
+            tmpmcjmpf = dblstr(directive,lenrec,idum)
           elseif (findstring('fle',directive,idum))then
-            mcflxf = dblstr(directive,lenrec,idum)
+            tmpmcflxf = dblstr(directive,lenrec,idum)
           elseif (findstring('swa',directive,idum))then
-            mcswpf = dblstr(directive,lenrec,idum)
+            tmpmcswpf = dblstr(directive,lenrec,idum)
           elseif (findstring('swi',directive,idum))then
-            mcswif = dblstr(directive,lenrec,idum)
+            tmpmcswif = dblstr(directive,lenrec,idum)
           elseif (findstring('tra',directive,idum))then
-            mctraf = dblstr(directive,lenrec,idum)
+            tmpmctraf = dblstr(directive,lenrec,idum)
           elseif (findstring('rot',directive,idum))then
-            mcrotf = dblstr(directive,lenrec,idum)
+            tmpmcrotf = dblstr(directive,lenrec,idum)
           else
             if(idnode.eq.0)write(nrite,"(/,'ignoring unknown move')")
           endif
         elseif (findstring('accep',directive,idum))then
           if (findstring('dis',directive,idum))then
-            disp_ratio = dblstr(directive,lenrec,idum)
+            tempdisp_ratio = dblstr(directive,lenrec,idum)
           elseif (findstring('tra',directive,idum))then
-            tran_ratio = dblstr(directive,lenrec,idum)
+            temptran_ratio = dblstr(directive,lenrec,idum)
           elseif (findstring('rot',directive,idum))then
-            rota_ratio = dblstr(directive,lenrec,idum)
+            tmprota_ratio = dblstr(directive,lenrec,idum)
           endif
         elseif (findstring('grid',directive,idum))then
 c 'grid' is already read in initscan
@@ -801,7 +833,74 @@ c     check if lwanglandau guest_max and guest_min are allocated
         maxn=mm
         minn=mi
       endif
-
+c     check guest specific moves
+      do iguest=1,ngst
+c       mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf
+c       mcswif,mctraf,mcrotf
+        if(mcinsf(iguest).lt.0.d0)then
+          if(tmpmcinsf.ge.0.d0)then
+            mcinsf(iguest)=tmpmcinsf
+          else
+            mcinsf(iguest)=0.d0 
+          endif
+        endif
+        if(mcdelf(iguest).lt.0.d0)then 
+          if(tmpmcdelf.ge.0.d0)then
+            mcdelf(iguest)=tmpmcdelf
+          else
+            mcdelf(iguest)=0.d0 
+          endif
+        endif
+        if(mcdisf(iguest).lt.0.d0)then 
+          if(tmpmcdisf.ge.0.d0)then
+            mcdisf(iguest)=tmpmcdisf
+          else
+            mcdisf(iguest)=0.d0 
+          endif
+        endif
+        if(mcjmpf(iguest).lt.0.d0)then 
+          if(tmpmcjmpf.ge.0.d0)then
+            mcjmpf(iguest)=tmpmcjmpf
+          else
+            mcjmpf(iguest)=0.d0 
+          endif
+        endif
+        if(mcflxf(iguest).lt.0.d0)then 
+          if(tmpmcflxf.ge.0.d0)then
+            mcflxf(iguest)=tmpmcflxf
+          else
+            mcflxf(iguest)=0.d0 
+          endif
+        endif
+        if(mcswpf(iguest).lt.0.d0)then 
+          if(tmpmcswpf.ge.0.d0)then
+            mcswpf(iguest)=tmpmcswpf
+          else
+            mcswpf(iguest)=0.d0 
+          endif
+        endif
+        if(mcswif(iguest).lt.0.d0)then 
+          if(tmpmcswif.ge.0.d0)then
+            mcswif(iguest)=tmpmcswif
+          else
+            mcswif(iguest)=0.d0 
+          endif
+        endif
+        if(mctraf(iguest).lt.0.d0)then 
+          if(tmpmctraf.ge.0.d0)then
+            mctraf(iguest)=tmpmctraf
+          else
+            mctraf(iguest)=0.d0 
+          endif
+        endif
+        if(mcrotf(iguest).lt.0.d0)then 
+          if(tmpmcrotf.ge.0.d0)then
+            mcrotf(iguest)=tmpmcrotf
+          else
+            mcrotf(iguest)=0.d0 
+          endif
+        endif
+      enddo
       if(idnode.eq.0)write(nrite,
      &"(/,'tolerance for automatic failure of gcmc move if nearby atoms
      & within: ',f12.5, ' angstroms.')")overlap
