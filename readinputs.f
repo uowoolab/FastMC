@@ -537,10 +537,10 @@ c*************************************************************************
       integer nnprob,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
       integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
       integer minn,ebins,nwidstep
-      real(8) tmpmcinsf,tmpmcdelf,tmpmcdisf,tmpmcjmpf,tmpmcflxf,
+      real(8) tmpmcinsf,tmpmcdelf,tmpmcdisf,tmpmcjmpf,tmpmcflxf
       real(8) tmpmcswpf,overlap 
       real(8) tmpmcswif,wlprec,flatcoeff 
-      real(8) tmpmctraf,tmpmcrotf,tmpdisp_ratio,tmptran_ratio,
+      real(8) tmpmctraf,tmpmcrotf,tmpdisp_ratio,tmptran_ratio
       real(8) tmprota_ratio
       real(8) surftol,prectol
 
@@ -800,9 +800,9 @@ c         set default writing numguests.out to 1000 steps
           endif
         elseif (findstring('accep',directive,idum))then
           if (findstring('dis',directive,idum))then
-            tempdisp_ratio = dblstr(directive,lenrec,idum)
+            tmpdisp_ratio = dblstr(directive,lenrec,idum)
           elseif (findstring('tra',directive,idum))then
-            temptran_ratio = dblstr(directive,lenrec,idum)
+            tmptran_ratio = dblstr(directive,lenrec,idum)
           elseif (findstring('rot',directive,idum))then
             tmprota_ratio = dblstr(directive,lenrec,idum)
           endif

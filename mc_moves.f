@@ -272,7 +272,7 @@ c***********************************************************************
         delrc_mol(ik)=0.d0
       enddo
       call guestlistgen
-     &(imcon,totatm,rcut,delr,
+     &(imcon,totatm,rcut,ddelr,
      &natms,newx,newy,newz)
       estep=0.d0
       chgtmp=0.d0

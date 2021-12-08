@@ -1,4 +1,4 @@
-      subroutine parlst(imcon,natms,rcut,delr)
+      subroutine parlst(imcon,natms,rcut,ddelr)
 
 c***********************************************************************
 c     
@@ -19,12 +19,12 @@ c      use exclude_module
       logical lchk,lfrzi,ldo,fram
       integer imcon,natms,last,mpm2
       integer npm2,i,m,ii,j
-      real(8) rclim,rsq,rcut,delr,rmin,rminsq
+      real(8) rclim,rsq,rcut,ddelr,rmin,rminsq
 
       
 c     max size of verlet neighbour list for each atom
 c      dens=dble(maxatm*ntpmls)/volm
-c      cut=rcut+delr
+c      cut=rcut+ddelr
 c      ratio=1.5d0*dens*(4.d0*pi/3.d0)*cut**3
 c      mxlist=min(nint(ratio),(maxatm*ntpmls+1)/2)
      
@@ -51,7 +51,7 @@ c     rmin to prevent framework atom interactions at too close a range
         rmin=0.d0
       endif
       rminsq=rmin*rmin
-      rclim=(rcut+delr)**2
+      rclim=(rcut+ddelr)**2
 c     construct pair force neighbour list
         
       do i=1,natms

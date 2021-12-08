@@ -163,7 +163,7 @@ c     statistics file input channel
       save gstpress,angdist,node_avg,node_std,nodeweight
       save mcinsf,mcdelf,mcdisf,mcjmpf
       save mcflxf,mcswpf,mctraf,mcrotf
-      save mcswif,mcmvnorm
+      save mcswif,mcmvnorm,tran_count
       save delrdisp,delr,disp_ratio,tran_ratio,tran_delr
       save xdf,ydf,zdf,rsqdf
       save ins,del,dis,jmp,flx,swp,swi

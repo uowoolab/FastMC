@@ -6,12 +6,19 @@
       use ewald_module
 
       contains
+     &(idnode,mxnode,imcon,keyfce,alpha,rcut,initdelr,drewd,totatm,
+     &ntpguest,
+     &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+     &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
+     &wlprec,prectol,
+     &nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
+     &maxn,minn,ebins)
       subroutine wang_landau_sim
      &(idnode,mxnode,imcon,keyfce,alpha,rcut,delr,drewd,totatm,ntpguest,
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
-     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
+     &wlprec,prectol,
+     &nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
      &maxn,minn,ebins)
 c*****************************************************************************
 c     
@@ -41,8 +48,7 @@ c*****************************************************************************
       real(8) alpha,rcut,delr,drewd,volm,epsq,dlrpot,engunit
       real(8) sumchg,surftol,overlap,estep,chgtmp,randmov
       real(8) engsictmp,delrc,logwlprec,wlprec,timelp,beta,statvolm
-      real(8) mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf
-      real(8) mcrotf,mcswif,lambda,temp,tran_delr,rota_rotangle
+      real(8) lambda,temp,tran_delr,rota_rotangle
       real(8) delrdisp,rotangle,jumpangle,flatcoeff,prectol,mu
       if(idnode.eq.0)then
         write(nrite, 

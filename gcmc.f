@@ -69,13 +69,13 @@ c*************************************************************
       logical tick_tock_cycles(5)
       logical lnewsurf, linitsurf, lnewsurfj,linitsurfj
       integer nfo(8)
-      integer accept_ins,accept_del,accept_disp,totaccept,nnumg,nhis
+      integer accept_ins,accept_del,totaccept,nnumg,nhis
       integer accept_jump,accept_flex,accept_swap,scell_factor
       integer accept_switch,minchk,iter
-      integer accept_tran,accept_rota
-      integer ins_count,del_count,disp_count,buffer,levcfg,nstat
+      integer accept_rota
+      integer ins_count,del_count,buffer,levcfg,nstat
       integer jump_count,flex_count,swap_count,np,widcount
-      integer tran_count,rota_count,switch_count
+      integer rota_count,switch_count
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
       integer ibuff,iprob,cprob,prevnodes,nwind,rollstat,ci
@@ -101,7 +101,7 @@ c*************************************************************
       real(8) engsrp,randmov,rande,delta
       real(8) stdQst,stdCv,rotangle,delrc
       real(8) tzero,timelp,engunit,rvdw,temp,beta
-      real(8) dlrpot,rcut,eps,alpha,initdelr,delrdisp,gpress
+      real(8) dlrpot,rcut,eps,alpha,initdelr,gpress
       real(8) init,wlprec
       real(8) ewld1eng,flatcoeff
 c     DEBUG
@@ -122,7 +122,6 @@ c     DEBUG
       integer m, indatm, indfwk, gstidx
       logical isguest
 c Cumulative move probabilities, remeber to zero and include in normalising
-      real(8) tran_delr
       real(8) rota_rotangle,jumpangle
       integer, dimension(3) :: gridfactor
       integer fwk_step_magnitude
@@ -137,16 +136,11 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data lfuga/.false./,loverlap/.false./ ! change to false
       data linitsurf/.false./,lnewsurf/.false./
       data linitsurfj/.false./,lnewsurfj/.false./
-      data accept_ins,accept_del,accept_disp,totaccept/0,0,0,0/
+      data accept_ins,accept_del,totaccept/0,0,0/
       data accept_jump, accept_flex, accept_swap, accept_switch/0,0,0,0/
-      data ins_count,del_count,disp_count,gcmccount,prevnodes/0,0,0,0,0/
+      data ins_count,del_count,gcmccount,prevnodes/0,0,0,0/
       data jump_count, flex_count, swap_count, switch_count/0,0,0,0/
-      data tran_count, rota_count, accept_tran, accept_rota/0,0,0,0/
-c     Default these to grand canonical.. can turn 'off' in CONTROL file
-      data mcinsf/0.3333333/
-      data mcdelf/0.3333333/
-      data mcdisf/0.3333333/
-      data mcjmpf, mcflxf, mcswpf, mctraf, mcrotf, mcswif/0,0,0,0,0,0/
+      data rota_count, accept_rota/0,0/
 
       integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
       nwidstep=20
@@ -402,7 +396,7 @@ c Now   we normalise
      &  write(nrite,"(/,'Target acceptance ratios:',/,
      &  a18,f7.3,a18,f7.3,a18,f7.3,/)")
      &  'displacement:',disp_ratio(i),'translation:',tran_ratio(i),
-     &  'rotation:',rota_ratio
+     &  'rotation:',rota_ratio(i)
       enddo
       if(.not.lspe)then
         if(idnode.gt.0)call sleep(idnode+1)
@@ -659,8 +653,8 @@ c         assume a 0.0004 s cost per energy calculation (overestimate).
      &ntpguest,
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
-     &wlprec,mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf,mctraf,prectol,
-     &mcrotf,mcswif,nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
+     &wlprec,prectol,
+     &nnumg,temp,beta,mcsteps,eqsteps,flatcoeff,visittol,
      &maxn,minn,ebins)
       endif
 
@@ -842,38 +836,41 @@ c        mod(num,0) causing segfault with gfortran
 c        if((mod(gcmccount,abs(nhis)).eq.0).and.(nhis.ne.0))then
         if(nhis.ne.0)then
           if(mod(gcmccount,abs(nhis)).eq.0)then
-            if(disp_count.gt.0)
+            if(disp_count(iguest).gt.0)
      &      write(202,'(a35,f20.15,a15,f15.10,a15,f15.10)')
      &'displacement acceptance ratio: ',
-     &(dble(accept_disp)/dble(disp_count)),
+     &(dble(accept_disp(iguest))/dble(disp_count(iguest))),
      &'delr: ',sum(delrdisp),'angle: ',rotangle
             if(nhis.lt.0)call hisarchive(ntpguest,gcmccount)
             if((nhis.gt.0).and.(prodcount.gt.0))call hisarchive
      &        (ntpguest,gcmccount)
           endif
         endif
-        if(nmols.ge.1.and.disp_count.ge.1)then
-          if(mod(disp_count,100).eq.0)then
+        if(nmols.ge.1.and.disp_count(iguest).ge.1)then
+          if(mod(disp_count(iguest),100).eq.0)then
 c update distance part of displacement on n00s
-            if((accept_disp/dble(disp_count)).gt.disp_ratio)then 
+            if((accept_disp(iguest)/dble(disp_count(iguest))).gt.
+     &disp_ratio(iguest))then 
               delrdisp(iguest)=delrdisp(iguest)*1.05d0
             else
               if(delrdisp(iguest).gt.delrmin)delrdisp(iguest)=
      &delrdisp(iguest)*0.95d0
             endif
-          elseif(mod(disp_count,50).eq.0)then
+          elseif(mod(disp_count(iguest),50).eq.0)then
 c update rotation part of displacement on n50s
-            if((accept_disp/dble(disp_count)).gt.disp_ratio)then
+            if((accept_disp(iguest)/dble(disp_count(iguest))).gt.
+     &disp_ratio(iguest))then
               rotangle=rotangle*1.05d0
             else
               if(rotangle.gt.minangle)rotangle=rotangle*0.95d0
             endif
           endif
         endif
-        if((nmols.ge.1).and.(tran_count.ge.1).and.
-     &mod(tran_count,100).eq.0)then
+        if((nmols.ge.1).and.(tran_count(iguest).ge.1).and.
+     &mod(tran_count(iguest),100).eq.0)then
 c update distance moves on n00s
-          if((accept_tran/dble(tran_count)).gt.tran_ratio)then 
+          if((accept_tran(iguest)/dble(tran_count(iguest))).gt.
+     &tran_ratio(iguest))then 
             tran_delr(iguest)=tran_delr(iguest)*1.05d0
           else
             if(tran_delr(iguest).gt.delrmin)tran_delr(iguest)=
@@ -973,11 +970,11 @@ c***********************************************************************
         elseif(displace)then
           call mc_displace
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,tran,
-     &tran_count,tran_delr(iguest),rota,rota_count,rota_rotangle,
-     &disp_count,delrdisp(iguest),rotangle,maxmls,kmax1,kmax2,kmax3,
+     &tran_delr(iguest),rota,rota_count,rota_rotangle,
+     &delrdisp(iguest),rotangle,maxmls,kmax1,kmax2,kmax3,
      &newld,alpha,rcut,delr(iguest),
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
-     &beta,delrc,ntpatm,maxvdw,accept_tran,accept_rota,accept_disp,
+     &beta,delrc,ntpatm,maxvdw,accept_rota,accept_disp,
      &ntpguest,ntpfram)
           displace=.false.
           tran = .false.
@@ -1538,8 +1535,8 @@ c            recompute, these seem like more accurate values.
       call gisum(accept_del,1,buffer)
       call gisum(del_count,1,buffer)
 
-      call gisum(accept_disp,1,buffer)
-      call gisum(disp_count,1,buffer)
+      call gisum(accept_disp,ntpguest,buffer)
+      call gisum(disp_count,ntpguest,buffer)
 
       call gisum(accept_jump,1,buffer)
       call gisum(jump_count,1,buffer)
@@ -1550,8 +1547,8 @@ c            recompute, these seem like more accurate values.
       call gisum(accept_swap,1,buffer)
       call gisum(swap_count,1,buffer)
 
-      call gisum(accept_tran,1,buffer)
-      call gisum(tran_count,1,buffer)
+      call gisum(accept_tran,ntpguest,buffer)
+      call gisum(tran_count,ntpguest,buffer)
 
       call gisum(accept_rota,1,buffer)
       call gisum(rota_count,1,buffer)
@@ -1615,9 +1612,10 @@ c       hack to include widom accepted steps in the printout
         if(del_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'deletion ratio: ',dble(accept_del)/dble(del_count)
-        if(disp_count.gt.0)
+        if(sum(disp_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'displacement ratio: ',dble(accept_disp)/dble(disp_count)
+     &'displacement ratio: ',dble(sum(accept_disp))/
+     &dble(sum(disp_count))
         if(jump_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'jump ratio: ',dble(accept_jump)/dble(jump_count)
@@ -1630,9 +1628,9 @@ c       hack to include widom accepted steps in the printout
         if(switch_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'switch ratio: ',dble(accept_switch)/dble(switch_count)
-        if(tran_count.gt.0)
+        if(sum(tran_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'translation ratio: ',dble(accept_tran)/dble(tran_count)
+     &'translation ratio: ',dble(accept_tran)/dble(sum(tran_count))
         if(rota_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'rotation ratio: ',dble(accept_rota)/dble(rota_count)
@@ -1963,11 +1961,11 @@ c     the following occurs if the move is accepted.
 
       subroutine mc_displace
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,tran,
-     &tran_count,tran_ddelr,rota,rota_count,rota_rotangle,disp_count,
+     &tran_count,tran_ddelr,rota,rota_count,rota_rotangle,
      &ddelrdisp,rotangle,maxmls,kmax1,kmax2,kmax3,newld,
      &alpha,rcut,ddelr,
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
-     &beta,delrc,ntpatm,maxvdw,accept_tran,accept_rota,accept_disp,
+     &beta,delrc,ntpatm,maxvdw,accept_rota,accept_disp,
      &ntpguest,ntpfram)
 c*******************************************************************************
 c
@@ -1983,9 +1981,9 @@ c*******************************************************************************
       implicit none
       logical tran,rota,loverlap,linitsurf,lnewsurf,accepted
       integer iguest,keyfce,imcon,idnode,tran_count,rota_count
-      integer disp_count,mol,ik,newld,maxmls,totatm,maxvdw
+      integer mol,ik,newld,maxmls,totatm,maxvdw
       integer kmax1,kmax2,kmax3,randchoice,nmol,ntpatm
-      integer accept_tran,accept_rota,accept_disp
+      integer accept_rota,accept_disp
       integer ntpguest,ntpfram
       real(8) a,b,c,q1,q2,q3,q4,tran_ddelr,rota_rotangle,epsq
       real(8) ddelrdisp,rotangle,volm,alpha,rcut,ddelr,drewd
@@ -2009,7 +2007,7 @@ c        c=0.5d0
         call random_rot(idnode,rota_rotangle,q1,q2,q3,q4)
       else
         dis(iguest)=1
-        disp_count=disp_count+1
+        disp_count(iguest)=disp_count(iguest)+1
         call random_disp(idnode,ddelrdisp,a,b,c)
         call random_rot(idnode,rotangle,q1,q2,q3,q4)
       endif
@@ -2063,11 +2061,11 @@ c       tally surface molecules
           surfacemols(mol) = surfacemols(mol) + 1
         endif
         if(tran)then
-          accept_tran = accept_tran + 1
+          accept_tran(iguest) = accept_tran(iguest) + 1
         elseif(rota)then
           accept_rota = accept_rota + 1
         else
-          accept_disp=accept_disp+1
+          accept_disp(iguest)=accept_disp(iguest)+1
         endif
       else
         do ik=1,newld
@@ -2108,7 +2106,7 @@ c*******************************************************************************
       integer idnode,imcon,keyfce,iguest,totatm,jump_count,maxmls,kmax1
       integer kmax2,kmax3,newld,ntpatm,maxvdw,accept_jump,randchoice
       integer nmol,natms,mol,ik,ntpfram,ntpguest
-      real(8) volm,statvolm,jumpangle,alpha,rcut,ddelr,drewd,
+      real(8) volm,statvolm,jumpangle,alpha,rcut,ddelr,drewd
       real(8) epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estep,gpress,rande,engsictmp,chgtmp
