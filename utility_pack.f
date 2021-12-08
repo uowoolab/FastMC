@@ -1130,7 +1130,7 @@ c       initialize move arrays, if -1 then not specified
         mctraf(i) = -1.d0
         mcrotf(i) = -1.d0
         mcswif(i) = -1.d0
-        mcmvnorm(i) = 1.d0
+        mcmvnorm(i) = 0.d0
       enddo
       do i=1,maxmls+1
         energy(i) = 0.d0

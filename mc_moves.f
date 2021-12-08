@@ -44,7 +44,7 @@ c      req = sig*(2.d0**(1.d0/6.d0))
       end subroutine surface_check
 
       subroutine insert_guests
-     &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,nguests,rcut,delr,
+     &(idnode,imcon,totatm,ntpguest,ntpfram,iguest,nguests,rcut,ddelr,
      &sumchg,surftol,overlap,keyfce,alpha,drewd,volm,newld,kmax1,kmax2,
      &kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,iter)
 c*****************************************************************************
@@ -68,7 +68,7 @@ c*****************************************************************************
       integer maxfactor,maxiter,mol,nmol,iter,natms,totatm
       integer kmax1,kmax2,kmax3,ntpatm,maxvdw,maxmls,newld
       integer idum,ntpfram,ii
-      real(8) rcut,delr,surftol,estep,sumchg,overlap,alpha
+      real(8) rcut,ddelr,surftol,estep,sumchg,overlap,alpha
       real(8) drewd,volm,epsq,dlrpot,engunit,delrc,chgtmp
       real(8) engsictmp
       maxfactor=1000
@@ -84,12 +84,12 @@ c*****************************************************************************
         ! exit if the number of attempts exceeds the maximum number
         ! of allowed iterations.
         if(iter.ge.maxiter)call error(idnode, 2320)
-        call random_ins(idnode,natms,iguest,rcut,delr)
+        call random_ins(idnode,natms,iguest,rcut,ddelr)
         ! add guest
         estep=0.d0
         engsicorig = engsic
         call insertion
-     &(imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      &volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,loverlap,
      &lnewsurf,surftol,overlap,newld)
@@ -109,7 +109,7 @@ c*****************************************************************************
       enddo 
       end subroutine insert_guests
       subroutine insertion
-     &(imcon,iguest,keyfce,alpha,rcut,delr,drewd,totatm,
+     &(imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      &volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      &loverlap,lnewsurf,surftol,overlap,newld)
@@ -125,7 +125,7 @@ c***********************************************************************
       integer totatm,sittyp,ntpatm,maxvdw,newld
       integer mol,natms,nmols,iguest
       integer jatm,l,mxcmls,maxmls
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
+      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,ddelr
       real(8) chg,engunit,sumchg,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,chgtmp
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
@@ -152,7 +152,7 @@ c     calculate vdw interaction (only for new mol)
         delrc_mol(ik)=0.d0
       enddo
       call guestlistgen
-     &(imcon,totatm,rcut,delr,
+     &(imcon,totatm,rcut,ddelr,
      &natms,newx,newy,newz)
 
 c     calculate long range correction to vdw for the insertion
@@ -233,7 +233,7 @@ c        endif
       return
       end subroutine insertion
       subroutine guest_energy
-     &(imcon,iguest,alpha,rcut,delr,drewd,
+     &(imcon,iguest,alpha,rcut,ddelr,drewd,
      &totatm,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
      &engunit,vdwsum,ewld2sum,ewld1eng,lsurf,newld,
      &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,lexisting)
@@ -251,7 +251,7 @@ c***********************************************************************
       integer mol,natms,nmols,iguest
       integer jatm,l,itatm
       integer maxmls,mxcmls,newld
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
+      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,ddelr
       real(8) chg,engunit,chgtmp,engsictmp
       real(8) ewld2sum,ewld3sum,vdwsum,overlap
       real(8) ewld1eng,ewld2eng,vdweng,sumchg
@@ -327,7 +327,7 @@ c       calc vdw interactions
       return
       end subroutine guest_energy
       subroutine deletion 
-     &(imcon,keyfce,iguest,choice,alpha,rcut,delr,drewd,maxmls,
+     &(imcon,keyfce,iguest,choice,alpha,rcut,ddelr,drewd,maxmls,
      &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
      &overlap,newld)
@@ -343,7 +343,7 @@ c***********************************************************************
       integer mol,natms,nmols,iguest
       integer jatm,l,itatm,choice
       integer mxcmls,maxmls,step,newld
-      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,delr
+      real(8) drewd,dlrpot,volm,epsq,alpha,rcut,ddelr
       real(8) chg,engunit,engsictmp,chgtmp
       real(8) ewld2sum,ewld3sum,vdwsum,sumchg,overlap
       real(8) ewld1eng,ewld2eng,vdweng,delrc_tmp
@@ -368,7 +368,7 @@ c     find which index the molecule "choice" is
      &delrc,volm,maxmls,.true.)
 
       call guestlistgen
-     &(imcon,totatm,rcut,delr,
+     &(imcon,totatm,rcut,ddelr,
      &natms,newx,newy,newz)
       estep=0.d0
       chgtmp=0.d0
