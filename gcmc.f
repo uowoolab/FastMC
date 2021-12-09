@@ -69,13 +69,11 @@ c*************************************************************
       logical tick_tock_cycles(5)
       logical lnewsurf, linitsurf, lnewsurfj,linitsurfj
       integer nfo(8)
-      integer accept_ins,accept_del,totaccept,nnumg,nhis
-      integer accept_jump,accept_flex,accept_swap,scell_factor
-      integer accept_switch,minchk,iter
-      integer accept_rota
-      integer ins_count,del_count,buffer,levcfg,nstat
-      integer jump_count,flex_count,swap_count,np,widcount
-      integer rota_count,switch_count
+      integer totaccept,nnumg,nhis
+      integer accept_flex,scell_factor
+      integer minchk,iter
+      integer buffer,levcfg,nstat
+      integer np,widcount
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
       integer ibuff,iprob,cprob,prevnodes,nwind,rollstat,ci
@@ -136,11 +134,9 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data lfuga/.false./,loverlap/.false./ ! change to false
       data linitsurf/.false./,lnewsurf/.false./
       data linitsurfj/.false./,lnewsurfj/.false./
-      data accept_ins,accept_del,totaccept/0,0,0/
-      data accept_jump, accept_flex, accept_swap, accept_switch/0,0,0,0/
-      data ins_count,del_count,gcmccount,prevnodes/0,0,0,0/
-      data jump_count, flex_count, swap_count, switch_count/0,0,0,0/
-      data rota_count, accept_rota/0,0/
+      data totaccept/0/
+      data accept_flex,flex_count/0,0/
+      data gcmccount,prevnodes/0,0/
 
       integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
       nwidstep=20
@@ -239,10 +235,6 @@ c     open main output file.
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
      &volm,ntpguest,rcut,rvdw,initdelr,nwind)
       delr(:) = initdelr
-      accept_disp(:)=0.d0
-      accept_tran(:)=0.d0
-      disp_count(:)=0.d0
-      tran_count(:)=0.d0
 
 c     default target acceptance ratios of 0.5
       disp_ratio(:)=0.5d0
@@ -877,10 +869,11 @@ c update distance moves on n00s
      &tran_delr(iguest)*0.95d0
           endif
         endif
-        if((nmols.ge.1).and.(rota_count.ge.1).and.
+        if((nmols.ge.1).and.(rota_count(iguest).ge.1).and.
      &mod(rota_count,100).eq.0)then
 c update rotation moves on n00s
-          if((accept_rota/dble(rota_count)).gt.rota_ratio)then
+          if((accept_rota(iguest)/dble(rota_count(iguest)))
+     &.gt.rota_ratio)then
             rota_rotangle=rota_rotangle*1.05d0
           else
             if(rota_rotangle.gt.minangle)
@@ -938,11 +931,11 @@ c
 c***********************************************************************
         if(insert)then
           call mc_insert
-     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr(iguest),ins_count,
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr(iguest),
      &alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins)
+     &overlap,accepted,temp,beta)
           insert=.false.
           
 
@@ -953,11 +946,11 @@ c
 c***********************************************************************
         elseif(delete)then
           call mc_delete
-     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr(iguest),del_count,
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,delr(iguest),
      &alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del)
+     &overlap,accepted,temp,beta)
           delete=.false.
           
             
@@ -970,11 +963,11 @@ c***********************************************************************
         elseif(displace)then
           call mc_displace
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,tran,
-     &tran_delr(iguest),rota,rota_count,rota_rotangle,
+     &tran_delr(iguest),rota,rota_rotangle,
      &delrdisp(iguest),rotangle,maxmls,kmax1,kmax2,kmax3,
      &newld,alpha,rcut,delr(iguest),
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
-     &beta,delrc,ntpatm,maxvdw,accept_rota,accept_disp,
+     &beta,delrc,ntpatm,maxvdw,
      &ntpguest,ntpfram)
           displace=.false.
           tran = .false.
@@ -990,10 +983,10 @@ c***********************************************************************
         elseif(jump)then
           call mc_jump
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
-     &jump_count,jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,dlrpot,
      &sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_jump,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest)
           jump=.false.
 
@@ -1160,10 +1153,10 @@ c         by determining the quantities of the different guest types
 c         in the framework
           call mc_switch
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
-     &switch_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,
      &dlrpot,sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest)
 
           switch = .false.
@@ -1177,10 +1170,10 @@ c***********************************************************************
 
           call mc_swap
      &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,statvolm,
-     &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,dlrpot,
      &sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest,rotangle)
           swap = .false.
         endif
@@ -1529,32 +1522,32 @@ c            recompute, these seem like more accurate values.
         enddo
       endif
 
-      call gisum(accept_ins,1,buffer)
-      call gisum(ins_count,1,buffer)
+      call gisum(accept_ins,ntpguest,buffer)
+      call gisum(ins_count,ntpguest,buffer)
 
-      call gisum(accept_del,1,buffer)
-      call gisum(del_count,1,buffer)
+      call gisum(accept_del,ntpguest,buffer)
+      call gisum(del_count,ntpguest,buffer)
 
       call gisum(accept_disp,ntpguest,buffer)
       call gisum(disp_count,ntpguest,buffer)
 
-      call gisum(accept_jump,1,buffer)
-      call gisum(jump_count,1,buffer)
+      call gisum(accept_jump,ntpguest,buffer)
+      call gisum(jump_count,ntpguest,buffer)
 
       call gisum(accept_flex,1,buffer)
       call gisum(flex_count,1,buffer)
 
-      call gisum(accept_swap,1,buffer)
-      call gisum(swap_count,1,buffer)
+      call gisum(accept_swap,ntpguest,buffer)
+      call gisum(swap_count,ntpguest,buffer)
 
       call gisum(accept_tran,ntpguest,buffer)
       call gisum(tran_count,ntpguest,buffer)
 
-      call gisum(accept_rota,1,buffer)
-      call gisum(rota_count,1,buffer)
+      call gisum(accept_rota,ntpguest,buffer)
+      call gisum(rota_count,ntpguest,buffer)
       
-      call gisum(accept_switch,1,buffer)
-      call gisum(switch_count,1,buffer)
+      call gisum(accept_switch,ntpguest,buffer)
+      call gisum(switch_count,ntpguest,buffer)
 
       call gisum(gcmccount,1,buffer)
 
@@ -1600,40 +1593,41 @@ c             add counters again for the tally grid.
       endif
       if(idnode.eq.0)then
 c       hack to include widom accepted steps in the printout
-        if(lwidom)accept_ins = chainstats(1)
+        if(lwidom)accept_ins= chainstats(1)
         write(nrite,"(/,a17,i9,a15,f13.3,a8)")
      &'Time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
         write(nrite,"(/,a30,i9)")
-     &'Total accepted steps : ',accept_ins+accept_del+accept_disp+
-     &accept_jump+accept_flex+accept_swap+accept_tran+accept_rota
-        if(ins_count.gt.0)
+     &'Total accepted steps : ',sum(accept_ins)+sum(accept_del)+
+     &sum(accept_disp)+sum(accept_jump)+accept_flex+sum(accept_swap)+
+     &sum(accept_tran)+sum(accept_rota)
+        if(sum(ins_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'insertion ratio: ',dble(accept_ins)/dble(ins_count)
-        if(del_count.gt.0)
+     &'insertion ratio: ',dble(sum(accept_ins))/dble(sum(ins_count))
+        if(sum(del_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'deletion ratio: ',dble(accept_del)/dble(del_count)
+     &'deletion ratio: ',dble(sum(accept_del))/dble(sum(del_count))
         if(sum(disp_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'displacement ratio: ',dble(sum(accept_disp))/
      &dble(sum(disp_count))
         if(jump_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'jump ratio: ',dble(accept_jump)/dble(jump_count)
+     &'jump ratio: ',dble(sum(accept_jump))/dble(sum(jump_count))
         if(flex_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'flex ratio: ',dble(accept_flex)/dble(flex_count)
-        if(swap_count.gt.0)
+     &'flex ratio: ',dble(sum(accept_flex))/dble(sum(flex_count))
+        if(sum(swap_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'swap ratio: ',dble(accept_swap)/dble(swap_count)
-        if(switch_count.gt.0)
+     &'swap ratio: ',dble(sum(accept_swap))/dble(sum(swap_count))
+        if(sum(switch_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'switch ratio: ',dble(accept_switch)/dble(switch_count)
+     &'switch ratio: ',dble(sum(accept_switch))/dble(sum(switch_count))
         if(sum(tran_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'translation ratio: ',dble(accept_tran)/dble(sum(tran_count))
-        if(rota_count.gt.0)
+     &'translation ratio: ',dble(sum(accept_tran))/dble(sum(tran_count))
+        if(sum(rota_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'rotation ratio: ',dble(accept_rota)/dble(rota_count)
+     &'rotation ratio: ',dble(sum(accept_rota))/dble(sum(rota_count))
         do jj=1,n_fwk
           write(nrite,"(/,6x,a26,i6,60a1,e13.6)")
      &'Framework population for: ',jj,(fwk_name(jj, kk),kk=1,60),
@@ -1841,10 +1835,10 @@ c*****************************************************************************
       end subroutine hisarchive
 
       subroutine mc_insert
-     &(idnode,imcon,keyfce,iguest,totatm,rcut,ddelr,ins_count,alpha,
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,ddelr,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_ins)
+     &overlap,accepted,temp,beta)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'insertion' 
@@ -1855,8 +1849,8 @@ c*******************************************************************************
       implicit none
       logical lnewsurf,loverlap,accepted
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
-      integer ins_count,keyfce,ntpguest,kmax1,kmax2,kmax3
-      integer ntpatm,maxvdw,maxmls,newld,accept_ins
+      integer keyfce,ntpguest,kmax1,kmax2,kmax3
+      integer ntpatm,maxvdw,maxmls,newld
       integer ntpfram,randchoice
       real(8) rcut,ddelr,estep,alpha,drewd,volm
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
@@ -1867,7 +1861,7 @@ c*******************************************************************************
       lnewsurf = .false.
       engsicorig=engsic
       ins(iguest)=1
-      ins_count=ins_count+1
+      ins_count(iguest)=ins_count(iguest)+1
       call random_ins(idnode,natms,iguest,rcut,ddelr)
       estep = 0.d0
       call insertion
@@ -1888,7 +1882,7 @@ c     DEBUG
 c      accepted=.true.
 c     END DEBUG
       if(accepted)then
-        accept_ins=accept_ins+1
+        accept_ins(iguest)=accept_ins(iguest)+1
         randchoice=0
         call accept_move
      &(iguest,.true.,.false.,.false.,
@@ -1902,10 +1896,10 @@ c     END DEBUG
       end subroutine mc_insert
 
       subroutine mc_delete
-     &(idnode,imcon,keyfce,iguest,totatm,rcut,ddelr,del_count,alpha,
+     &(idnode,imcon,keyfce,iguest,totatm,rcut,ddelr,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta,accept_del)
+     &overlap,accepted,temp,beta)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'deletion' 
@@ -1916,8 +1910,8 @@ c*******************************************************************************
       implicit none
       logical linitsurf,accepted
       integer iguest,idnode,imcon,totatm,mol,nmol
-      integer del_count,keyfce,ntpguest,kmax1,kmax2,kmax3
-      integer ntpatm,maxvdw,maxmls,newld,accept_del
+      integer keyfce,ntpguest,kmax1,kmax2,kmax3
+      integer ntpatm,maxvdw,maxmls,newld
       integer ntpfram,randchoice
       real(8) rcut,ddelr,estep,alpha,drewd,volm
       real(8) epsq,dlrpot,engunit,delrc,sumchg,chgtmp,engsictmp
@@ -1928,7 +1922,7 @@ c*******************************************************************************
       engsicorig=engsic
       linitsurf = .false.
       del(iguest)=1
-      del_count=del_count+1 
+      del_count(iguest)=del_count(iguest)+1 
       randchoice=floor(duni(idnode)*nmol)+1
       estep = 0.d0
       call deletion 
@@ -1947,7 +1941,7 @@ c*******************************************************************************
          
 c     the following occurs if the move is accepted.
       if(accepted)then
-        accept_del=accept_del+1
+        accept_del(iguest)=accept_del(iguest)+1
         call accept_move
      &(iguest,.false.,.true.,.false.,
      &linitsurf,delrc,totatm,randchoice,ntpfram,ntpguest,maxmls,
@@ -1961,11 +1955,11 @@ c     the following occurs if the move is accepted.
 
       subroutine mc_displace
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,tran,
-     &tran_count,tran_ddelr,rota,rota_count,rota_rotangle,
+     &tran_ddelr,rota,rota_rotangle,
      &ddelrdisp,rotangle,maxmls,kmax1,kmax2,kmax3,newld,
      &alpha,rcut,ddelr,
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
-     &beta,delrc,ntpatm,maxvdw,accept_rota,accept_disp,
+     &beta,delrc,ntpatm,maxvdw
      &ntpguest,ntpfram)
 c*******************************************************************************
 c
@@ -1980,10 +1974,9 @@ c
 c*******************************************************************************
       implicit none
       logical tran,rota,loverlap,linitsurf,lnewsurf,accepted
-      integer iguest,keyfce,imcon,idnode,tran_count,rota_count
+      integer iguest,keyfce,imcon,idnode
       integer mol,ik,newld,maxmls,totatm,maxvdw
       integer kmax1,kmax2,kmax3,randchoice,nmol,ntpatm
-      integer accept_rota,accept_disp
       integer ntpguest,ntpfram
       real(8) a,b,c,q1,q2,q3,q4,tran_ddelr,rota_rotangle,epsq
       real(8) ddelrdisp,rotangle,volm,alpha,rcut,ddelr,drewd
@@ -1996,11 +1989,11 @@ c*******************************************************************************
       a=0.d0;b=0.d0;c=0.d0;q1=0.d0;q2=0.d0;q3=0.d0;q4=0.d0
       if(tran)then
         dis(iguest)=2
-        tran_count = tran_count + 1
+        tran_count(iguest) = tran_count(iguest) + 1
         call random_disp(idnode,tran_ddelr,a,b,c)
       elseif(rota)then
         dis(iguest)=3
-        rota_count = rota_count + 1
+        rota_count(iguest) = rota_count(iguest) + 1
 c        a=0.5d0
 c        b=0.5d0
 c        c=0.5d0
@@ -2063,7 +2056,7 @@ c       tally surface molecules
         if(tran)then
           accept_tran(iguest) = accept_tran(iguest) + 1
         elseif(rota)then
-          accept_rota = accept_rota + 1
+          accept_rota(iguest) = accept_rota(iguest) + 1
         else
           accept_disp(iguest)=accept_disp(iguest)+1
         endif
@@ -2086,9 +2079,9 @@ c          ckssnew(maxmls+1,ik)=0.d0
 
       subroutine mc_jump
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
-     &jump_count,jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_jump,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest)
 c*******************************************************************************
 c
@@ -2103,8 +2096,8 @@ c
 c*******************************************************************************
       implicit none
       logical accepted,linitsurf,lnewsurf,loverlap
-      integer idnode,imcon,keyfce,iguest,totatm,jump_count,maxmls,kmax1
-      integer kmax2,kmax3,newld,ntpatm,maxvdw,accept_jump,randchoice
+      integer idnode,imcon,keyfce,iguest,totatm,maxmls,kmax1
+      integer kmax2,kmax3,newld,ntpatm,maxvdw,randchoice
       integer nmol,natms,mol,ik,ntpfram,ntpguest
       real(8) volm,statvolm,jumpangle,alpha,rcut,ddelr,drewd
       real(8) epsq,engunit
@@ -2116,7 +2109,7 @@ c*******************************************************************************
       natms=numatoms(mol)
 
       jmp(iguest)=1
-      jump_count=jump_count+1
+      jump_count(iguest)=jump_count(iguest)+1
 c     choose a molecule from the list
       randchoice=floor(duni(idnode)*nmol)+1
 c     find which index the molecule "randchoice" is
@@ -2163,7 +2156,7 @@ c     converts it to a translation.
       endif
 
       if(accepted)then
-        accept_jump=accept_jump+1
+        accept_jump(iguest)=accept_jump(iguest)+1
         call accept_move
      &(iguest,.false.,.false.,.true.,
      &lnewsurf,delrc,totatm,randchoice,ntpfram,ntpguest,maxmls,
@@ -2190,9 +2183,9 @@ c       tally surface molecules
 
       subroutine mc_switch
      &(idnode,imcon,keyfce,iguest,totatm,volm,statvolm,
-     &switch_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_switch,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest)
 c*******************************************************************************
 c
@@ -2211,10 +2204,10 @@ c*******************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
       logical lnewsurf,lnewsurfj
-      integer switch_count,nswitchgst,ntpguest,i,j,mol,nmols,jguest
+      integer nswitchgst,ntpguest,i,j,mol,nmols,jguest
       integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
       integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
-      integer ntpatm,maxvdw,accept_switch,ntpfram,natms
+      integer ntpatm,maxvdw,ntpfram,natms
       real(8) icomx,icomy,icomz,jcomx,jcomy,jcomz,estep
       real(8) estepi,estepj,volm,statvolm,alpha,rcut,ddelr,drewd,epsq
       real(8) engunit,overlap,surftol,dlrpot,sumchg,temp,beta,delrc
@@ -2235,7 +2228,7 @@ c       generate array of molecules to randomly select
       enddo
 c     return if one can't make a switch move
       if(nswitchgst.lt.2)return
-      switch_count=switch_count+1
+      switch_count(iguest)=switch_count(iguest)+1
       engsicorig = engsic
 c     loverallap is true if one or both of the guests 
 c     overlap with other atoms in their new configurations.
@@ -2383,7 +2376,7 @@ c     DEBUG
 c      accepted=.false.
 c     END DEBUG
       if(accepted)then
-        accept_switch=accept_switch+1
+        accept_switch(iguest)=accept_switch(iguest)+1
         call condense(totatm,ntpfram,ntpguest)
       else
         do ik=1,maxmls
@@ -2426,9 +2419,9 @@ c       restore original surfacemols if step is rejected
 
       subroutine mc_swap
      &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,statvolm,
-     &swap_count,maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
-     &accepted,temp,beta,delrc,ntpatm,maxvdw,accept_swap,ntpfram,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
      &ntpguest,rotangle)
 c*******************************************************************************
 c
@@ -2443,9 +2436,9 @@ c
 c*******************************************************************************
       implicit none
       logical accepted,linitsurf,lnewsurf,loverlap
-      integer idnode,imcon,keyfce,iguest,jguest,totatm,swap_count
+      integer idnode,imcon,keyfce,iguest,jguest,totatm
       integer maxmls,kmax1,kmax2,kmax3,origtotatm,ik,imol,jmol,iatm
-      integer newld,ntpatm,maxvdw,accept_swap,randchoice
+      integer newld,ntpatm,maxvdw,randchoice
       integer nmols,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
       integer jnatms,jnmols
       real(8) volm,statvolm,alpha,rcut,ddelr,drewd,epsq,engunit
@@ -2453,7 +2446,7 @@ c*******************************************************************************
       real(8) a,b,c,q1,q2,q3,q4,estepi,estepj,gpress,rande,estep
       real(8) comx,comy,comz,engsictmp,chgtmp,rotangle
 
-      swap_count = swap_count+1
+      swap_count(iguest) = swap_count(iguest)+1
       origtotatm = totatm 
 
       imol=locguest(iguest)
@@ -2556,7 +2549,7 @@ c     DEBUG
 c      accepted=.false.
 c     END DEBUG
       if(accepted)then
-        accept_swap=accept_swap+1
+        accept_swap(iguest)=accept_swap(iguest)+1
         call condense(totatm,ntpfram,ntpguest)
       else
 c       restore original framework if move is rejected

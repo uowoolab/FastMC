@@ -44,6 +44,20 @@ c     currently active are ins,del,dis,jmp,flx(?),swp,tra,rot,swi
       integer, allocatable :: disp_count(:)
       integer, allocatable :: accept_tran(:)
       integer, allocatable :: tran_count(:)
+      integer, allocatable :: accept_ins(:)
+      integer, allocatable :: ins_count(:)
+      integer, allocatable :: accept_del(:)
+      integer, allocatable :: del_count(:)
+      integer, allocatable :: accept_jump(:)
+      integer, allocatable :: jump_count(:)
+      integer, allocatable :: accept_switch(:)
+      integer, allocatable :: switch_count(:)
+      integer, allocatable :: accept_swap(:)
+      integer, allocatable :: swap_count(:)
+      integer, allocatable :: accept_swap(:)
+      integer, allocatable :: swap_count(:)
+      integer, allocatable :: accept_rota(:)
+      integer, allocatable :: rota_count(:)
       real(8), allocatable :: mcinsf(:),mcdelf(:),mcdisf(:),mcjmpf(:)
       real(8), allocatable :: mcflxf(:),mcswpf(:),mctraf(:),mcrotf(:)
       real(8), allocatable :: mcswif(:),mcmvnorm(:)
@@ -158,6 +172,11 @@ c     statistics file input channel
       save lfreezesite,lfzsite
       save nummols,numatoms,molnam
       save ucell,cell,rcell,volum,nsite,chainstats,dbuff
+      save accept_disp,disp_count,accept_tran,tran_count
+      save accept_ins,ins_count,accept_del,del_count
+      save accept_jump,jump_count,accept_switch,switch_count
+      save accept_swap,swap_count,accept_swap,swap_count
+      save accept_rota,rota_count
       save gstlentry,gstlist,locguest,locfram,statbuff
       save avgwindow, varwindow, sumwindowav,moldf,moltype
       save gstpress,angdist,node_avg,node_std,nodeweight
@@ -1019,6 +1038,23 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(accept_tran(ntpguest),stat=fail(45))
       allocate(disp_count(ntpguest),stat=fail(46))
       allocate(tran_count(ntpguest),stat=fail(47))
+      allocate(accept_ins(ntpguest),stat=fail(0))
+      allocate(accept_del(ntpguest),stat=fail(0))
+      allocate(accept_(ntpguest),stat=fail(0))
+      allocate(accept_ins(ntpguest),stat=fail(0))
+      allocate(ins_count(ntpguest),stat=fail(0))
+      allocate(accept_del(ntpguest),stat=fail(0))
+      allocate(del_count(ntpguest),stat=fail(0))
+      allocate(accept_jump(ntpguest),stat=fail(0))
+      allocate(jump_count(ntpguest),stat=fail(0))
+      allocate(accept_switch(ntpguest),stat=fail(0))
+      allocate(switch_count(ntpguest),stat=fail(0))
+      allocate(accept_swap(ntpguest),stat=fail(0))
+      allocate(swap_count(ntpguest),stat=fail(0))
+      allocate(accept_swap(ntpguest),stat=fail(0))
+      allocate(swap_count(ntpguest),stat=fail(0))
+      allocate(accept_rota(ntpguest),stat=fail(0))
+      allocate(rota_count(ntpguest),stat=fail(0))
       allocate(delrdisp(ntpguest),stat=fail(48))
       allocate(delr(ntpguest),stat=fail(49))
       allocate(disp_ratio(ntpguest),stat=fail(50))
@@ -1109,6 +1145,24 @@ c     module
       enddo
 c     initialize the stat arrays
       chainstats(:)=0.d0
+      accept_disp(:)=0.d0
+      disp_count(:)=0.d0
+      accept_tran(:)=0.d0
+      tran_count(:)=0.d0
+      accept_ins(:)=0.d0
+      ins_count(:)=0.d0
+      accept_del(:)=0.d0
+      del_count(:)=0.d0
+      accept_jump(:)=0.d0
+      jump_count(:)=0.d0
+      accept_switch(:)=0.d0
+      switch_count(:)=0.d0
+      accept_swap(:)=0.d0
+      swap_count(:)=0.d0
+      accept_swap(:)=0.d0
+      swap_count(:)=0.d0
+      accept_rota(:)=0.d0
+      rota_count(:)=0.d0
       do i=1,ntpguest
         guest_insert(i)=0
         guest_min(i)=0
