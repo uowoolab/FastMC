@@ -73,7 +73,7 @@ c*************************************************************
       integer accept_flex,scell_factor
       integer minchk,iter
       integer buffer,levcfg,nstat
-      integer np,widcount
+      integer np,widcount,flex_count
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
       integer ibuff,iprob,cprob,prevnodes,nwind,rollstat,ci
@@ -233,7 +233,7 @@ c     open main output file.
      & griddim,gridfactor,nwind,nwindsteps,lwidom)
       maxvdw=max(ntpvdw,(mxatyp*(mxatyp+1))/2)
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
-     &volm,ntpguest,rcut,rvdw,initdelr,nwind)
+     &volm,ntpguest,rcut,rvdw,nwind,initdelr)
       delr(:) = initdelr
 
 c     default target acceptance ratios of 0.5
@@ -345,7 +345,7 @@ c Normalise the move frequencies
       do i=1,ntpguest
         mcmvnorm(i) = mcinsf(i)+mcdelf(i)+mcdisf(i)+mcjmpf(i)+mcflxf(i)
      &+mcswpf(i)+mctraf(i)+mcrotf(i)+mcswif(i)
-        if(mcmvnorm(i).eq.0)then
+        if(mcmvnorm(i).eq.0.d0)then
           if(idnode.eq.0)
      &  write(nrite,"(/,'No move frequencies specified, defaulting to 
      &  Grand Canonical')")
@@ -385,9 +385,9 @@ c Now   we normalise
      &  'switching:',mcswif(i)-mcrotf(i)
 
         if(idnode.eq.0)
-     &  write(nrite,"(/,'Target acceptance ratios:',/,
-     &  a18,f7.3,a18,f7.3,a18,f7.3,/)")
-     &  'displacement:',disp_ratio(i),'translation:',tran_ratio(i),
+     &  write(nrite,"(/,'Target acceptance ratios for guest',i4,':',/,
+     &  a18,f7.3,a18,f7.3,a18,f7.3,/)")i,
+     &  'displacement:', disp_ratio(i),'translation:',tran_ratio(i),
      &  'rotation:',rota_ratio(i)
       enddo
       if(.not.lspe)then
@@ -641,7 +641,7 @@ c         assume a 0.0004 s cost per energy calculation (overestimate).
       if (lwanglandau)then
         lgchk=.false.
         call wang_landau_sim
-     &(idnode,mxnode,imcon,keyfce,alpha,rcut,initdelr,drewd,totatm,
+     &(idnode,mxnode,imcon,keyfce,alpha,rcut,drewd,totatm,
      &ntpguest,
      &ntpfram,volm,statvolm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      &engunit,sumchg,maxmls,surftol,overlap,newld,outdir,levcfg,cfgname,
@@ -799,7 +799,6 @@ c       randomly choose a guest type to move
 
 c Randomly decide which MC move to do
         randmov=duni(idnode)
-
         if(randmov.lt.mcinsf(iguest))then
           insert = .true.
         elseif(randmov.lt.mcdelf(iguest))then
@@ -870,10 +869,10 @@ c update distance moves on n00s
           endif
         endif
         if((nmols.ge.1).and.(rota_count(iguest).ge.1).and.
-     &mod(rota_count,100).eq.0)then
+     &mod(rota_count(iguest),100).eq.0)then
 c update rotation moves on n00s
           if((accept_rota(iguest)/dble(rota_count(iguest)))
-     &.gt.rota_ratio)then
+     &.gt.rota_ratio(iguest))then
             rota_rotangle=rota_rotangle*1.05d0
           else
             if(rota_rotangle.gt.minangle)
@@ -1298,7 +1297,7 @@ c*************************************************************************
 c     run statistics on uptake, energies locally
 c     then add the sums globally for a global weighted
 c     average
-c      print *, "Ewald1 average", ewaldaverage/accept_ins
+ccccccccc
       if((prodcount.gt.0).and.(.not.lwidom))then
         weight = chainstats(1)
         do i=1,ntpguest
@@ -1610,12 +1609,12 @@ c       hack to include widom accepted steps in the printout
      &write(nrite,"(/,3x,a21,f15.9)")
      &'displacement ratio: ',dble(sum(accept_disp))/
      &dble(sum(disp_count))
-        if(jump_count.gt.0)
+        if(sum(jump_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'jump ratio: ',dble(sum(accept_jump))/dble(sum(jump_count))
         if(flex_count.gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
-     &'flex ratio: ',dble(sum(accept_flex))/dble(sum(flex_count))
+     &'flex ratio: ',dble(accept_flex)/dble(flex_count)
         if(sum(swap_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'swap ratio: ',dble(sum(accept_swap))/dble(sum(swap_count))
@@ -1959,7 +1958,7 @@ c     the following occurs if the move is accepted.
      &ddelrdisp,rotangle,maxmls,kmax1,kmax2,kmax3,newld,
      &alpha,rcut,ddelr,
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
-     &beta,delrc,ntpatm,maxvdw
+     &beta,delrc,ntpatm,maxvdw,
      &ntpguest,ntpfram)
 c*******************************************************************************
 c
@@ -2124,7 +2123,6 @@ c     find which index the molecule "randchoice" is
       call com(natms,mol,newx,newy,newz,comx,comy,comz)
       call random_jump(idnode,xc,yc,zc,jumpangle)
       call random_rot(idnode,jumpangle,q1,q2,q3,q4)
-c      call random_disp(idnode,10.d0,a,b,c)
 c     have to shift the a,b,c values by the com of the current guest
 c     so the displace_guest routine can be used here..
       a = xc - comx

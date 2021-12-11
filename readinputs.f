@@ -585,7 +585,6 @@ c     allocate guest mole fractions
         call lowcase(record,lenrec)
         call strip(record,lenrec)
         call copystring(record,directive,lenrec) 
-
         if(record(1).eq.'#'.or.record(1).eq.' ')then
 c       record is commented out
 c       number of widom insertion orientations to attempt at each
@@ -667,29 +666,29 @@ c             add an extra grid for the average counting..
                 nprob(idguest) = nprob(idguest)+1
               endif
             elseif(findstring('move',record,idum))then
-              if (findstring('ins',directive,idum))then
-                mcinsf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('del',directive,idum))then
-                mcdelf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('dis',directive,idum))then
-                mcdisf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('jum',directive,idum))then
-                mcjmpf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('fle',directive,idum))then
-                mcflxf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('swa',directive,idum))then
-                mcswpf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('swi',directive,idum))then
-                mcswif(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('tra',directive,idum))then
-                mctraf(idguest) = dblstr(directive,lenrec,idum)
-              elseif (findstring('rot',directive,idum))then
-                mcrotf(idguest) = dblstr(directive,lenrec,idum)
+              if (findstring('ins',record,idum))then
+                mcinsf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('del',record,idum))then
+                mcdelf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('dis',record,idum))then
+                mcdisf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('jum',record,idum))then
+                mcjmpf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('fle',record,idum))then
+                mcflxf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('swa',record,idum))then
+                mcswpf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('swi',record,idum))then
+                mcswif(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('tra',record,idum))then
+                mctraf(idguest) = dblstr(record,lenrec,idum)
+              elseif (findstring('rot',record,idum))then
+                mcrotf(idguest) = dblstr(record,lenrec,idum)
               else
                 if(idnode.eq.0)
      &write(nrite,"(/,'ignoring unknown move for guest', i4)")idguest
               endif
-            elseif(findstring('delr',directive,idum))then
+            elseif(findstring('delr',record,idum))then
               delr(idguest) = dblstr(record,lenrec,idum)
             elseif(findstring('accep',record,idum))then
               if (findstring('dis',record,idum))then
@@ -872,7 +871,7 @@ c       mcswif,mctraf,mcrotf
             mcflxf(iguest)=0.d0 
           endif
         endif
-        if(mcswpf(iguest).lt.0.d0)then 
+        if(mcswpf(iguest).lt.0.d0)then
           if(tmpmcswpf.ge.0.d0)then
             mcswpf(iguest)=tmpmcswpf
           else

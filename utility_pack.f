@@ -54,15 +54,13 @@ c     currently active are ins,del,dis,jmp,flx(?),swp,tra,rot,swi
       integer, allocatable :: switch_count(:)
       integer, allocatable :: accept_swap(:)
       integer, allocatable :: swap_count(:)
-      integer, allocatable :: accept_swap(:)
-      integer, allocatable :: swap_count(:)
       integer, allocatable :: accept_rota(:)
       integer, allocatable :: rota_count(:)
-      real(8), allocatable :: mcinsf(:),mcdelf(:),mcdisf(:),mcjmpf(:)
-      real(8), allocatable :: mcflxf(:),mcswpf(:),mctraf(:),mcrotf(:)
-      real(8), allocatable :: mcswif(:),mcmvnorm(:)
+      real, allocatable :: mcinsf(:),mcdelf(:),mcdisf(:),mcjmpf(:)
+      real, allocatable :: mcflxf(:),mcswpf(:),mctraf(:),mcrotf(:)
+      real, allocatable :: mcswif(:),mcmvnorm(:)
       real(8), allocatable :: delrdisp(:),delr(:),disp_ratio(:)
-      real(8), allocatable :: tran_ratio(:),tran_delr(:)
+      real(8), allocatable :: tran_ratio(:),tran_delr(:),rota_ratio(:)
       real(8), allocatable :: grid(:,:)
       real(8), allocatable :: dbuff(:),delE(:)
       real(8), allocatable :: statbuff(:),chainstats(:)
@@ -175,14 +173,13 @@ c     statistics file input channel
       save accept_disp,disp_count,accept_tran,tran_count
       save accept_ins,ins_count,accept_del,del_count
       save accept_jump,jump_count,accept_switch,switch_count
-      save accept_swap,swap_count,accept_swap,swap_count
-      save accept_rota,rota_count
+      save accept_swap,swap_count,accept_rota,rota_count
       save gstlentry,gstlist,locguest,locfram,statbuff
       save avgwindow, varwindow, sumwindowav,moldf,moltype
       save gstpress,angdist,node_avg,node_std,nodeweight
       save mcinsf,mcdelf,mcdisf,mcjmpf
       save mcflxf,mcswpf,mctraf,mcrotf
-      save mcswif,mcmvnorm,tran_count
+      save mcswif,mcmvnorm,rota_ratio
       save delrdisp,delr,disp_ratio,tran_ratio,tran_delr
       save xdf,ydf,zdf,rsqdf
       save ins,del,dis,jmp,flx,swp,swi
@@ -971,7 +968,7 @@ c      avgwindow(8) = <Cv>
 c
 c*********************************************************************
       implicit none
-      integer, parameter :: na = 106
+      integer, parameter :: na = 119
       integer maxmls,mxatm,maxalloc,ntpguest,i,j
       integer mxatyp,idnode,mxnode,mxcmls,nwind
       real(8) density,ratio,cut,volm,rcut,rvdw,tmpdelr
@@ -1038,85 +1035,81 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(accept_tran(ntpguest),stat=fail(45))
       allocate(disp_count(ntpguest),stat=fail(46))
       allocate(tran_count(ntpguest),stat=fail(47))
-      allocate(accept_ins(ntpguest),stat=fail(0))
-      allocate(accept_del(ntpguest),stat=fail(0))
-      allocate(accept_(ntpguest),stat=fail(0))
-      allocate(accept_ins(ntpguest),stat=fail(0))
-      allocate(ins_count(ntpguest),stat=fail(0))
-      allocate(accept_del(ntpguest),stat=fail(0))
-      allocate(del_count(ntpguest),stat=fail(0))
-      allocate(accept_jump(ntpguest),stat=fail(0))
-      allocate(jump_count(ntpguest),stat=fail(0))
-      allocate(accept_switch(ntpguest),stat=fail(0))
-      allocate(switch_count(ntpguest),stat=fail(0))
-      allocate(accept_swap(ntpguest),stat=fail(0))
-      allocate(swap_count(ntpguest),stat=fail(0))
-      allocate(accept_swap(ntpguest),stat=fail(0))
-      allocate(swap_count(ntpguest),stat=fail(0))
-      allocate(accept_rota(ntpguest),stat=fail(0))
-      allocate(rota_count(ntpguest),stat=fail(0))
-      allocate(delrdisp(ntpguest),stat=fail(48))
-      allocate(delr(ntpguest),stat=fail(49))
-      allocate(disp_ratio(ntpguest),stat=fail(50))
-      allocate(tran_ratio(ntpguest),stat=fail(51))
-      allocate(tran_delr(ntpguest),stat=fail(52))
-      allocate(statbuff(1+ntpguest*16),stat=fail(53))
-      allocate(chainstats(1+ntpguest*16),stat=fail(54))
-      allocate(gstlist(mxguestsite,maxalloc),stat=fail(55))
-      allocate(ilist(maxalloc),stat=fail(56))
-      allocate(unqatm(maxalloc),stat=fail(57))
-      allocate(jlist(maxalloc),stat=fail(58))
-      allocate(ltpsit(maxmls,maxalloc),stat=fail(59))
-      allocate(ltype(maxalloc),stat=fail(60))
-      allocate(xdf(maxalloc),stat=fail(61))
-      allocate(ydf(maxalloc),stat=fail(62))
-      allocate(zdf(maxalloc),stat=fail(63))
-      allocate(rsqdf(maxalloc),stat=fail(64))
-      allocate(numtyp(mxatyp),stat=fail(65))
-      allocate(numfrz(mxatyp),stat=fail(66))
-      allocate(dens(mxatyp),stat=fail(67))
-      allocate(newx(mxguestsite),stat=fail(68))
-      allocate(newy(mxguestsite),stat=fail(69))
-      allocate(newz(mxguestsite),stat=fail(70))
-      allocate(ind(mxguestsite),stat=fail(71))
-      allocate(energy(maxmls+1),stat=fail(72))
-      allocate(origenergy(maxmls+1),stat=fail(73))
-      allocate(delE(mxcmls),stat=fail(74))
-      allocate(avgwindow(1+ntpguest*9,nwind*2),stat=fail(75))
-      allocate(sumwindowav(ntpguest*9),stat=fail(76))
-      allocate(varwindow(ntpguest*9),stat=fail(77))
-      allocate(nodeweight(mxnode),stat=fail(78))
-      allocate(node_avg(mxnode,ntpguest*9),stat=fail(79))
-      allocate(node_std(mxnode,ntpguest*9),stat=fail(80))
-      allocate(ins(ntpguest),stat=fail(81))
-      allocate(del(ntpguest),stat=fail(82))
-      allocate(dis(ntpguest),stat=fail(83))
-      allocate(jmp(ntpguest),stat=fail(84))
-      allocate(flx(ntpguest),stat=fail(85))
-      allocate(swp(ntpguest),stat=fail(86))
-      allocate(swi(ntpguest),stat=fail(87))
-      allocate(switch_mol_count(ntpguest),stat=fail(88))
-      allocate(switch_mols(ntpguest,maxguest),stat=fail(89))
-      allocate(switch_chosen_guest(ntpguest),stat=fail(90))
-      allocate(origmolxxx(maxmls,maxalloc),stat=fail(91))
-      allocate(origmolyyy(maxmls,maxalloc),stat=fail(92))
-      allocate(origmolzzz(maxmls,maxalloc),stat=fail(93))
-      allocate(gstfuga(ntpguest),stat=fail(94))
-      allocate(gstmolfract(ntpguest),stat=fail(95))
-      allocate(Acc_factor(ntpguest),stat=fail(96))
-      allocate(T_crit(ntpguest),stat=fail(97))
-      allocate(P_crit(ntpguest),stat=fail(98))
-      allocate(K_fug(ntpguest, ntpguest),stat=fail(99))
-      allocate(surfacemols(maxmls), stat=fail(100))
-      allocate(origsurfmols(maxmls), stat=fail(101))
-      allocate(moltype(maxalloc), stat=fail(102))
-      allocate(moldf(maxalloc), stat=fail(103))
-      allocate(guest_insert(ntpguest), stat=fail(104))
-      allocate(guest_min(ntpguest), stat=fail(105))
-      allocate(guest_max(ntpguest), stat=fail(106))
+      allocate(accept_ins(ntpguest),stat=fail(48))
+      allocate(ins_count(ntpguest),stat=fail(49))
+      allocate(accept_del(ntpguest),stat=fail(50))
+      allocate(del_count(ntpguest),stat=fail(51))
+      allocate(accept_jump(ntpguest),stat=fail(52))
+      allocate(jump_count(ntpguest),stat=fail(53))
+      allocate(accept_switch(ntpguest),stat=fail(54))
+      allocate(switch_count(ntpguest),stat=fail(55))
+      allocate(accept_swap(ntpguest),stat=fail(56))
+      allocate(swap_count(ntpguest),stat=fail(57))
+      allocate(accept_rota(ntpguest),stat=fail(58))
+      allocate(rota_count(ntpguest),stat=fail(59))
+      allocate(delrdisp(ntpguest),stat=fail(60))
+      allocate(delr(ntpguest),stat=fail(61))
+      allocate(disp_ratio(ntpguest),stat=fail(62))
+      allocate(rota_ratio(ntpguest),stat=fail(63))
+      allocate(tran_ratio(ntpguest),stat=fail(64))
+      allocate(tran_delr(ntpguest),stat=fail(65))
+      allocate(statbuff(1+ntpguest*16),stat=fail(66))
+      allocate(chainstats(1+ntpguest*16),stat=fail(67))
+      allocate(gstlist(mxguestsite,maxalloc),stat=fail(68))
+      allocate(ilist(maxalloc),stat=fail(69))
+      allocate(unqatm(maxalloc),stat=fail(70))
+      allocate(jlist(maxalloc),stat=fail(71))
+      allocate(ltpsit(maxmls,maxalloc),stat=fail(72))
+      allocate(ltype(maxalloc),stat=fail(73))
+      allocate(xdf(maxalloc),stat=fail(74))
+      allocate(ydf(maxalloc),stat=fail(75))
+      allocate(zdf(maxalloc),stat=fail(76))
+      allocate(rsqdf(maxalloc),stat=fail(77))
+      allocate(numtyp(mxatyp),stat=fail(78))
+      allocate(numfrz(mxatyp),stat=fail(79))
+      allocate(dens(mxatyp),stat=fail(80))
+      allocate(newx(mxguestsite),stat=fail(81))
+      allocate(newy(mxguestsite),stat=fail(82))
+      allocate(newz(mxguestsite),stat=fail(83))
+      allocate(ind(mxguestsite),stat=fail(84))
+      allocate(energy(maxmls+1),stat=fail(85))
+      allocate(origenergy(maxmls+1),stat=fail(86))
+      allocate(delE(mxcmls),stat=fail(87))
+      allocate(avgwindow(1+ntpguest*9,nwind*2),stat=fail(88))
+      allocate(sumwindowav(ntpguest*9),stat=fail(89))
+      allocate(varwindow(ntpguest*9),stat=fail(90))
+      allocate(nodeweight(mxnode),stat=fail(91))
+      allocate(node_avg(mxnode,ntpguest*9),stat=fail(92))
+      allocate(node_std(mxnode,ntpguest*9),stat=fail(93))
+      allocate(ins(ntpguest),stat=fail(94))
+      allocate(del(ntpguest),stat=fail(95))
+      allocate(dis(ntpguest),stat=fail(96))
+      allocate(jmp(ntpguest),stat=fail(97))
+      allocate(flx(ntpguest),stat=fail(98))
+      allocate(swp(ntpguest),stat=fail(99))
+      allocate(swi(ntpguest),stat=fail(100))
+      allocate(switch_mol_count(ntpguest),stat=fail(101))
+      allocate(switch_mols(ntpguest,maxguest),stat=fail(102))
+      allocate(switch_chosen_guest(ntpguest),stat=fail(103))
+      allocate(origmolxxx(maxmls,maxalloc),stat=fail(104))
+      allocate(origmolyyy(maxmls,maxalloc),stat=fail(105))
+      allocate(origmolzzz(maxmls,maxalloc),stat=fail(106))
+      allocate(gstfuga(ntpguest),stat=fail(107))
+      allocate(gstmolfract(ntpguest),stat=fail(108))
+      allocate(Acc_factor(ntpguest),stat=fail(109))
+      allocate(T_crit(ntpguest),stat=fail(110))
+      allocate(P_crit(ntpguest),stat=fail(111))
+      allocate(K_fug(ntpguest, ntpguest),stat=fail(112))
+      allocate(surfacemols(maxmls), stat=fail(113))
+      allocate(origsurfmols(maxmls), stat=fail(114))
+      allocate(moltype(maxalloc), stat=fail(115))
+      allocate(moldf(maxalloc), stat=fail(116))
+      allocate(guest_insert(ntpguest), stat=fail(117))
+      allocate(guest_min(ntpguest), stat=fail(118))
+      allocate(guest_max(ntpguest), stat=fail(119))
       do i=1,na
         if(fail(i).gt.0)then
-            if(idnode.eq.0)write(nrite,'(10i5)')fail(i)
+            if(idnode.eq.0)write(nrite,'(10i5,10i5)')i,fail(i)
             call error(idnode, 1000)
         endif
       enddo
@@ -3177,7 +3170,7 @@ c     the simulation.
 
       end subroutine translate
 
-      subroutine random_ins(idnode,natms,iguest,rcut,delr)
+      subroutine random_ins(idnode,natms,iguest,rcut,ddelr)
 c*****************************************************************************
 c
 c     routine to randomly insert a guest into the cell 
@@ -3189,7 +3182,7 @@ c*****************************************************************************
       logical good,insert,done
       integer i,iguest,idnode
       integer natms
-      real(8) randa,randb,randc,rmin,rcut,rclim,delr
+      real(8) randa,randb,randc,rmin,rcut,rclim,ddelr
       real(8) xc,yc,zc,comx,comy,comz,theta
       real(8) u1,u2,u3,q1,q2,q3,q4
       real(8) sintheta,beta1,beta2,beta3,norm,rand1,rand2,rand3,rand4
@@ -3209,7 +3202,7 @@ c*****************************************************************************
       yc=0.d0
       zc=0.d0
       rmin=0.1d0
-      rclim=(rcut+delr)**2
+      rclim=(rcut+ddelr)**2
 
 c     convert rand fractions to cartesian coordinates in the cell 
       call cartesian(randa,randb,randc,xc,yc,zc)
@@ -3291,7 +3284,7 @@ c      enddo
       end subroutine random_ins
 
       subroutine random_disp
-     &(idnode,delr,randa,randb,randc)
+     &(idnode,ddelr,randa,randb,randc)
 c*****************************************************************************
 c
 c     routine to randomly displace newx,newy,newz atoms
@@ -3299,13 +3292,13 @@ c
 c*****************************************************************************
       implicit none
       integer idnode
-      real(8) delr
+      real(8) ddelr
       real(8) randa,randb,randc,halfdelr
 
       randa=duni(idnode)
       randb=duni(idnode)
       randc=duni(idnode)
-      halfdelr=delr*0.5d0
+      halfdelr=ddelr*0.5d0
 c      tol=-3.d0/2.d0*delr+1.d-5
 c     generate random numbers in the a,b, and c directions
 c      do while(.not.done)
