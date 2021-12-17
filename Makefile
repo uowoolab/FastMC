@@ -8,7 +8,7 @@ OPTIM =
 
 # warning flags or any other compiler options?
 #FLAGS = -Wall -Wno-conversion
-FLAGS = 
+FLAGS = -O3 
 # debugging
 DEBUG =
 # gfortran debugging
