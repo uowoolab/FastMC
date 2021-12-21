@@ -71,8 +71,11 @@ c*************************************************************
       integer nfo(8)
       integer totaccept,nnumg,nhis
       integer accept_flex,scell_factor
+      integer accept_flx_arr(1)
+      integer flx_cnt_arr(1)
+      integer gcmc_cnt_arr(1)
       integer minchk,iter
-      integer buffer,levcfg,nstat
+      integer levcfg,nstat
       integer np,widcount,flex_count
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
@@ -89,6 +92,7 @@ c*************************************************************
       integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
       integer totalguests,globalnguests,globalsteps,totgrid
       integer, allocatable :: fwksumbuff(:)
+      integer, allocatable :: buffer(:) 
       real(8), allocatable :: gridbuff(:)
       real(8), dimension(10) :: celprp
       real(8), dimension(10) :: ucelprp
@@ -235,7 +239,8 @@ c     open main output file.
       call alloc_config_arrays(idnode,mxnode,maxmls,mxatm,mxatyp,
      &volm,ntpguest,rcut,rvdw,nwind,initdelr)
       delr(:) = initdelr
-
+c     send/receive buffer allocation (once ntpguest is known)
+      allocate(buffer(ntpguest))
 c     default target acceptance ratios of 0.5
       disp_ratio(:)=0.5d0
       tran_ratio(:)=0.5d0
@@ -1083,7 +1088,7 @@ conditions
           call guest_exclude(ntpguest)
           call condense(totatm,ntpfram,ntpguest)
           call lrcorrect(imcon,keyfce,totatm,ntpatm,maxvdw,
-     &rcut,volm,maxmls)
+     &rcut,volm,maxmls,ntpguest)
 c Assume the single_point calculates the correct spenergy (evdwg+ecoulg)
           call single_point
      &(imcon,keyfce,alpha,drewd,rcut,initdelr,totatm,ntpfram,
@@ -1130,7 +1135,7 @@ c            call guest_exclude(ntpguest)
 c            call erfcgen(keyfce,alpha,rcut,drewd)
             call parlst(imcon,totatm,rcut,initdelr)
             call lrcorrect(imcon,keyfce,totatm,ntpatm,maxvdw,
-     &rcut,volm,maxmls)
+     & rcut,volm,maxmls,ntpguest)
 c             call single_point
 c     &(imcon,keyfce,alpha,drewd,rcut,delr,totatm,ntpfram,
 c     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,
@@ -1532,9 +1537,10 @@ c            recompute, these seem like more accurate values.
 
       call gisum(accept_jump,ntpguest,buffer)
       call gisum(jump_count,ntpguest,buffer)
-
-      call gisum(accept_flex,1,buffer)
-      call gisum(flex_count,1,buffer)
+      accept_flx_arr(1)=accept_flex
+      flx_cnt_arr(1)=flex_count
+      call gisum(accept_flx_arr,1,buffer)
+      call gisum(flx_cnt_arr,1,buffer)
 
       call gisum(accept_swap,ntpguest,buffer)
       call gisum(swap_count,ntpguest,buffer)
@@ -1547,8 +1553,8 @@ c            recompute, these seem like more accurate values.
       
       call gisum(accept_switch,ntpguest,buffer)
       call gisum(switch_count,ntpguest,buffer)
-
-      call gisum(gcmccount,1,buffer)
+      gcmc_cnt_arr(1)=gcmccount
+      call gisum(gcmc_cnt_arr,1,buffer)
 
       if(n_fwk.gt.0)then 
         call gisum(fwk_counts,n_fwk,fwksumbuff)
@@ -1592,7 +1598,7 @@ c             add counters again for the tally grid.
       endif
       if(idnode.eq.0)then
 c       hack to include widom accepted steps in the printout
-        if(lwidom)accept_ins= chainstats(1)
+        if(lwidom)accept_ins(1)= chainstats(1)
         write(nrite,"(/,a17,i9,a15,f13.3,a8)")
      &'Time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
         write(nrite,"(/,a30,i9)")
@@ -2729,8 +2735,7 @@ c     "gstlrcorrect"
       step=0
       iguest=1
       call lrcorrect(imcon,keyfce,totatm,ntpatm,maxvdw,
-     &rcut,volm,maxmls,ntpguest)
-
+     &  rcut,volm,maxmls,ntpguest)
 c     generate neighbour list
       call condense(totatm,ntpfram,ntpguest)
       call parlst(imcon,totatm,rcut,tmpdelr)
