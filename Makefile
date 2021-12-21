@@ -8,7 +8,7 @@ INTEL_OPTIM = -O3 -march=core-avx2 -align array64byte -fma -ftz -fomit-frame-poi
 
 # warning flags or any other compiler options?
 # GCC_FLAGS = -Wall -Wno-conversion
-GCC_FLAGS = -Werror
+GCC_FLAGS = 
 INTEL_FLAGS = 
  
 # debugging

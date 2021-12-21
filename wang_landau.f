@@ -468,8 +468,10 @@ c     PB - 14/12/2017                                                 *
 c                                                                     *
 c**********************************************************************
       implicit none
-      integer idnode,mxnode,varchunk,varbuff,inode
-      real(8) timelp,timebuff,maxtime,mintime
+      integer idnode,mxnode,varchunk,inode
+      real(8) timelp,maxtime,mintime
+      real(8) timebuff(1),varbuff(1),timelp_a(1)
+      real(8) varchunk_a(1)
       real(8) :: timedata(mxnode)
       integer :: chunkdata(mxnode)
 
@@ -479,12 +481,13 @@ c**********************************************************************
         timedata(1)=timelp
         chunkdata(1)=varchunk
         do inode=1,mxnode-1
+
           call crecv(inode*mxnode*2+1,timebuff,1,2)  
           call crecv(inode*mxnode*3+1,varbuff,1,3)
-          if(timebuff.gt.maxtime)maxtime=timebuff
-          if(timebuff.lt.mintime)mintime=timebuff
-          timedata(inode+1)=timebuff
-          chunkdata(inode+1)=varbuff 
+          if(timebuff(1).gt.maxtime)maxtime=timebuff(1)
+          if(timebuff(1).lt.mintime)mintime=timebuff(1)
+          timedata(inode+1)=timebuff(1)
+          chunkdata(inode+1)=int(varbuff(1)) 
         enddo
         write(nrite,"(a100,/,40x,'Timing Data',/,a100)")
      &repeat('*',100),repeat('*',100)
@@ -500,8 +503,10 @@ c**********************************************************************
         enddo
         timelp=maxtime
       else
-        call csend(idnode*mxnode*2+1,timelp,1,0,2)
-        call csend(idnode*mxnode*3+1,varchunk,1,0,3)
+        timelp_a(1)=timelp
+        call csend(idnode*mxnode*2+1,timelp_a,1,0,2)
+        varchunk_a(1)=real(varchunk,8)
+        call csend(idnode*mxnode*3+1,varchunk_a,1,0,3)
       endif
       end subroutine report_timing
 
