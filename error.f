@@ -179,6 +179,9 @@ c     dummy entry
         elseif (kode.eq.55) then
           write(nrite,'(/,/,1x,a)')
      x      'error - end of CONFIG file encountered'
+        elseif (kode.eq.56) then
+          write(nrite,'(/,/,1x,a)')
+     x      'error - end of pore block file encountered'
         elseif (kode.eq.57) then
           write(nrite,'(/,/,1x,a)')
      x      'error - too many core-shell units specified'

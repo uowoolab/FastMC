@@ -517,7 +517,7 @@ c     halt program if potential cutoff exceeds cell width
      &laccsample,lnumg,nnumg,nhis,swap_max,lfuga,overlap,surftol,
      &n_fwk,l_fwk_seq,
      &fwk_step_max,fwk_initial,nwidstep,lwanglandau,wlprec,
-     &flatcoeff,visittol,prectol,maxn,minn,ebins)
+     &flatcoeff,visittol,prectol,maxn,minn,ebins,lblock)
 c*************************************************************************
 c
 c     Subroutine to read the CONTROL file
@@ -530,7 +530,7 @@ c*************************************************************************
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,loop3,rprob,lrestart,laccsample
-      logical leng,l_fwk_seq,lwanglandau
+      logical leng,l_fwk_seq,lwanglandau,lblock
       logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,tmpdelr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
@@ -543,7 +543,7 @@ c*************************************************************************
       real(8) tmpmctraf,tmpmcrotf,tmpdisp_ratio,tmptran_ratio
       real(8) tmprota_ratio
       real(8) surftol,prectol
-
+      character*8 junk
       data ltemp/.false./
       data lmcsteps/.false./,leqsteps/.false./,lwind/.false./
 
@@ -589,6 +589,16 @@ c     allocate guest mole fractions
 c       record is commented out
 c       number of widom insertion orientations to attempt at each
 c       grid point.
+        else if(findstring('block', directive, idum))then
+c         pore blocking
+          lblock=.true.
+c         remove the first word ('block')          
+          call getword(junk,directive,6,lenrec)
+c         the next word will be the file name.
+          call getword150(blocknam,directive,150,lenrec)
+          if(idnode.eq.0)
+     &write(nrite,"(2x,'Pore Blocking filename:',3x,a150)")
+     &         blocknam 
         else if(findstring('henry', directive, idum))then
           
         else if(findstring('widom ins', directive,idum))then
@@ -603,7 +613,8 @@ c       grid point.
           ltemp=.true.
         elseif (findstring('sampling', directive, idum))then
           laccsample=.true.
-          write(nrite,"(/,3x,'warning! Sampling accepted',
+          if(idnode.eq.0)
+     &write(nrite,"(/,3x,'warning! Sampling accepted',
      &' steps only, this is not true Metropolis importance ',
      &'sampling. This simulation is CURSED!!!!')")
 c       guest related stuff
@@ -957,6 +968,43 @@ c       mcswif,mctraf,mcrotf
 
       if(idnode.eq.0)close(ncontrol)
       return
+      end subroutine
+
+      subroutine readporeblock
+     &(idnode)
+c*************************************************************************
+c
+c     Subroutine to read the pore blocking file from zeo++
+c
+c*************************************************************************
+      implicit none
+      integer idnode,numblocks,idum,i
+      logical safe
+      character*1 directive(lenrec)
+      if(idnode.eq.0)open(nblock,file=blocknam,status='old')
+      
+      call getrec(safe,idnode,nblock)
+      if(.not.safe)call abort_block_read(1,idnode,nblock)
+      call lowcase(record,lenrec)
+      call strip(record,lenrec)
+      call copystring(record,directive,lenrec) 
+      numblocks=intstr(record,lenrec,idum)
+      allocate(bxxx(numblocks))
+      allocate(byyy(numblocks))
+      allocate(bzzz(numblocks))
+      allocate(bradii(numblocks))
+      do i=1, numblocks
+        call getrec(safe,idnode,nblock)
+        call lowcase(record,lenrec)
+        call strip(record,lenrec)
+        call copystring(record,directive,lenrec)
+        bxxx(i) = dblstr(directive,lenrec,idum)
+        byyy(i) = dblstr(directive,lenrec,idum)
+        bzzz(i) = dblstr(directive,lenrec,idum)
+        bradii(i) = dblstr(directive,lenrec,idum)
+      enddo
+
+      if(idnode.eq.0)close(nblock)
       end subroutine
 
       end module readinputs

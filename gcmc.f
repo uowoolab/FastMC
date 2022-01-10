@@ -61,7 +61,7 @@ c*************************************************************
       character*25 outfile2
       character*18 outfile4
       logical lgchk,lspe,ljob,lprob,widchk
-      logical lfuga, loverlap, lwidom, lwanglandau
+      logical lfuga, loverlap, lwidom, lwanglandau, lblock
       logical insert,delete,displace,lrestart,laccsample
       logical jump, flex, swap, switch
       logical tran, rota
@@ -129,7 +129,7 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       integer fwk_step_magnitude
 
       data lgchk/.true./,insert/.false./,delete/.false./,
-     &lwidom/.false./,lwanglandau/.false./,
+     &lwidom/.false./,lwanglandau/.false./,lblock/.false./
      &displace/.false./,accepted/.false./,production/.false./
       data jump/.false./,flex/.false./,swap/.false./,switch/.false./
       data tran/.false./,rota/.false./,laccsample/.false./
@@ -323,7 +323,9 @@ c     produce unit cell for folding purposes
      &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,swap_max,
      &lfuga,overlap,surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,
      &nwidstep,lwanglandau,wlprec,flatcoeff,visittol,prectol,
-     &maxn,minn,ebins)
+     &maxn,minn,ebins,lblock)
+
+      if(lblock)call readporeblock(idnode)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the

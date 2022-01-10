@@ -9,6 +9,7 @@
       real(8), allocatable :: xxx(:),molxxx(:,:),origmolxxx(:,:)
       real(8), allocatable :: yyy(:),molyyy(:,:),origmolyyy(:,:)
       real(8), allocatable :: zzz(:),molzzz(:,:),origmolzzz(:,:)
+      real(8), allocatable :: bxxx(:),byyy(:),bzzz(:),bradii(:)
       real(8), allocatable :: newx(:),newy(:),newz(:)
       real(8), allocatable :: guestx(:,:),guesty(:,:),guestz(:,:)
       real(8), allocatable :: atmcharge(:),atmchg(:,:)
@@ -16,7 +17,6 @@
       real(8), allocatable :: frambuff(:,:)
       real(8), allocatable :: xdf(:),ydf(:),zdf(:),rsqdf(:) 
       character(8), allocatable :: unqatm(:),atomname(:),atmname(:,:)
-      character*70, allocatable :: numgbuff(:,:)
       character*1, allocatable :: molnam(:,:)
       integer, allocatable :: lentry(:),list(:,:)
       integer, allocatable :: gstlentry(:),gstlist(:,:),locguest(:)
@@ -74,6 +74,7 @@ c     Fugacity stuff
       real(8), allocatable :: gstfuga(:), gstmolfract(:)
       real(8), allocatable :: Acc_factor(:), P_crit(:), T_crit(:)
       real(8), allocatable :: K_fug(:,:) 
+      character*150 :: blocknam
 
 c     FIXED PARAMETERS
 
@@ -159,8 +160,12 @@ c     statistics file input channel
 
       integer,parameter :: nrev=555
 
+c     pore block file input channel
+    
+      integer,parameter :: nblock=711
 
-      save xxx,yyy,zzz
+
+      save xxx,yyy,zzz,bxxx,byyy,bzzz,bradii
       save molxxx,molyyy,molzzz,frambuff
       save origmolxxx,origmolyyy,origmolzzz
       save atmcharge,atmchg,guestx,guesty,guestz
@@ -168,7 +173,7 @@ c     statistics file input channel
       save atomname,atmname
       save lentry,list
       save lfreezesite,lfzsite
-      save nummols,numatoms,molnam
+      save nummols,numatoms,molnam,blocknam
       save ucell,cell,rcell,volum,nsite,chainstats,dbuff
       save accept_disp,disp_count,accept_tran,tran_count
       save accept_ins,ins_count,accept_del,del_count
@@ -3110,6 +3115,37 @@ c     end of config file error exit
 
       return
       end subroutine abort_config_read
+
+      subroutine abort_block_read(kode,idnode,nread)
+
+c***********************************************************************
+c     
+c     subroutine for aborting pore blocking file read
+c     
+c***********************************************************************
+      
+      implicit none
+
+      integer kode,idnode,nread
+
+      if(idnode.eq.0) close (nread)
+
+      if(kode.eq.1)then
+
+c     end of file error exit
+
+        call error(idnode,56)
+
+      else if(kode.eq.2)then
+
+c     general error exit from file processing
+
+        call error(idnode,0)
+
+      endif
+
+      return
+      end subroutine abort_block_read
 
       subroutine translate
      &(natms,mol,newx,newy,newz,cell,rcell,comx,comy,comz,

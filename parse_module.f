@@ -471,6 +471,78 @@ c***********************************************************************
 
       return
       end subroutine striptext
+      subroutine getword150(word,string,len1,len2)
+c***********************************************************************
+c     
+c     Routine to fetch an 150 character word from a string
+c     while ignoring leading blanks
+c
+c***********************************************************************
+
+      implicit none
+
+      logical final
+      character*150 word
+      integer len1,len2,i,j,k
+      character*1 wrdseq(len1),string(len2)
+      do i=1,len1
+        wrdseq(i)=' '
+      enddo
+
+      i=0
+      k=0
+      final=.false.
+      
+      do while(.not.final.and.i.lt.len2)
+        
+        i=i+1
+        
+        if(string(1).eq.' ')then
+          
+          if(k.gt.0)final=.true.
+          
+        else
+          
+          k=k+1
+          wrdseq(k)=string(1)
+          if(k.eq.len1)final=.true.
+
+        endif
+        
+        do j=1,len2-1
+          
+          string(j)=string(j+1)
+          
+        enddo
+        
+        string(len2)=' '
+          
+      enddo
+      
+      word=mkwd150(wrdseq)
+
+      return
+      end subroutine getword150
+
+      character*150 function mkwd150(string)
+
+c***********************************************************************
+c     
+c     routine to make an 8 character word from a string
+c
+c***********************************************************************
+
+      implicit none
+
+      integer i
+      character*1 string(*)
+      
+      do i=1,150
+         mkwd150(i:i)=string(i)
+      enddo
+      
+      return
+      end function mkwd150
 
       subroutine getword(word,string,len1,len2)
 
