@@ -597,7 +597,7 @@ c         remove the first word ('block')
 c         the next word will be the file name.
           call getword150(blocknam,directive,150,lenrec)
           if(idnode.eq.0)
-     &write(nrite,"(2x,'Pore Blocking filename:',3x,a150)")
+     &write(nrite,"(/,'Pore Blocking filename    :',3x,a50)")
      &         blocknam 
         else if(findstring('henry', directive, idum))then
           
@@ -971,7 +971,7 @@ c       mcswif,mctraf,mcrotf
       end subroutine
 
       subroutine readporeblock
-     &(idnode)
+     &(idnode, numblocks)
 c*************************************************************************
 c
 c     Subroutine to read the pore blocking file from zeo++
@@ -993,6 +993,9 @@ c*************************************************************************
       allocate(byyy(numblocks))
       allocate(bzzz(numblocks))
       allocate(bradii(numblocks))
+      allocate(bxdf(numblocks))
+      allocate(bydf(numblocks))
+      allocate(bzdf(numblocks))
       do i=1, numblocks
         call getrec(safe,idnode,nblock)
         call lowcase(record,lenrec)
@@ -1001,7 +1004,8 @@ c*************************************************************************
         bxxx(i) = dblstr(directive,lenrec,idum)
         byyy(i) = dblstr(directive,lenrec,idum)
         bzzz(i) = dblstr(directive,lenrec,idum)
-        bradii(i) = dblstr(directive,lenrec,idum)
+        ! square the radii so we don't have to sqrt during the sim.
+        bradii(i) = dblstr(directive,lenrec,idum)**2
       enddo
 
       if(idnode.eq.0)close(nblock)

@@ -10,6 +10,7 @@
       real(8), allocatable :: yyy(:),molyyy(:,:),origmolyyy(:,:)
       real(8), allocatable :: zzz(:),molzzz(:,:),origmolzzz(:,:)
       real(8), allocatable :: bxxx(:),byyy(:),bzzz(:),bradii(:)
+      real(8), allocatable :: bxdf(:),bydf(:),bzdf(:)
       real(8), allocatable :: newx(:),newy(:),newz(:)
       real(8), allocatable :: guestx(:,:),guesty(:,:),guestz(:,:)
       real(8), allocatable :: atmcharge(:),atmchg(:,:)
@@ -166,6 +167,7 @@ c     pore block file input channel
 
 
       save xxx,yyy,zzz,bxxx,byyy,bzzz,bradii
+      save bxdf,bydf,bzdf
       save molxxx,molyyy,molzzz,frambuff
       save origmolxxx,origmolyyy,origmolzzz
       save atmcharge,atmchg,guestx,guesty,guestz

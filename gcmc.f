@@ -88,7 +88,7 @@ c*************************************************************
       integer iguest,ntpguest,ntpmls,natms,mol,rollcount
       integer jguest,jmol,jnatms,jnmols,ifram,nframmol
       integer ins_rollcount,nswapguest,num_swaps,swap_max
-      integer swap_guest_max,idnode,visittol,nwidstep
+      integer swap_guest_max,idnode,visittol,nwidstep,numblocks
       integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
       integer totalguests,globalnguests,globalsteps,totgrid
       integer, allocatable :: fwksumbuff(:)
@@ -282,11 +282,11 @@ c        ngridc=gridfactor(3)*ceiling(celprp(3)/(griddim*gridfactor(3)))
         grvol = celprp(10)/dble(ngrida*ngridb*ngridc)
         gridsize=ngrida*ngridb*ngridc
         if(idnode.eq.0)then
-          write(nrite,"(/,' Probability grid size    :',i8,i8,i8)")
+          write(nrite,"(/,'Probability grid size     :',i8,i8,i8)")
      &ngrida,ngridb,ngridc
-          write(nrite,"(/,' Grid voxel dimensions (A):',
+          write(nrite,"(/,'Grid voxel dimensions (A) :',
      &f9.4,f9.4,f9.4)")griddima,griddimb,griddimc
-          write(nrite,"(/,' Grid voxel volume (A^3)  :  ',f12.5)")
+          write(nrite,"(/,'Grid voxel volume (A^3)   :  ',f12.5)")
      &grvol
         endif
         allocate(gridbuff(gridsize))
@@ -325,7 +325,7 @@ c     produce unit cell for folding purposes
      &nwidstep,lwanglandau,wlprec,flatcoeff,visittol,prectol,
      &maxn,minn,ebins,lblock)
 
-      if(lblock)call readporeblock(idnode)
+      if(lblock)call readporeblock(idnode,numblocks)
 c     square the overlap so that it can be compared to the rsqdf array
       overlap = overlap**2
 c     square the surface tolerance so that it can be compared to the
@@ -642,7 +642,7 @@ c         assume a 0.0004 s cost per energy calculation (overestimate).
      &epsq,
      &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
      &sumchg,rucell,prodcount,widcount,temp,ngrida,ngridb,
-     &ngridc)
+     &ngridc,lblock,numblocks)
         enddo
       endif
       if (lwanglandau)then
@@ -694,7 +694,7 @@ c           'runningstats.out', but node specific so will do for now.
      &rcut,initdelr,sumchg,surftol,overlap,keyfce,alpha,drewd,volm,
      &newld,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,delrc,
-     &maxmls,iter)
+     &maxmls,iter,lblock,numblocks)
             write(202,"(1x,'Successful Insertion of ',i6,
      &' guests of type ',i3)")
      &nummols(imol),i
@@ -941,7 +941,7 @@ c***********************************************************************
      &alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta)
+     &overlap,accepted,temp,beta,lblock,numblocks)
           insert=.false.
           
 
@@ -974,7 +974,7 @@ c***********************************************************************
      &newld,alpha,rcut,delr(iguest),
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
      &beta,delrc,ntpatm,maxvdw,
-     &ntpguest,ntpfram)
+     &ntpguest,ntpfram,lblock,numblocks)
           displace=.false.
           tran = .false.
           rota = .false.
@@ -993,7 +993,7 @@ c***********************************************************************
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,dlrpot,
      &sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest)
+     &ntpguest,lblock,numblocks)
           jump=.false.
 
 
@@ -1163,7 +1163,7 @@ c         in the framework
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,
      &dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest)
+     &ntpguest,lblock,numblocks)
 
           switch = .false.
         elseif(swap)then
@@ -1180,7 +1180,7 @@ c***********************************************************************
      &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,dlrpot,
      &sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest,rotangle)
+     &ntpguest,rotangle,lblock,numblocks)
           swap = .false.
         endif
         if(production)prodcount=prodcount+1
@@ -1845,7 +1845,7 @@ c*****************************************************************************
      &(idnode,imcon,keyfce,iguest,totatm,rcut,ddelr,alpha,
      &drewd,ntpguest,ntpfram,ntpatm,volm,statvolm,kmax1,kmax2,kmax3,
      &epsq,dlrpot,maxvdw,newld,engunit,delrc,sumchg,maxmls,surftol,
-     &overlap,accepted,temp,beta)
+     &overlap,accepted,temp,beta,lblock,numblocks)
 c*******************************************************************************
 c
 c     keeps track of all the associated arrays and calls the 'insertion' 
@@ -1854,9 +1854,9 @@ c     importance sampling coupled to a grand canonical ensemble.
 c
 c*******************************************************************************
       implicit none
-      logical lnewsurf,loverlap,accepted
+      logical lnewsurf,loverlap,accepted,lblock
       integer iguest,idnode,imcon,natms,totatm,mol,nmol
-      integer keyfce,ntpguest,kmax1,kmax2,kmax3
+      integer keyfce,ntpguest,kmax1,kmax2,kmax3,numblocks
       integer ntpatm,maxvdw,maxmls,newld
       integer ntpfram,randchoice
       real(8) rcut,ddelr,estep,alpha,drewd,volm
@@ -1875,7 +1875,7 @@ c*******************************************************************************
      & (imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
+     & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
       accepted=.false.
 
       if (.not.loverlap)then
@@ -1967,7 +1967,7 @@ c     the following occurs if the move is accepted.
      &alpha,rcut,ddelr,
      &drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,accepted,temp,
      &beta,delrc,ntpatm,maxvdw,
-     &ntpguest,ntpfram)
+     &ntpguest,ntpfram,lblock,numblocks)
 c*******************************************************************************
 c
 c     Keeps track of all the associated arrays and calls the 
@@ -1980,8 +1980,8 @@ c     importance sampling coupled to a canonical ensemble.
 c
 c*******************************************************************************
       implicit none
-      logical tran,rota,loverlap,linitsurf,lnewsurf,accepted
-      integer iguest,keyfce,imcon,idnode
+      logical tran,rota,loverlap,linitsurf,lnewsurf,accepted,lblock
+      integer iguest,keyfce,imcon,idnode,numblocks
       integer mol,ik,newld,maxmls,totatm,maxvdw
       integer kmax1,kmax2,kmax3,randchoice,nmol,ntpatm
       integer ntpguest,ntpfram
@@ -2023,7 +2023,8 @@ c     choose a molecule from the list
       call displace_guest
      &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,maxmls,volm,kmax1,
      &kmax2,kmax3,epsq,engunit,overlap,surftol,linitsurf,lnewsurf,
-     &loverlap,iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+     &loverlap,iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,
+     &estep,lblock,numblocks)
       accepted=.false.
       if (.not.loverlap)then
         if(estep.lt.0.d0)then
@@ -2089,7 +2090,7 @@ c          ckssnew(maxmls+1,ik)=0.d0
      &jumpangle,maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest)
+     &ntpguest,lblock,numblocks)
 c*******************************************************************************
 c
 c     Keeps track of all the associated arrays and calls the 
@@ -2102,10 +2103,10 @@ c     importance sampling coupled to a canonical ensemble.
 c
 c*******************************************************************************
       implicit none
-      logical accepted,linitsurf,lnewsurf,loverlap
+      logical accepted,linitsurf,lnewsurf,loverlap,lblock
       integer idnode,imcon,keyfce,iguest,totatm,maxmls,kmax1
       integer kmax2,kmax3,newld,ntpatm,maxvdw,randchoice
-      integer nmol,natms,mol,ik,ntpfram,ntpguest
+      integer nmol,natms,mol,ik,ntpfram,ntpguest,numblocks
       real(8) volm,statvolm,jumpangle,alpha,rcut,ddelr,drewd
       real(8) epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
@@ -2145,7 +2146,8 @@ c     converts it to a translation.
       call displace_guest
      &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,maxmls,volm,kmax1,
      &kmax2,kmax3,epsq,engunit,overlap,surftol,linitsurf,lnewsurf,
-     &loverlap,iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+     &loverlap,iguest,randchoice,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,
+     &estep,lblock,numblocks)
 
       accepted=.false.
       if (.not.loverlap)then
@@ -2192,7 +2194,7 @@ c       tally surface molecules
      &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest)
+     &ntpguest,lblock,numblocks)
 c*******************************************************************************
 c
 c     Keeps track of all the associated arrays and calls the 
@@ -2209,8 +2211,8 @@ c         violated. ***
 c*******************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
-      logical lnewsurf,lnewsurfj
-      integer nswitchgst,ntpguest,i,j,mol,nmols,jguest
+      logical lnewsurf,lnewsurfj,lblock
+      integer nswitchgst,ntpguest,i,j,mol,nmols,jguest,numblocks
       integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
       integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
       integer ntpatm,maxvdw,ntpfram,natms
@@ -2339,7 +2341,7 @@ c     position and vise versa)
      & (imcon,jguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurfj,surftol,overlap,newld)
+     & loverlap,lnewsurfj,surftol,overlap,newld,lblock,numblocks)
       if(loverlap)loverallap=.true.
       estepj=estepj+estep
       call accept_move
@@ -2357,7 +2359,7 @@ c     position and vise versa)
      & (imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
+     & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
       if(loverlap)loverallap=.true.
       estepi=estepi+estep
       call accept_move
@@ -2428,7 +2430,7 @@ c       restore original surfacemols if step is rejected
      &maxmls,kmax1,kmax2,kmax3,newld,alpha,
      &rcut,ddelr,drewd,epsq,engunit,overlap,surftol,dlrpot,sumchg,
      &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
-     &ntpguest,rotangle)
+     &ntpguest,rotangle,lblock,numblocks)
 c*******************************************************************************
 c
 c     Keeps track of all the associated arrays and calls the 
@@ -2441,10 +2443,10 @@ c     importance sampling coupled to a grand canonical ensemble.
 c
 c*******************************************************************************
       implicit none
-      logical accepted,linitsurf,lnewsurf,loverlap
+      logical accepted,linitsurf,lnewsurf,loverlap,lblock
       integer idnode,imcon,keyfce,iguest,jguest,totatm
       integer maxmls,kmax1,kmax2,kmax3,origtotatm,ik,imol,jmol,iatm
-      integer newld,ntpatm,maxvdw,randchoice
+      integer newld,ntpatm,maxvdw,randchoice,numblocks
       integer nmols,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
       integer jnatms,jnmols
       real(8) volm,statvolm,alpha,rcut,ddelr,drewd,epsq,engunit
@@ -2535,7 +2537,7 @@ c     insert second guest
      & (imcon,jguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estepj,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
+     & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
       jchoice=0
       call accept_move
      &(jguest,.true.,.false.,.false.,
@@ -2604,18 +2606,18 @@ c       restore original surfacemols if step is rejected
      &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,kmax1,kmax2,kmax3,epsq,
      &dlrpot,ntpatm,maxvdw,engunit,delrc,maxmls,overlap,newld,surftol,
      &sumchg,rucell,prodcount,widomcount,temp,ngrida,ngridb,
-     &ngridc)
+     &ngridc,lblock,numblocks)
 c*****************************************************************************
 c
 c     perform widom insertions on a grid of pre-defined resolution 
 c
 c*****************************************************************************
       implicit none
-      logical loverlap,lnewsurf
+      logical loverlap,lnewsurf,lblock
       integer i,j,k,istep,nstep,ngrida,ngridb,ngridc,widomcount,idnode
       integer natms,iguest,mol,nmols,keyfce,imcon,totatm,ntpatm,maxvdw
       integer kmax1,kmax2,kmax3,maxmls,newld,prodcount,istat,aa
-      integer wngrida,wngridb,wngridc,loopa,loopb,loopc
+      integer wngrida,wngridb,wngridc,loopa,loopb,loopc,numblocks
       real(8) afr,bfr,cfr,cartx,carty,cartz,q1,q2,q3,q4,rotangle,surftol
       real(8) alpha,rcut,ddelr,delrc,drewd,volm,epsq,dlrpot,engunit
       real(8) overlap,chgtmp,engsictmp,sumchg,H_const,temp,estep
@@ -2670,7 +2672,7 @@ c             insert COM at gridpoint
      & (imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
+     & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
               call reject_move
      &  (iguest,0,.true.,.false.,.false.,.false.)
 
@@ -2911,7 +2913,7 @@ c             out when computing most interactions.
      &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld)
+     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
 c***********************************************************************
 c                                                                      *
 c     insert a guest molecule at a given lattice coordinate (COM)      *
@@ -2919,10 +2921,10 @@ c     and orientation about the Eueler axes.                           *
 c                                                                      *
 c***********************************************************************
       implicit none
-      logical loverlap,lnewsurf
+      logical loverlap,lnewsurf,lblock
       integer imcon,iguest,natms,mol,keyfce
       integer totatm,kmax1,kmax2,kmax3,idum
-      integer ntpatm,maxvdw,i,maxmls,newld
+      integer ntpatm,maxvdw,i,maxmls,newld,numblocks
       real(8) apos,bpos,cpos,angx,angy,angz,xc,yc,zc
       real(8) alpha,rcut,ddelr,drewd,volm,epsq,dlrpot
       real(8) engunit,delrc,estep,sumchg,surftol
@@ -2953,7 +2955,7 @@ c     add the com to each atom in the guest
      & (imcon,iguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
      & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
-     & loverlap,lnewsurf,surftol,overlap,newld)
+     & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
 
       call accept_move
      &(iguest,.true.,.false.,.false.,
@@ -2965,7 +2967,8 @@ c     add the com to each atom in the guest
      &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,
      &maxmls,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,overlap,surftol,linitsurf,lnewsurf,loverlap,
-     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep,lblock
+     &,numblocks)
 c***********************************************************************
 c                                                                      *
 c     Displace a guest from its initial point to a pre-defined         *
@@ -2974,8 +2977,8 @@ c     normal displacements)                                            *
 c                                                                      *
 c***********************************************************************
       implicit none
-      logical loverlap,linitsurf,lnewsurf
-      integer imcon,totatm,maxmls
+      logical loverlap,linitsurf,lnewsurf,lblock
+      integer imcon,totatm,maxmls,numblocks
       integer kmax1,kmax2,kmax3,iguest,imol,i,mol,newld
       integer nmols,natms,ik,mxcmls
       real(8) alpha,rcut,ddelr,drewd,volm,epsq,overlap,surftol
@@ -2991,7 +2994,8 @@ c     its orginal place
      &(imcon,iguest,alpha,rcut,ddelr,drewd,
      &totatm,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
      &engunit,vdwsum,ewld2sum,ewld1eng,linitsurf,newld,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,.true.)
+     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,
+     &estep,.true.,lblock,numblocks)
       ewld3sum=ewald3en(mol)
 c      print *, "EWALD1:", (-ewld1eng-ewld3sum)/engunit
 c      print *, "EWALD2:", ewld2sum/engunit
@@ -3023,7 +3027,8 @@ c        ckssnew(maxmls+1,ik)=0.d0
      &(imcon,iguest,alpha,rcut,ddelr,drewd,
      &totatm,maxmls,volm,kmax1,kmax2,kmax3,epsq,dlrpot,
      &engunit,vdwsum,ewld2sum,ewld1eng,lnewsurf,newld,
-     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,.false.)
+     &surftol,sumchg,chgtmp,engsictmp,loverlap,overlap,estep,
+     &.false.,lblock,numblocks)
 c      print *, "EWALD1:", (-ewld1eng-ewld3sum)/engunit
 c      print *, "EWALD2:", ewld2sum/engunit
 c      print *, "VDW   :", vdwsum/engunit
@@ -3049,16 +3054,17 @@ c     total up the energy contributions.
       subroutine test
      &(imcon,idnode,keyfce,alpha,rcut,ddelr,drewd,totatm,dlrpot,newld,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
-     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap)
+     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap,lblock
+     &,numblocks)
 c***********************************************************************
 c
 c     testing for various bugs etc in fastmc. 
 c
 c***********************************************************************
       implicit none
-      logical loverlap,lnewsurf,linitsurf
+      logical loverlap,lnewsurf,linitsurf,lblock
       integer imcon,idnode,iguest,keyfce,totatm,ntpguest
-      integer kmax1,kmax2,kmax3,ntpatm,maxvdw,newld
+      integer kmax1,kmax2,kmax3,ntpatm,maxvdw,newld,numblocks
       real(8) alpha,rcut,ddelr,drewd,volm,epsq,engunit
       integer i,ntpfram,randchoice,maxmls
       integer levcfg,imol
@@ -3081,7 +3087,7 @@ c***********************************************************************
      &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld)
+     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3093,7 +3099,7 @@ c***********************************************************************
      &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld)
+     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3105,7 +3111,7 @@ c***********************************************************************
      &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
      &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
      &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld)
+     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
       print *,"Insertion: ",iguest,estep
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
@@ -3128,7 +3134,8 @@ c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
      &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,
      &maxmls,volm,kmax1,kmax2,kmax3,
      &epsq,engunit,overlap,surftol,linitsurf,lnewsurf,loverlap,
-     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep)
+     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep,lblock,
+     &numblocks)
       print *, loverlap
       call accept_move
      &(iguest,.false.,.false.,.true.,
