@@ -981,6 +981,7 @@ c*************************************************************************
       integer idnode,numblocks,idum,i
       logical safe
       character*1 directive(lenrec)
+      real(8) txx,tyy,tzz
       if(idnode.eq.0)open(nblock,file=blocknam,status='old')
       
       call getrec(safe,idnode,nblock)
@@ -1001,9 +1002,13 @@ c*************************************************************************
         call lowcase(record,lenrec)
         call strip(record,lenrec)
         call copystring(record,directive,lenrec)
-        bxxx(i) = dblstr(directive,lenrec,idum)
-        byyy(i) = dblstr(directive,lenrec,idum)
-        bzzz(i) = dblstr(directive,lenrec,idum)
+        txx = dblstr(directive,lenrec,idum)
+        tyy = dblstr(directive,lenrec,idum)
+        tzz = dblstr(directive,lenrec,idum)
+c       here just assuming parallelpiped imcon
+        bxxx(i)=(cell(1)*txx+cell(4)*tyy+cell(7)*tzz)
+        byyy(i)=(cell(2)*txx+cell(5)*tyy+cell(8)*tzz)
+        bzzz(i)=(cell(3)*txx+cell(6)*tyy+cell(9)*tzz)
         ! square the radii so we don't have to sqrt during the sim.
         bradii(i) = dblstr(directive,lenrec,idum)**2
       enddo
