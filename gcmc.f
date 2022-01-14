@@ -2453,7 +2453,7 @@ c*******************************************************************************
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estepi,estepj,gpress,rande,estep
       real(8) comx,comy,comz,engsictmp,chgtmp,rotangle,ipress
-      real(8) jpress,test
+      real(8) jpress,test,testi,testj
 
       swap_count(iguest) = swap_count(iguest)+1
       origtotatm = totatm 
@@ -2509,21 +2509,21 @@ c        ckssnew(maxmls+1,ik)=0.d0
       swp(iguest) = 1
       swp(jguest) = 1     
 c     delete first guest
-      estepi=0.d0
+      estep=0.d0
       call deletion 
      &(imcon,keyfce,iguest,ichoice,alpha,rcut,ddelr,drewd,maxmls,
      &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estepi,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
      &overlap,newld)
       call accept_move
      &(iguest,.false.,.true.,.false.,
      &linitsurf,delrc,totatm,ichoice,ntpfram,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp,newld)
+      estepi=(-estep) 
 c     insert second guest
       jmol=locguest(jguest)
       jnatms=numatoms(jmol)
       jnmols=nummols(jmol)
-
       do iatm=1,jnatms
         newx(iatm) = guestx(jguest,iatm) + comx
         newy(iatm) = guesty(jguest,iatm) + comy
@@ -2533,30 +2533,23 @@ c     insert second guest
       call rotation(newx,newy,newz,comx,comy,comz,
      & jnatms,q1,q2,q3,q4)
 
-      estepj=0.d0
+      estep=0.d0
       call insertion
      & (imcon,jguest,keyfce,alpha,rcut,ddelr,drewd,totatm,
      & volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     & engunit,delrc,estepj,sumchg,chgtmp,engsictmp,maxmls,
+     & engunit,delrc,estep,sumchg,chgtmp,engsictmp,maxmls,
      & loverlap,lnewsurf,surftol,overlap,newld,lblock,numblocks)
       jchoice=0
       call accept_move
      &(jguest,.true.,.false.,.false.,
      &lnewsurf,delrc,totatm,jchoice,ntpfram,ntpguest,maxmls,
      &sumchg,engsictmp,chgtmp,newld)
-
+      estepj = estep
 c     acceptance criteria
       accepted=.false.
       if(.not.loverlap)then
         rande=duni(idnode)
-        estep = estepj - estepi
-
-
-
-c       TODO() try insertion + deletion acceptance.?
-
-
-
+        estep = estepj + estepi
 c        write(*,"('estep:',f10.3, ' estepj:',f10.3, ' estepi:',f10.3)")
 c     &estep,estepj,estepi
 c        call energy_eval
@@ -2566,10 +2559,20 @@ c     &.false.,.false.,.false.,.true.,accepted)
         ipress=gstfuga(iguest)
         jmol = locguest(jguest)
         jnmols = real(nummols(jmol))
-        inmols = real(nummols(imol))
-        test=jpress*(inmols+1.d0)
-     &/((jnmols)*ipress)*exp(-1.d0*beta*estep)
-        if(rande.lt.test)accepted=.true.
+        inmols = real(nummols(imol))+1.d0
+
+c       TODO() try insertion + deletion acceptance.?
+        testi = (inmols)*boltz*temp/(volm*ipress)*
+     &exp(-1.d0*beta*estepi) 
+        testj = volm*jpress/(jnmols*boltz*temp)*
+     &exp(-1.d0*beta*estepj) 
+c        test=jpress*(inmols)
+c     &/(jnmols*ipress)*exp(-1.d0*beta*estep)
+c        print *, test,(testj*testi)
+        if(rande.lt.testi)then
+          rande=duni(idnode)
+          if(rande.lt.testj)accepted=.true.
+        endif
       endif
 c     DEBUG
 c      accepted=.false.
