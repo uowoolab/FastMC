@@ -674,9 +674,10 @@ c     start delrdisp as delr (read from the CONTROL file)
       call timchk(0,timelp)
 c     DEBUG
 c      call test
-c     &(imcon,idnode,keyfce,alpha,rcut,delr,drewd,totatm,dlrpot,newld,
-c     &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
-c     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap)
+c     &(imcon,idnode,keyfce,alpha,rcut,initdelr,drewd,totatm,dlrpot,
+c     &newld,ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
+c     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap,lblock,
+c     &numblocks)
 c      call error(idnode,0)
 c     END DEBUG
 
@@ -1173,7 +1174,6 @@ c         Swap - replace one guest in the simulation with another
 c                of a different type
 c
 c***********************************************************************
-
           call mc_swap
      &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,statvolm,
      &maxmls,kmax1,kmax2,kmax3,newld,alpha,
@@ -2448,11 +2448,12 @@ c*******************************************************************************
       integer maxmls,kmax1,kmax2,kmax3,origtotatm,ik,imol,jmol,iatm
       integer newld,ntpatm,maxvdw,randchoice,numblocks
       integer nmols,natms,mol,ntpfram,ntpguest,ichoice,jchoice,j
-      integer jnatms,jnmols
+      integer jnatms,jnmols,inmols
       real(8) volm,statvolm,alpha,rcut,ddelr,drewd,epsq,engunit
       real(8) overlap,surftol,dlrpot,sumchg,temp,beta,delrc
       real(8) a,b,c,q1,q2,q3,q4,estepi,estepj,gpress,rande,estep
-      real(8) comx,comy,comz,engsictmp,chgtmp,rotangle
+      real(8) comx,comy,comz,engsictmp,chgtmp,rotangle,ipress
+      real(8) jpress,test
 
       swap_count(iguest) = swap_count(iguest)+1
       origtotatm = totatm 
@@ -2472,14 +2473,14 @@ c     store original ewald1 sums in case the move is rejected
       do j=1,iguest-1
         switch_chosen_guest(j) = j
       enddo 
-      do j=iguest,ntpguest
+      do j=iguest,ntpguest-1
         switch_chosen_guest(j)=j+1
       enddo
-      ichoice=floor(duni(idnode)*nmols)+1
+      ichoice=floor(duni(idnode)*nmols+1)
       call get_guest(iguest,ichoice,imol,natms,nmols)
       call com(natms,imol,newx,newy,newz,comx,comy,comz)
 c     chose a second guest to swap with
-      jguest = floor(duni(idnode) * (ntpguest-1)) + 1
+      jguest = floor(duni(idnode) * (ntpguest-1) + 1)
       jguest = switch_chosen_guest(jguest)
       jmol=locguest(jguest)
 c     store original framework configuration if the move is rejected
@@ -2549,9 +2550,26 @@ c     acceptance criteria
       if(.not.loverlap)then
         rande=duni(idnode)
         estep = estepj - estepi
-        call energy_eval
-     &(estep,rande,statvolm,iguest,jguest,temp,beta,
-     &.false.,.false.,.false.,.true.,accepted)
+
+
+
+c       TODO() try insertion + deletion acceptance.?
+
+
+
+c        write(*,"('estep:',f10.3, ' estepj:',f10.3, ' estepi:',f10.3)")
+c     &estep,estepj,estepi
+c        call energy_eval
+c     &(estep,rande,statvolm,iguest,jguest,temp,beta,
+c     &.false.,.false.,.false.,.true.,accepted)
+        jpress=gstfuga(jguest)
+        ipress=gstfuga(iguest)
+        jmol = locguest(jguest)
+        jnmols = real(nummols(jmol))
+        inmols = real(nummols(imol))
+        test=jpress*(inmols+1.d0)
+     &/((jnmols)*ipress)*exp(-1.d0*beta*estep)
+        if(rande.lt.test)accepted=.true.
       endif
 c     DEBUG
 c      accepted=.false.
@@ -3054,8 +3072,8 @@ c     total up the energy contributions.
       subroutine test
      &(imcon,idnode,keyfce,alpha,rcut,ddelr,drewd,totatm,dlrpot,newld,
      &ntpguest,volm,kmax1,kmax2,kmax3,epsq,ntpatm,maxvdw,surftol,
-     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap,lblock
-     &,numblocks)
+     &engunit,ntpfram,maxmls,outdir,cfgname,levcfg,overlap,lblock,
+     &numblocks)
 c***********************************************************************
 c
 c     testing for various bugs etc in fastmc. 
@@ -3092,75 +3110,116 @@ c***********************************************************************
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
       enddo
-      iguest=1
-      apos=0.5d0; bpos=0.5d0; cpos=0.7d0
-      angx=0.d0; angy=90.d0; angz=0.d0
-      call insert_guest
-     &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
-     &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
-     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
-      print *,"Insertion: ",iguest,estep
-      do i=1,maxmls
-        print *, "ENERGY ",i,energy(i)
-      enddo
-      iguest=2
-      apos=0.5d0; bpos=0.5d0; cpos=0.3d0
-      angx=0.d0; angy=90.d0; angz=0.d0
-      call insert_guest
-     &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
-     &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
-     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
-     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
-      print *,"Insertion: ",iguest,estep
-      do i=1,maxmls
-        print *, "ENERGY ",i,energy(i)
-      enddo
+c      iguest=1
+c      apos=0.5d0; bpos=0.5d0; cpos=0.7d0
+c      angx=0.d0; angy=90.d0; angz=0.d0
+c      call insert_guest
+c     &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
+c     &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
+c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
+c     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
+c      print *,"Insertion: ",iguest,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
+c      iguest=2
+c      apos=0.5d0; bpos=0.5d0; cpos=0.3d0
+c      angx=0.d0; angy=90.d0; angz=0.d0
+c      call insert_guest
+c     &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
+c     &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
+c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
+c     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
+c      print *,"Insertion: ",iguest,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
 
-      iguest=1; imol=1
-      call random_disp
-     &(idnode,ddelr,a,b,c)
-      rotangle=1.d0
-      call random_rot
-     &(idnode,rotangle,q1,q2,q3,q4)
-
+c      iguest=1; imol=1
+c      call random_disp
+c     &(idnode,ddelr,a,b,c)
+c      rotangle=1.d0
+c      call random_rot
+c     &(idnode,rotangle,q1,q2,q3,q4)
+c
 c      print *, "a=",a,";b=",b,";c=",c
 c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
-      a=0.33263498544692993;b=0.40358364582061768
-      c=-8.1818878650665283E-002
-      q1=0.88821917901419711;q2=-0.22256139119037360
-      q3=-0.36817090934697771;q4=0.16119335809322474    
-      call displace_guest
-     &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,
-     &maxmls,volm,kmax1,kmax2,kmax3,
-     &epsq,engunit,overlap,surftol,linitsurf,lnewsurf,loverlap,
-     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep,lblock,
-     &numblocks)
-      print *, loverlap
-      call accept_move
-     &(iguest,.false.,.false.,.true.,
-     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-      print *, "Displacement: ",iguest,imol,estep
+c      a=0.33263498544692993;b=0.40358364582061768
+c      c=-8.1818878650665283E-002
+c      q1=0.88821917901419711;q2=-0.22256139119037360
+c      q3=-0.36817090934697771;q4=0.16119335809322474    
+c      call displace_guest
+c     &(imcon,alpha,rcut,ddelr,drewd,totatm,newld,
+c     &maxmls,volm,kmax1,kmax2,kmax3,
+c     &epsq,engunit,overlap,surftol,linitsurf,lnewsurf,loverlap,
+c     &iguest,imol,dlrpot,sumchg,a,b,c,q1,q2,q3,q4,estep,lblock,
+c     &numblocks)
+c      print *, loverlap
+c      call accept_move
+c     &(iguest,.false.,.false.,.true.,
+c     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c      print *, "Displacement: ",iguest,imol,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
+
+c      iguest=1; imol=1
+c      call deletion 
+c     &(imcon,keyfce,iguest,imol,alpha,rcut,ddelr,drewd,maxmls,
+c     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+c     &overlap,newld)
+c      call accept_move
+c     &(iguest,.false.,.true.,.false.,
+c     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c      print *, "Deletion: ",iguest,imol,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
+c
+c      iguest=2
+c      apos=0.5d0; bpos=0.5d0; cpos=0.5d0
+c      angx=0.d0; angy=90.d0; angz=0.d0
+c      call insert_guest
+c     &(imcon,iguest,apos,bpos,cpos,angx,angy,angz,
+c     &keyfce,alpha,rcut,ddelr,drewd,totatm,volm,
+c     &kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,engunit,maxmls,
+c     &delrc,estep,sumchg,surftol,overlap,newld,lblock,numblocks)
+c      print *,"Insertion: ",iguest,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
+c      iguest=2; imol=1
+c      call deletion 
+c     &(imcon,keyfce,iguest,imol,alpha,rcut,ddelr,drewd,maxmls,
+c     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
+c     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
+c     &overlap,newld)
+c      call accept_move
+c     &(iguest,.false.,.true.,.false.,
+c     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
+c     &sumchg,engsictmp,chgtmp,newld)
+c      print *, "Deletion: ",iguest,imol,estep
+c      do i=1,maxmls
+c        print *, "ENERGY ",i,energy(i)
+c      enddo
+      
+      iguest=1
+      jguest=2
+      call mc_swap
+     &(idnode,imcon,keyfce,iguest,jguest,totatm,volm,volm*1d-30,
+     &maxmls,kmax1,kmax2,kmax3,newld,alpha,
+     &rcut,delr(iguest),drewd,epsq,engunit,overlap,surftol,dlrpot,
+     &sumchg,
+     &accepted,temp,beta,delrc,ntpatm,maxvdw,ntpfram,
+     &ntpguest,rotangle,lblock,numblocks)
+      
+      print *, "Swap: ",iguest, jguest
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
       enddo
-
-      iguest=1; imol=1
-      call deletion 
-     &(imcon,keyfce,iguest,imol,alpha,rcut,ddelr,drewd,maxmls,
-     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
-     &overlap,newld)
-      call accept_move
-     &(iguest,.false.,.true.,.false.,
-     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-      print *, "Deletion: ",iguest,imol,estep
-      do i=1,maxmls
-        print *, "ENERGY ",i,energy(i)
-      enddo
-
       iguest=2; imol=1
       call deletion 
      &(imcon,keyfce,iguest,imol,alpha,rcut,ddelr,drewd,maxmls,
@@ -3175,25 +3234,11 @@ c      print *,"q1=",q1,";q2=",q2,";q3=",q3,";q4=",q4
       do i=1,maxmls
         print *, "ENERGY ",i,energy(i)
       enddo
-      iguest=1; imol=1
-      call deletion 
-     &(imcon,keyfce,iguest,imol,alpha,rcut,ddelr,drewd,maxmls,
-     &totatm,volm,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,maxvdw,
-     &engunit,delrc,estep,linitsurf,surftol,sumchg,engsictmp,chgtmp,
-     &overlap,newld)
-      call accept_move
-     &(iguest,.false.,.true.,.false.,
-     &lnewsurf,delrc,totatm,imol,ntpfram,ntpguest,maxmls,
-     &sumchg,engsictmp,chgtmp,newld)
-      print *, "Deletion: ",iguest,imol,estep
-      do i=1,maxmls
-        print *, "ENERGY ",i,energy(i)
-      enddo
-
-      eng = 0.d0 
-      call revive
-     &(totatm,levcfg,production,ntpguest,ntpmls,
-     &imcon,cfgname,eng,outdir)
+c
+c      eng = 0.d0 
+c      call revive
+c     &(totatm,levcfg,production,ntpguest,ntpmls,
+c     &imcon,cfgname,eng,outdir)
 
       end subroutine test
       end
