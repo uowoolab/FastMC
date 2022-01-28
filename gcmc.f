@@ -1223,7 +1223,11 @@ c           avg <NF>
               chainstats(istat+6) = chainstats(istat+6) + surfmol 
             enddo
           endif
-          if((mod(prodcount,nwindsteps).eq.0).or.(.not.lgchk))then
+c         code was confusing cycles with mc steps here,
+c         windows are based on cycles if mcsteps are -ve.
+c         but here we are assuming mcsteps.
+          if((mod(prodcount,nwindsteps).eq.0)
+     &.or.(.not.lgchk))then
 c         store averages for standard deviations
 c         reset windows to zero
             avcount = avcount + 1

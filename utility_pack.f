@@ -221,6 +221,7 @@ c**********************************************************************
       integer n,nummls,numsit,kmax1,kmax2,kmax3,nwind,mcsteps
       integer mxatyp,nrept,ifrz,nneu,ksite,isite,nwindsteps
       integer j,ntpguest,ntprob,ntpsite,temp,gsite,iprob,qprob
+      integer cfactor
       real(8) alpha,initdelr,rvdw,ppp,width
       real(8) fac,tol,tol1,rcut,eps,volm
       real(8), dimension(10) :: celprp
@@ -450,18 +451,28 @@ c Need to find the grid parameters in first scan, before allocating
       if(imcon.eq.5)width=cell(1)/2.d0
       if(imcon.eq.6)width=min(celprp(7),celprp(8))/2.d0
 
+      cfactor=1
       if(.not.lwind)then
-          if(mcsteps.gt.1000)then
-            nwind=5
-          else
-            nwind=1
+          if(mcsteps.gt.0)then
+            if(mcsteps.gt.1000)then
+              nwind=5
+            else
+              nwind=1
+            endif
+          elseif(mcsteps.lt.0)then
+            cfactor=20
+            if((abs(mcsteps)*20).gt.1000)then
+              nwind=5
+            else
+              nwind=1
+            endif
           endif
           if(idnode.eq.0)write(nrite, '(/a)')
      &'*** warning the averaging window was not specified in the
      & CONTROL file ***' 
       endif
-      nwindsteps = ceiling(dble(mcsteps)/dble(nwind))
-      nwind = floor(dble(mcsteps)/dble(nwindsteps)) 
+      nwindsteps = ceiling(dble(cfactor*abs(mcsteps))/dble(nwind))
+      nwind = floor(dble(cfactor*abs(mcsteps))/dble(nwindsteps)) 
       
       if(idnode.eq.0)write(nrite, '(/a31,i6,a20,a30,i10,a7)')
      &'Averages will be computed from ',nwind,' averaging windows. ',
@@ -1082,7 +1093,7 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(energy(maxmls+1),stat=fail(85))
       allocate(origenergy(maxmls+1),stat=fail(86))
       allocate(delE(mxcmls),stat=fail(87))
-      allocate(avgwindow(1+ntpguest*9,nwind*2),stat=fail(88))
+      allocate(avgwindow(1+ntpguest*9,nwind*20),stat=fail(88))
       allocate(sumwindowav(ntpguest*9),stat=fail(89))
       allocate(varwindow(ntpguest*9),stat=fail(90))
       allocate(nodeweight(mxnode),stat=fail(91))
