@@ -91,6 +91,7 @@ c*************************************************************
       integer swap_guest_max,idnode,visittol,nwidstep,numblocks
       integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
       integer totalguests,globalnguests,globalsteps,totgrid
+      integer cycle_count,cycle_step,maxcycle,cycle_mult,testcount
       integer, allocatable :: fwksumbuff(:)
       integer, allocatable :: buffer(:) 
       real(8), allocatable :: gridbuff(:)
@@ -141,9 +142,10 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data totaccept/0/
       data accept_flex,flex_count/0,0/
       data gcmccount,prevnodes/0,0/
-
+      data cycle_count,cycle_step/0,0/
       integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
       nwidstep=20
+      cycle_mult=20 ! is it 20 or something else?
 c     TODO(pboyd): include error checking for the number of guests
 c     coinciding between the CONTROL file and the FIELD file.
       tw=0.d0
@@ -705,7 +707,19 @@ c           'runningstats.out', but node specific so will do for now.
         enddo
       endif
 
+c     count number of guests
+      nmols=0
+      do i=1,ntpguest
+        mol=locguest(i)
+        nmols=nmols+nummols(mol)
+      enddo
+c     determine the number of mc steps for the first cycle
+      if((eqsteps.lt.0).or.(mcsteps.lt.0))maxcycle=
+     &max(nmols*cycle_mult,1000)
+      
       do while(lgchk)
+        cycle_count=0
+        cycle_step=cycle_step+1
         gcmccount=gcmccount+1
 c     every so often, update the total number of prodcounts
 c     across all nodes
@@ -722,6 +736,9 @@ c         check jobcontrol
           if (production)then
             call gisum2(prodcount,1,globalprod)
             if(mcsteps.lt.0)then
+c             PB - I have NO idea why cycles were written this way
+c                  This is what happens when someone else
+c                  contributes to code.
 c             Check for cycles here
               tick_tock_cycles = cshift(tick_tock_cycles, -1)
               tick_tock_cycles(1) = .true.
@@ -731,6 +748,11 @@ c             sum up for all guests
                 mol=locguest(i)
                 totalguests = totalguests + nummols(mol)
               enddo
+              if(cycle_step.ge.maxcycle)then
+                cycle_step=0
+                maxcycle=totalguests*cycle_mult
+                cycle_count = cycle_count+1
+              endif
               call gisum2(totalguests,1,globalnguests)
 c             If the total number of production steps over all nodes
 c             is less than the total number of guests (plus one)
@@ -768,6 +790,11 @@ c             sum up for all guests
                 mol=locguest(i)
                 totalguests = totalguests + nummols(mol)
               enddo
+              if(cycle_step.ge.maxcycle)then
+                cycle_step=0
+                maxcycle=totalguests*cycle_mult
+                cycle_count = cycle_count+1
+              endif
               call gisum2(totalguests,1,globalnguests)
 c             If the total number of production steps over all nodes
 c             is less than the total number of guests (plus one)
@@ -777,6 +804,10 @@ c             multiplied by desired cycles flag this check as not done
               endif
 c             safe to end if every check passes
               if(all(tick_tock_cycles))then
+c               reset cycle steps and cycle_count
+                cycle_count = 0
+                cycle_step = 0
+                maxcycle = totalguests*cycle_mult
                 if(idnode.eq.0)write(nrite, "('Completed at least ',
      &i10,' equilibration cycles for each guest',/,
      &'Starting production at',i10,' over all nodes')")
@@ -1226,7 +1257,9 @@ c           avg <NF>
 c         code was confusing cycles with mc steps here,
 c         windows are based on cycles if mcsteps are -ve.
 c         but here we are assuming mcsteps.
-          if((mod(prodcount,nwindsteps).eq.0)
+          testcount=prodcount
+          if(mcsteps.lt.0)testcount=cycle_count
+          if((mod(testcount,nwindsteps).eq.0)
      &.or.(.not.lgchk))then
 c         store averages for standard deviations
 c         reset windows to zero

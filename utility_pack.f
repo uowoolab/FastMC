@@ -451,28 +451,20 @@ c Need to find the grid parameters in first scan, before allocating
       if(imcon.eq.5)width=cell(1)/2.d0
       if(imcon.eq.6)width=min(celprp(7),celprp(8))/2.d0
 
-      cfactor=1
       if(.not.lwind)then
-          if(mcsteps.gt.0)then
-            if(mcsteps.gt.1000)then
-              nwind=5
-            else
-              nwind=1
-            endif
-          elseif(mcsteps.lt.0)then
-            cfactor=20
-            if((abs(mcsteps)*20).gt.1000)then
-              nwind=5
-            else
-              nwind=1
-            endif
-          endif
-          if(idnode.eq.0)write(nrite, '(/a)')
+        cfactor=mcsteps
+        if(mcsteps.lt.0)cfactor=abs(mcsteps)*20
+        if(cfactor.gt.1000)then
+          nwind=5
+        else
+          nwind=1
+        endif
+        if(idnode.eq.0)write(nrite, '(/a)')
      &'*** warning the averaging window was not specified in the
      & CONTROL file ***' 
       endif
-      nwindsteps = ceiling(dble(cfactor*abs(mcsteps))/dble(nwind))
-      nwind = floor(dble(cfactor*abs(mcsteps))/dble(nwindsteps)) 
+      nwindsteps = ceiling(dble(cfactor)/dble(nwind))
+      nwind = floor(dble(cfactor)/dble(nwindsteps)) 
       
       if(idnode.eq.0)write(nrite, '(/a31,i6,a20,a30,i10,a7)')
      &'Averages will be computed from ',nwind,' averaging windows. ',
