@@ -142,7 +142,7 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data totaccept/0/
       data accept_flex,flex_count/0,0/
       data gcmccount,prevnodes/0,0/
-      data cycle_count,cycle_step/0,0/
+      data cycle_count,cycle_step/1,0/
       integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
       nwidstep=20
       cycle_mult=20 ! is it 20 or something else?
@@ -716,7 +716,7 @@ c     count number of guests
 c     determine the number of mc steps for the first cycle
       if((eqsteps.lt.0).or.(mcsteps.lt.0))maxcycle=
      &max(nmols*cycle_mult,1000)
-      cycle_count=0
+      cycle_count=1
       do while(lgchk)
         cycle_step=cycle_step+1
         gcmccount=gcmccount+1
@@ -749,7 +749,7 @@ c             sum up for all guests
               enddo
               if(cycle_step.ge.maxcycle)then
                 cycle_step=0
-                maxcycle=(totalguests+1)*cycle_mult
+                maxcycle=max(totalguests, cycle_mult)
                 cycle_count = cycle_count+1
               endif
               call gisum2(totalguests,1,globalnguests)
@@ -762,7 +762,6 @@ c             multiplied by desired cycles flag this check as not done
 c             safe to end if every check passes
 c              if(all(tick_tock_cycles))then
               if(cycle_count.ge.-mcsteps)then
-                print *, prodcount
                 if(idnode.eq.0)write(nrite, "('Completed at least ',
      &i10,' production cycles for each guest')")
      &-mcsteps
@@ -793,7 +792,7 @@ c             sum up for all guests
               enddo
               if(cycle_step.ge.maxcycle)then
                 cycle_step=0
-                maxcycle=(totalguests+1)*cycle_mult
+                maxcycle=max(totalguests, cycle_mult)
                 cycle_count = cycle_count+1
               endif
               call gisum2(totalguests,1,globalnguests)
@@ -807,9 +806,9 @@ c             safe to end if every check passes
 c              if(all(tick_tock_cycles))then
               if(cycle_step.ge.-eqsteps)then
 c               reset cycle steps and cycle_count
-                cycle_count = 0
+                cycle_count = 1
                 cycle_step = 0
-                maxcycle = (totalguests+1)*cycle_mult
+                maxcycle = max(totalguests, cycle_mult)
                 if(idnode.eq.0)write(nrite, "('Completed at least ',
      &i10,' equilibration cycles for each guest',/,
      &'Starting production at',i10,' over all nodes')")
@@ -1261,9 +1260,9 @@ c         windows are based on cycles if mcsteps are -ve.
 c         but here we are assuming mcsteps.
           testcount=prodcount
           if(mcsteps.lt.0)testcount=cycle_count
-c          print *, production, testcount, nwindsteps,
-c     &mod(testcount,nwindsteps),lgchk
-          if((mod(testcount,nwindsteps).eq.0)
+c         cycle_step should always be 0 if mc_steps are requested
+          if(((mod(testcount,nwindsteps).eq.0).and.
+     & ((cycle_step.eq.0).or.(mcsteps.gt.0)))
      &.or.(.not.lgchk))then
 c         store averages for standard deviations
 c         reset windows to zero

@@ -350,7 +350,7 @@ c         check if a surface atom
           if(latmsurf)lsurf=.true.
           if(loverlap)return
         enddo
-        if(lblock)call poreblock_check
+        if((.not.lexisting).and.lblock)call poreblock_check
      &(i,imcon,numblocks,loverlap)
         if(loverlap)return
         chg=atmcharge(itatm)
