@@ -716,9 +716,8 @@ c     count number of guests
 c     determine the number of mc steps for the first cycle
       if((eqsteps.lt.0).or.(mcsteps.lt.0))maxcycle=
      &max(nmols*cycle_mult,1000)
-      
+      cycle_count=0
       do while(lgchk)
-        cycle_count=0
         cycle_step=cycle_step+1
         gcmccount=gcmccount+1
 c     every so often, update the total number of prodcounts
@@ -750,7 +749,7 @@ c             sum up for all guests
               enddo
               if(cycle_step.ge.maxcycle)then
                 cycle_step=0
-                maxcycle=totalguests*cycle_mult
+                maxcycle=(totalguests+1)*cycle_mult
                 cycle_count = cycle_count+1
               endif
               call gisum2(totalguests,1,globalnguests)
@@ -761,7 +760,9 @@ c             multiplied by desired cycles flag this check as not done
                 tick_tock_cycles(1) = .false.
               endif
 c             safe to end if every check passes
-              if(all(tick_tock_cycles))then
+c              if(all(tick_tock_cycles))then
+              if(cycle_count.ge.-mcsteps)then
+                print *, prodcount
                 if(idnode.eq.0)write(nrite, "('Completed at least ',
      &i10,' production cycles for each guest')")
      &-mcsteps
@@ -792,7 +793,7 @@ c             sum up for all guests
               enddo
               if(cycle_step.ge.maxcycle)then
                 cycle_step=0
-                maxcycle=totalguests*cycle_mult
+                maxcycle=(totalguests+1)*cycle_mult
                 cycle_count = cycle_count+1
               endif
               call gisum2(totalguests,1,globalnguests)
@@ -803,11 +804,12 @@ c             multiplied by desired cycles flag this check as not done
                 tick_tock_cycles(1) = .false.
               endif
 c             safe to end if every check passes
-              if(all(tick_tock_cycles))then
+c              if(all(tick_tock_cycles))then
+              if(cycle_step.ge.-eqsteps)then
 c               reset cycle steps and cycle_count
                 cycle_count = 0
                 cycle_step = 0
-                maxcycle = totalguests*cycle_mult
+                maxcycle = (totalguests+1)*cycle_mult
                 if(idnode.eq.0)write(nrite, "('Completed at least ',
      &i10,' equilibration cycles for each guest',/,
      &'Starting production at',i10,' over all nodes')")
@@ -1259,6 +1261,8 @@ c         windows are based on cycles if mcsteps are -ve.
 c         but here we are assuming mcsteps.
           testcount=prodcount
           if(mcsteps.lt.0)testcount=cycle_count
+c          print *, production, testcount, nwindsteps,
+c     &mod(testcount,nwindsteps),lgchk
           if((mod(testcount,nwindsteps).eq.0)
      &.or.(.not.lgchk))then
 c         store averages for standard deviations

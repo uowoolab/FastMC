@@ -452,8 +452,8 @@ c Need to find the grid parameters in first scan, before allocating
       if(imcon.eq.6)width=min(celprp(7),celprp(8))/2.d0
 
       if(.not.lwind)then
-        cfactor=mcsteps
-        if(mcsteps.lt.0)cfactor=abs(mcsteps)*20
+        cfactor=abs(mcsteps)
+        !if(mcsteps.lt.0)cfactor=abs(mcsteps)*20
         if(cfactor.gt.1000)then
           nwind=5
         else
@@ -468,7 +468,8 @@ c Need to find the grid parameters in first scan, before allocating
       
       if(idnode.eq.0)write(nrite, '(/a31,i6,a20,a30,i10,a7)')
      &'Averages will be computed from ',nwind,' averaging windows. ',
-     &'Each window will average over ', nwindsteps, ' steps.'
+     &'Each window will average over ', nwindsteps, 
+     &' steps (or cycles).'
 c     halt program if cutoff exceeds cell width
 
       if(rcut.gt.width)call error(idnode,95)
