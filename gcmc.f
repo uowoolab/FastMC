@@ -804,7 +804,7 @@ c             multiplied by desired cycles flag this check as not done
               endif
 c             safe to end if every check passes
 c              if(all(tick_tock_cycles))then
-              if(cycle_step.ge.-eqsteps)then
+              if(cycle_count.ge.-eqsteps)then
 c               reset cycle steps and cycle_count
                 cycle_count = 1
                 cycle_step = 0
