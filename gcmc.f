@@ -1215,7 +1215,6 @@ c***********************************************************************
      &ntpguest,rotangle,lblock,numblocks)
           swap = .false.
         endif
-        if(production)prodcount=prodcount+1
 c=========================================================================
 c       once GCMC move is done, check if production is requested
 c       if so, store averages, probability plots etc..
