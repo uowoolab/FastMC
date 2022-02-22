@@ -127,10 +127,10 @@ if __name__ == '__main__':
         P = result.pop()
 
 	# Give a little extra tolerance (small # steps)
-        min_uptake_CO2 = result[1] * 0.9
-        max_uptake_CO2 = result[2] * 1.1
-        min_uptake_N2 = result[3] * 0.9
-        max_uptake_N2 = result[4] * 1.1
+        min_uptake_CO2 = result[1] * 0.8
+        max_uptake_CO2 = result[2] * 1.2
+        min_uptake_N2 = result[3] * 0.8
+        max_uptake_N2 = result[4] * 1.2
         ref_uptake_CO2 = reference_dict[P][0]
         ref_uptake_N2 = reference_dict[P][1]
         energy = result[0]
