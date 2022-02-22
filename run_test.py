@@ -99,12 +99,12 @@ if __name__ == '__main__':
             overall_dict[results.pop()] = results
         overall_dict = dict(sorted(overall_dict.items()))
 
-        # Give a little extra 
+        # Give a little extra tolerance (small # steps) 
         for key in overall_dict.keys():
-            min_uptake_CO2 = overall_dict[key][1] * 0.9
-            max_uptake_CO2 = overall_dict[key][2] * 1.1
-            min_uptake_N2 = overall_dict[key][3] * 0.9
-            max_uptake_N2 = overall_dict[key][4] * 1.1
+            min_uptake_CO2 = overall_dict[key][1] * 0.8
+            max_uptake_CO2 = overall_dict[key][2] * 1.2
+            min_uptake_N2 = overall_dict[key][3] * 0.8
+            max_uptake_N2 = overall_dict[key][4] * 1.2
             ref_uptake_CO2 = reference_dict[key][0]
             ref_uptake_N2 = reference_dict[key][1]
             energy = overall_dict[key][0]
@@ -126,6 +126,7 @@ if __name__ == '__main__':
         result = main(dirs[4])
         P = result.pop()
 
+	# Give a little extra tolerance (small # steps)
         min_uptake_CO2 = result[1] * 0.9
         max_uptake_CO2 = result[2] * 1.1
         min_uptake_N2 = result[3] * 0.9
