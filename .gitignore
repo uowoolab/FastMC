@@ -1,0 +1,6 @@
+test/*
+*.o
+*.mod
+*.x
+mpfun2015/*.o
+mpfun2015/*.mod
