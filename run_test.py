@@ -59,7 +59,12 @@ def main(dir):
     std_dev = []
     full_dir_path = '{}/{}'.format(test_path, dir)
     os.chdir(full_dir_path)
-    run_bash(exe)
+    if os.path.exists(exe) or os.path.exists(run_bash('which {}'.format(exe)).strip()):
+    	run_bash(exe)
+    else:
+        print("The executable {} doesn't exist. Please either add the executable".format(exe) +
+              " to your path, or pass the absolute path to the executable.")
+        exit()
 
     with open('{}/OUTPUT'.format(full_dir_path), 'r') as f:
         for line in f:
