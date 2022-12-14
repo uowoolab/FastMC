@@ -43,7 +43,6 @@ c*************************************************************
       use utility_pack
       use readinputs
       use vdw_module
-      use flex_module
       use ewald_module
       use mc_moves
       use wang_landau
@@ -63,20 +62,18 @@ c*************************************************************
       logical lgchk,lspe,ljob,lprob,widchk
       logical lfuga, loverlap, lwidom, lwanglandau, lblock
       logical insert,delete,displace,lrestart,laccsample
-      logical jump, flex, swap, switch
+      logical jump, swap, switch
       logical tran, rota
       logical accepted,production,jobsafe,lnumg
       logical tick_tock_cycles(5)
       logical lnewsurf, linitsurf, lnewsurfj,linitsurfj
       integer nfo(8)
       integer totaccept,nnumg,nhis
-      integer accept_flex,scell_factor
-      integer accept_flx_arr(1)
-      integer flx_cnt_arr(1)
+      integer scell_factor
       integer gcmc_cnt_arr(1)
       integer minchk,iter
       integer levcfg,nstat
-      integer np,widcount,flex_count
+      integer np,widcount
       integer totatm,jatm,imol,iatm,ntprob,ntpsite
       integer newld,gcmccount,prodcount,globalprod
       integer ibuff,iprob,cprob,prevnodes,nwind,rollstat,ci
@@ -132,7 +129,7 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data lgchk/.true./,insert/.false./,delete/.false./,
      &lwidom/.false./,lwanglandau/.false./,lblock/.false./
      &displace/.false./,accepted/.false./,production/.false./
-      data jump/.false./,flex/.false./,swap/.false./,switch/.false./
+      data jump/.false./,swap/.false./,switch/.false./
       data tran/.false./,rota/.false./,laccsample/.false./
       data lspe/.false./,ljob/.false./,jobsafe/.true./,lrestart/.false./
      &,lnumg/.false./
@@ -140,7 +137,6 @@ c Cumulative move probabilities, remeber to zero and include in normalising
       data linitsurf/.false./,lnewsurf/.false./
       data linitsurfj/.false./,lnewsurfj/.false./
       data totaccept/0/
-      data accept_flex,flex_count/0,0/
       data gcmccount,prevnodes/0,0/
       data cycle_count,cycle_step/1,0/
       integer, parameter, dimension(3) :: revision = (/1, 4, 7 /)
@@ -344,15 +340,9 @@ c     rsqdf array
         endif
       endif
 
-c     FLEX
-      if(n_fwk.gt.0)then
-        allocate(fwksumbuff(n_fwk))
-        call flex_init(idnode, mxatm, imcon, ntpmls, maxmls,
-     &totatm, rcut, celprp, ntpguest, volm, mxnode)
-      endif
 c Normalise the move frequencies
       do i=1,ntpguest
-        mcmvnorm(i) = mcinsf(i)+mcdelf(i)+mcdisf(i)+mcjmpf(i)+mcflxf(i)
+        mcmvnorm(i) = mcinsf(i)+mcdelf(i)+mcdisf(i)+mcjmpf(i)
      &+mcswpf(i)+mctraf(i)+mcrotf(i)+mcswif(i)
         if(mcmvnorm(i).eq.0.d0)then
           if(idnode.eq.0)
@@ -363,7 +353,6 @@ c Normalise the move frequencies
           mcdelf(i) = 1.d0/3.d0
           mcdisf(i) = 1.d0/3.d0
           mcjmpf(i) = 0.d0
-          mcflxf(i) = 0.d0
           mcswpf(i) = 0.d0
           mctraf(i) = 0.d0
           mcrotf(i) = 0.d0
@@ -374,8 +363,7 @@ c Now   we normalise
         mcdelf(i) = mcinsf(i) + (mcdelf(i)/mcmvnorm(i))
         mcdisf(i) = mcdelf(i) + (mcdisf(i)/mcmvnorm(i))
         mcjmpf(i) = mcdisf(i) + (mcjmpf(i)/mcmvnorm(i))
-        mcflxf(i) = mcjmpf(i) + (mcflxf(i)/mcmvnorm(i))
-        mcswpf(i) = mcflxf(i) + (mcswpf(i)/mcmvnorm(i))
+        mcswpf(i) = mcjmpf(i) + (mcswpf(i)/mcmvnorm(i))
         mctraf(i) = mcswpf(i) + (mctraf(i)/mcmvnorm(i))
         mcrotf(i) = mctraf(i) + (mcrotf(i)/mcmvnorm(i))
         mcswif(i) = mcrotf(i) + (mcswif(i)/mcmvnorm(i))
@@ -387,8 +375,8 @@ c Now   we normalise
      &  'guest:', i,
      &  'insertion:',mcinsf(i), 'deletion:',mcdelf(i)-mcinsf(i),
      &  'displacement:',mcdisf(i)-mcdelf(i),'jumping:',mcjmpf(i)
-     &   -mcdisf(i),'flexing:',mcflxf(i)-mcjmpf(i),
-     &  'swapping:',mcswpf(i)-mcflxf(i),
+     &   -mcdisf(i),
+     &  'swapping:',mcswpf(i)-mcjmpf(i),
      &  'translation:',mctraf(i)-mcswpf(i),
      &  'rotation:',mcrotf(i)-mctraf(i),
      &  'switching:',mcswif(i)-mcrotf(i)
@@ -659,7 +647,6 @@ c         assume a 0.0004 s cost per energy calculation (overestimate).
      &maxn,minn,ebins)
       endif
 
-
 c******************************************************************
 c
 c       gcmc begins
@@ -735,9 +722,6 @@ c         check jobcontrol
           if (production)then
             call gisum2(prodcount,1,globalprod)
             if(mcsteps.lt.0)then
-c             PB - I have NO idea why cycles were written this way
-c                  This is what happens when someone else
-c                  contributes to code.
 c             Check for cycles here
               tick_tock_cycles = cshift(tick_tock_cycles, -1)
               tick_tock_cycles(1) = .true.
@@ -847,8 +831,6 @@ c Randomly decide which MC move to do
           displace = .true.
         elseif(randmov.lt.mcjmpf(iguest))then
           jump = .true.
-        elseif(randmov.lt.mcflxf(iguest))then
-          flex = .true.
         elseif(randmov.lt.mcswpf(iguest))then
           swap = .true.
         elseif(randmov.lt.mctraf(iguest))then
@@ -925,7 +907,6 @@ c       the following is added in case of initial conditions
           delete=.false.
           displace=.false.
           jump = .false.
-          flex = .false.
           swap = .false.
           tran = .false.
           rota = .false.
@@ -936,7 +917,6 @@ c          insert=.true.
 c          delete=.false.
 c          displace=.false.
 c          jump = .false.
-c          flex = .false.
 c          swap = .false.
 c          tran = .false.
 c          rota = .false.
@@ -948,7 +928,6 @@ c            insert=.false.
 c            delete=.true.
 c            displace=.false.
 c            jump = .false.
-c            flex = .false.
 c            swap = .false.
 c            tran = .false.
 c            rota = .false.
@@ -963,6 +942,7 @@ c        chgsum_molorig=chgsum_mol
 c        ckcsorig=ckcsum
 c        ckssorig=ckssum
 c        delE=0.d0
+        write(*,*)"HERE",insert,delete,displace,jump,switch,swap
 c***********************************************************************
 c    
 c       Insertion
@@ -1029,154 +1009,6 @@ c***********************************************************************
      &ntpguest,lblock,numblocks)
           jump=.false.
 
-
-c***********************************************************************
-c    
-c         Framework flex 
-c         PB - deprecated!
-c
-c***********************************************************************
-
-        elseif(flex)then
-
-          flex_count = flex_count + 1
-          accepted = .false.
-          delE_fwk = 0
-          evdwg = 0
-          ecoulg = 0
-
-c FIXME(td): only works for a single guest
-c Assume that energy of single guest is correct
-          delE_fwk = energy(mol)+fwk_ener(curr_fwk)
-
-c Select a new framework
-c if sequential is requested move up to the maximum jump in a random
-c direction
-          new_fwk = curr_fwk
-          if (l_fwk_seq)then
-            do while ((new_fwk.eq.curr_fwk).or.(new_fwk.gt.n_fwk).or.
-     &(new_fwk.lt.1))
-              fwk_step_magnitude = 1+floor(duni(idnode)*
-     &dble(fwk_step_max))
-              if (duni(idnode).lt.0.5)then
-                new_fwk = curr_fwk + fwk_step_magnitude
-              else
-                new_fwk = curr_fwk - fwk_step_magnitude
-              endif
-            enddo
-c otherwise just pick any framework randomly
-          else
-            do while (new_fwk.eq.curr_fwk)
-              new_fwk = 1+floor(duni(idnode)*dble(n_fwk))
-            enddo
-          endif
-c store the state of the system
-          state_cell = cell
-          state_x = molxxx
-          state_y = molyyy
-          state_z = molzzz
-          state_chg = atmchg
-          state_vol = volm
-
-c now start to switch out new configuration
-          cell = fwk_cell(new_fwk,:)
-c put in new positions for framework only
-          do k = 1,maxmls
-            isguest = .false.
-            do gstidx=1, ntpguest
-              if (k.eq.locguest(gstidx)) isguest=.true.
-            enddo
-            indatm = 0
-            indfwk = 0
-            do l = 1, nummols(k)
-              do m = 1, numatoms(k)
-                indatm=indatm+1
-                if(.not.isguest) then
-                  indfwk = indfwk+1
-                  molxxx(k,indatm) = fwk_posx(new_fwk,indfwk)
-                  molyyy(k,indatm) = fwk_posy(new_fwk,indfwk)
-                  molzzz(k,indatm) = fwk_posz(new_fwk,indfwk)
-                endif
-              enddo
-            enddo
-          enddo
-c switch charges for framework only
-          do l = 1,ntpmls
-            isguest = .false.
-            do gstidx=1, ntpguest
-              if (l.eq.locguest(gstidx)) isguest=.true.
-            enddo
-            if(.not.isguest) then
-              do m = 1,numatoms(l) 
-                atmchg(l,m) = fwk_chg(new_fwk, m)
-              enddo
-            endif
-          enddo
-c new volume
-          volm = fwk_vol(new_fwk)
-c calculate interations with new configuration
-c without the condensing the energy breaks when wrapping on boundary
-conditions
-          ckcsnew = ckcsum
-          ckssnew = ckssum
-
-          call guest_exclude(ntpguest)
-          call condense(totatm,ntpfram,ntpguest)
-          call lrcorrect(imcon,keyfce,totatm,ntpatm,maxvdw,
-     &rcut,volm,maxmls,ntpguest)
-c Assume the single_point calculates the correct spenergy (evdwg+ecoulg)
-          call single_point
-     &(imcon,keyfce,alpha,drewd,rcut,initdelr,totatm,ntpfram,
-     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,
-     &maxvdw,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
-
-          delE_fwk = spenergy+fwk_ener(new_fwk)-delE_fwk
-
-c energy acceptance criterion same as a displacement
-
-          if(delE_fwk.lt.0.d0)then
-            accepted=.true.
-          else
-            accepted=.false.
-            rande=duni(idnode)
-            call energy_eval
-     &(estep,rande,statvolm,iguest,0,temp,beta,
-     &.true.,.false.,.false.,.false.,accepted)
-          endif
-
-          if(accepted)then
-c accept! Frameworks are fine as they are
-            accept_flex = accept_flex + 1
-            flx(iguest) = new_fwk
-            energy(mol) = spenergy
-            delE(mol) = delE_fwk
-            cfgname(:) = fwk_name(new_fwk,:)
-            curr_fwk = new_fwk
-          else
-c have to put everything back as it was
-            flx(iguest) = -curr_fwk
-            delE = 0.d0
-            cell = state_cell
-            molxxx = state_x
-            molyyy = state_y
-            molzzz = state_z
-            atmchg = state_chg
-            volm = state_vol
-            ckcsum = ckcsnew
-            ckssum = ckssnew
-c rebuild all the atom lists
-c            call guest_exclude(ntpguest)
-            call condense(totatm,ntpfram,ntpguest)
-c            call erfcgen(keyfce,alpha,rcut,drewd)
-            call parlst(imcon,totatm,rcut,initdelr)
-            call lrcorrect(imcon,keyfce,totatm,ntpatm,maxvdw,
-     & rcut,volm,maxmls,ntpguest)
-c             call single_point
-c     &(imcon,keyfce,alpha,drewd,rcut,delr,totatm,ntpfram,
-c     &ntpguest,ntpmls,volm,newld,kmax1,kmax2,kmax3,epsq,dlrpot,ntpatm,
-c     &maxvdw,spenergy,vdwsum,ecoul,dlpeng,maxmls,surftol)
-          endif
-          flex = .false.
 
         elseif(switch)then
 c***********************************************************************
@@ -1322,7 +1154,7 @@ c          enddo
             mol=locguest(i)
             write(400+i,"(i9,i7,2f20.6,7i4)")
      &        gcmccount,nummols(mol),energy(mol),
-     &        delE(mol),ins(i),del(i),dis(i),jmp(i),flx(i),swp(i),swi(i)
+     &        delE(mol),ins(i),del(i),dis(i),jmp(i),swp(i),swi(i)
 
           enddo
         endif
@@ -1331,7 +1163,6 @@ c          enddo
           del(i)=0
           dis(i)=0
           jmp(i)=0
-          flx(i)=0
           swp(i)=0
           swi(i)=0
         enddo
@@ -1577,11 +1408,6 @@ c            recompute, these seem like more accurate values.
       call gisum(disp_count,ntpguest,buffer)
 
       call gisum(accept_jump,ntpguest,buffer)
-      call gisum(jump_count,ntpguest,buffer)
-      accept_flx_arr(1)=accept_flex
-      flx_cnt_arr(1)=flex_count
-      call gisum(accept_flx_arr,1,buffer)
-      call gisum(flx_cnt_arr,1,buffer)
 
       call gisum(accept_swap,ntpguest,buffer)
       call gisum(swap_count,ntpguest,buffer)
@@ -1644,7 +1470,7 @@ c       hack to include widom accepted steps in the printout
      &'Time elapsed for ',gcmccount,' gcmc steps : ',timelp,' seconds'
         write(nrite,"(/,a30,i9)")
      &'Total accepted steps : ',sum(accept_ins)+sum(accept_del)+
-     &sum(accept_disp)+sum(accept_jump)+accept_flex+sum(accept_swap)+
+     &sum(accept_disp)+sum(accept_jump)+sum(accept_swap)+
      &sum(accept_tran)+sum(accept_rota)
         if(sum(ins_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
@@ -1659,9 +1485,6 @@ c       hack to include widom accepted steps in the printout
         if(sum(jump_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'jump ratio: ',dble(sum(accept_jump))/dble(sum(jump_count))
-        if(flex_count.gt.0)
-     &write(nrite,"(/,3x,a21,f15.9)")
-     &'flex ratio: ',dble(accept_flex)/dble(flex_count)
         if(sum(swap_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'swap ratio: ',dble(sum(accept_swap))/dble(sum(swap_count))

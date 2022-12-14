@@ -515,8 +515,7 @@ c     halt program if potential cutoff exceeds cell width
       subroutine readcontrol
      &(idnode,lspe,temp,ljob,mcsteps,eqsteps,ntpguest,lrestart,
      &laccsample,lnumg,nnumg,nhis,swap_max,lfuga,overlap,surftol,
-     &n_fwk,l_fwk_seq,
-     &fwk_step_max,fwk_initial,nwidstep,lwanglandau,wlprec,
+     &nwidstep,lwanglandau,wlprec,
      &flatcoeff,visittol,prectol,maxn,minn,ebins,lblock)
 c*************************************************************************
 c
@@ -530,14 +529,14 @@ c*************************************************************************
 
       logical safe,loop,loop2,ltemp,lewald,lspe,ljob,lnumg,lfuga,lwind
       logical lmcsteps,leqsteps,loop3,rprob,lrestart,laccsample
-      logical leng,l_fwk_seq,lwanglandau,lblock
+      logical leng,lwanglandau,lblock
       logical lguest_min(ntpguest), lguest_max(ntpguest)
       real(8) drdf,dzdn,zlen,temp,rcut,tmpdelr
       integer idnode,idum,keyres,eqsteps,mcsteps,idguest,nhis,nnumg
       integer nnprob,iprob,i,j,ntpsite,ntpguest,ngst,cprob,swap_max
-      integer n_fwk,fwk_step_max,fwk_initial,visittol,maxn,iguest,mm,mi
+      integer visittol,maxn,iguest,mm,mi
       integer minn,ebins,nwidstep
-      real(8) tmpmcinsf,tmpmcdelf,tmpmcdisf,tmpmcjmpf,tmpmcflxf
+      real(8) tmpmcinsf,tmpmcdelf,tmpmcdisf,tmpmcjmpf
       real(8) tmpmcswpf,overlap 
       real(8) tmpmcswif,wlprec,flatcoeff 
       real(8) tmpmctraf,tmpmcrotf,tmpdisp_ratio,tmptran_ratio
@@ -552,12 +551,7 @@ c*************************************************************************
       iprob=0
       ngst=0 
       nhis=0
-c     set n_fwk to 0 to stop any flex related things if no flexing
-      n_fwk=0
-      fwk_step_max = 1
       swap_max = 1
-      l_fwk_seq = .false.
-      fwk_initial = 1
       temp=0.d0
       drdf=0.05d0
       dzdn=0.05d0
@@ -685,8 +679,6 @@ c             add an extra grid for the average counting..
                 mcdisf(idguest) = dblstr(record,lenrec,idum)
               elseif (findstring('jum',record,idum))then
                 mcjmpf(idguest) = dblstr(record,lenrec,idum)
-              elseif (findstring('fle',record,idum))then
-                mcflxf(idguest) = dblstr(record,lenrec,idum)
               elseif (findstring('swa',record,idum))then
                 mcswpf(idguest) = dblstr(record,lenrec,idum)
               elseif (findstring('swi',record,idum))then
@@ -772,16 +764,6 @@ c         set default writing numguests.out to 1000 steps
           tmpdelr=dblstr(directive,lenrec,idum)
         elseif (findstring('averaging window',record,idum))then
             ! already recorded in 'initscan' utility_pack.f
-        elseif (findstring('fram', directive, idum))then
-          if (findstring('cou', directive, idum))then
-            n_fwk=intstr(directive, lenrec, idum)
-          elseif (findstring('seq', directive, idum))then
-            l_fwk_seq = .true.
-          elseif (findstring('ste', directive, idum))then
-            fwk_step_max = intstr(directive, lenrec, idum)
-          elseif (findstring('ini', directive, idum))then
-            fwk_initial = intstr(directive, lenrec, idum)
-          endif
         elseif (findstring('max', directive, idum)) then
           if (findstring('swa', directive, idum))then
             swap_max = intstr(directive, lenrec, idum)
@@ -795,8 +777,6 @@ c         set default writing numguests.out to 1000 steps
             tmpmcdisf = dblstr(directive,lenrec,idum)
           elseif (findstring('jum',directive,idum))then
             tmpmcjmpf = dblstr(directive,lenrec,idum)
-          elseif (findstring('fle',directive,idum))then
-            tmpmcflxf = dblstr(directive,lenrec,idum)
           elseif (findstring('swa',directive,idum))then
             tmpmcswpf = dblstr(directive,lenrec,idum)
           elseif (findstring('swi',directive,idum))then
@@ -845,7 +825,7 @@ c     check if lwanglandau guest_max and guest_min are allocated
       endif
 c     check guest specific moves
       do iguest=1,ngst
-c       mcinsf,mcdelf,mcdisf,mcjmpf,mcflxf,mcswpf
+c       mcinsf,mcdelf,mcdisf,mcjmpf,mcswpf
 c       mcswif,mctraf,mcrotf
         if(mcinsf(iguest).lt.0.d0)then
           if(tmpmcinsf.ge.0.d0)then
@@ -873,13 +853,6 @@ c       mcswif,mctraf,mcrotf
             mcjmpf(iguest)=tmpmcjmpf
           else
             mcjmpf(iguest)=0.d0 
-          endif
-        endif
-        if(mcflxf(iguest).lt.0.d0)then 
-          if(tmpmcflxf.ge.0.d0)then
-            mcflxf(iguest)=tmpmcflxf
-          else
-            mcflxf(iguest)=0.d0 
           endif
         endif
         if(mcswpf(iguest).lt.0.d0)then
