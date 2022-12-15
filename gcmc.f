@@ -2124,12 +2124,6 @@ c     back up original arrays in case move is rejected
         ckssorig(jmol,ik)=ckssum(jmol,ik) 
         ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
         ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
-c        ckcsnew(imol,ik)=0.d0
-c        ckssnew(imol,ik)=0.d0
-c        ckcsnew(jmol,ik)=0.d0
-c        ckssnew(jmol,ik)=0.d0
-c        ckcsnew(maxmls+1,ik)=0.d0 
-c        ckssnew(maxmls+1,ik)=0.d0
       enddo
 c     keeping track of the guest orientations by
 c     re-populating the 'template' configurations for
@@ -2258,12 +2252,6 @@ c       restore original ewald1 sums if step is rejected
           ckssum(jmol,ik)=ckssorig(jmol,ik) 
           ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
           ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-c          ckcsnew(imol,ik)=0.d0
-c          ckssnew(imol,ik)=0.d0
-c          ckcsnew(jmol,ik)=0.d0
-c          ckssnew(jmol,ik)=0.d0
-c          ckcsnew(maxmls+1,ik)=0.d0 
-c          ckssnew(maxmls+1,ik)=0.d0
         enddo
         elrc=origelrc
         elrc_mol=origelrc_mol
@@ -2348,12 +2336,6 @@ c     store original framework configuration if the move is rejected
         ckssorig(jmol,ik)=ckssum(jmol,ik) 
         ckcsorig(maxmls+1,ik)=ckcsum(maxmls+1,ik) 
         ckssorig(maxmls+1,ik)=ckssum(maxmls+1,ik)
-c        ckcsnew(imol,ik)=0.d0
-c        ckssnew(imol,ik)=0.d0
-c        ckcsnew(jmol,ik)=0.d0
-c        ckssnew(jmol,ik)=0.d0
-c        ckcsnew(maxmls+1,ik)=0.d0
-c        ckssnew(maxmls+1,ik)=0.d0 
       enddo
       swp(iguest) = 1
       swp(jguest) = 1     
@@ -2449,12 +2431,6 @@ c       restore original ewald1 sums if step is rejected
           ckssum(jmol,ik)=ckssorig(jmol,ik) 
           ckcsum(maxmls+1,ik)=ckcsorig(maxmls+1,ik) 
           ckssum(maxmls+1,ik)=ckssorig(maxmls+1,ik)
-c          ckcsnew(imol,ik)=0.d0
-c          ckssnew(imol,ik)=0.d0
-c          ckcsnew(jmol,ik)=0.d0
-c          ckssnew(jmol,ik)=0.d0
-c          ckcsnew(maxmls+1,ik)=0.d0
-c          ckssnew(maxmls+1,ik)=0.d0 
         enddo
         chgsum_mol(imol)=chgsum_molorig(imol)
         chgsum_mol(jmol)=chgsum_molorig(jmol)
