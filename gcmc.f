@@ -89,7 +89,6 @@ c*************************************************************
       integer ngrida,ngridb,ngridc,istat,avcount,wngrida,wngridb,wngridc
       integer totalguests,globalnguests,globalsteps,totgrid
       integer cycle_count,cycle_step,maxcycle,cycle_mult,testcount
-      integer, allocatable :: fwksumbuff(:)
       integer, allocatable :: buffer(:) 
       real(8), allocatable :: gridbuff(:)
       real(8), dimension(10) :: celprp
@@ -118,13 +117,11 @@ c     DEBUG
       real(8) avgNF,NF,avgCv,avgQst,stdNF,surftol,guest_toten
       real(8) griddim,griddima,griddimb,griddimc,grvol,prectol
       real(8) a,b,c,q1,q2,q3,q4 
-      real(8) delE_fwk
-      integer m, indatm, indfwk, gstidx
+      integer m, indatm, gstidx
       logical isguest
 c Cumulative move probabilities, remeber to zero and include in normalising
       real(8) rota_rotangle,jumpangle
       integer, dimension(3) :: gridfactor
-      integer fwk_step_magnitude
 
       data lgchk/.true./,insert/.false./,delete/.false./,
      &lwidom/.false./,lwanglandau/.false./,lblock/.false./
@@ -319,7 +316,7 @@ c     produce unit cell for folding purposes
       enddo
       call readcontrol(idnode,lspe,temp,ljob,mcsteps,eqsteps,
      &ntpguest,lrestart,laccsample,lnumg,nnumg,nhis,swap_max,
-     &lfuga,overlap,surftol,n_fwk,l_fwk_seq,fwk_step_max,fwk_initial,
+     &lfuga,overlap,surftol,
      &nwidstep,lwanglandau,wlprec,flatcoeff,visittol,prectol,
      &maxn,minn,ebins,lblock)
 
@@ -942,7 +939,6 @@ c        chgsum_molorig=chgsum_mol
 c        ckcsorig=ckcsum
 c        ckssorig=ckssum
 c        delE=0.d0
-        write(*,*)"HERE",insert,delete,displace,jump,switch,swap
 c***********************************************************************
 c    
 c       Insertion
@@ -1053,7 +1049,6 @@ c       if so, store averages, probability plots etc..
 c=========================================================================
         if(production)then 
           if((laccsample).and.(accepted).or.(.not.laccsample))then
-            if(n_fwk.gt.0)fwk_counts(curr_fwk)=fwk_counts(curr_fwk)+1
             prodcount=prodcount+1
             rollcount=rollcount+1
             chainstats(1) = dble(prodcount)
@@ -1423,9 +1418,6 @@ c            recompute, these seem like more accurate values.
       gcmc_cnt_arr(1)=gcmccount
       call gisum(gcmc_cnt_arr,1,buffer)
 
-      if(n_fwk.gt.0)then 
-        call gisum(fwk_counts,n_fwk,fwksumbuff)
-      endif
 c     write final probability cube files
       
       cprob=0
@@ -1497,11 +1489,6 @@ c       hack to include widom accepted steps in the printout
         if(sum(rota_count).gt.0)
      &write(nrite,"(/,3x,a21,f15.9)")
      &'rotation ratio: ',dble(sum(accept_rota))/dble(sum(rota_count))
-        do jj=1,n_fwk
-          write(nrite,"(/,6x,a26,i6,60a1,e13.6)")
-     &'Framework population for: ',jj,(fwk_name(jj, kk),kk=1,60),
-     & dble(fwk_counts(jj))/dble(prodcount)
-        enddo
         do i=1,ntpguest
           mol=locguest(i)
 

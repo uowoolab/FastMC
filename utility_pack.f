@@ -33,14 +33,14 @@
       integer, allocatable :: nexatm(:),noxatm(:),lexsit(:,:,:)
       integer, allocatable :: nexsit(:,:)
       integer, allocatable :: numfrz(:),numtyp(:),dens(:)
-      integer, allocatable :: ins(:),del(:),dis(:),jmp(:),flx(:)
+      integer, allocatable :: ins(:),del(:),dis(:),jmp(:)
       integer, allocatable :: swp(:),swi(:)
       integer, allocatable :: switch_mol_count(:), switch_mols(:,:)
       integer, allocatable :: switch_chosen_guest(:)
       integer, allocatable :: ind(:),ilist(:),jlist(:),angdist(:)
       integer, allocatable :: nprob(:),nprobsites(:),lprobsites(:,:)
 c     add move probability arrays for each guest type
-c     currently active are ins,del,dis,jmp,flx(?),swp,tra,rot,swi
+c     currently active are ins,del,dis,jmp,swp,tra,rot,swi
       integer, allocatable :: accept_disp(:)
       integer, allocatable :: disp_count(:)
       integer, allocatable :: accept_tran(:)
@@ -58,7 +58,7 @@ c     currently active are ins,del,dis,jmp,flx(?),swp,tra,rot,swi
       integer, allocatable :: accept_rota(:)
       integer, allocatable :: rota_count(:)
       real, allocatable :: mcinsf(:),mcdelf(:),mcdisf(:),mcjmpf(:)
-      real, allocatable :: mcflxf(:),mcswpf(:),mctraf(:),mcrotf(:)
+      real, allocatable :: mcswpf(:),mctraf(:),mcrotf(:)
       real, allocatable :: mcswif(:),mcmvnorm(:)
       real(8), allocatable :: delrdisp(:),delr(:),disp_ratio(:)
       real(8), allocatable :: tran_ratio(:),tran_delr(:),rota_ratio(:)
@@ -185,11 +185,11 @@ c     pore block file input channel
       save avgwindow, varwindow, sumwindowav,moldf,moltype
       save gstpress,angdist,node_avg,node_std,nodeweight
       save mcinsf,mcdelf,mcdisf,mcjmpf
-      save mcflxf,mcswpf,mctraf,mcrotf
+      save mcswpf,mctraf,mcrotf
       save mcswif,mcmvnorm,rota_ratio
       save delrdisp,delr,disp_ratio,tran_ratio,tran_delr
       save xdf,ydf,zdf,rsqdf
-      save ins,del,dis,jmp,flx,swp,swi
+      save ins,del,dis,jmp,swp,swi
       save switch_mol_count,switch_mols,switch_chosen_guest
       save lexatm,nexatm,noxatm,ilist,jlist,unqatm,ltpsit
       save mxlist,ltype,mxegrd,lexsit,nexsit
@@ -1036,7 +1036,6 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(mcdelf(ntpguest),stat=fail(35))
       allocate(mcdisf(ntpguest),stat=fail(36))
       allocate(mcjmpf(ntpguest),stat=fail(37))
-      allocate(mcflxf(ntpguest),stat=fail(38))
       allocate(mcswpf(ntpguest),stat=fail(39))
       allocate(mctraf(ntpguest),stat=fail(40))
       allocate(mcrotf(ntpguest),stat=fail(41))
@@ -1096,7 +1095,6 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(del(ntpguest),stat=fail(95))
       allocate(dis(ntpguest),stat=fail(96))
       allocate(jmp(ntpguest),stat=fail(97))
-      allocate(flx(ntpguest),stat=fail(98))
       allocate(swp(ntpguest),stat=fail(99))
       allocate(swi(ntpguest),stat=fail(100))
       allocate(switch_mol_count(ntpguest),stat=fail(101))
@@ -1175,7 +1173,6 @@ c     initialize the stat arrays
         del(i) = 0.d0
         dis(i) = 0.d0
         jmp(i) = 0.d0
-        flx(i) = 0.d0
         swp(i) = 0.d0
         swi(i) = 0.d0
 c       initialize move arrays, if -1 then not specified
@@ -1183,7 +1180,6 @@ c       initialize move arrays, if -1 then not specified
         mcdelf(i) = -1.d0
         mcdisf(i) = -1.d0
         mcjmpf(i) = -1.d0
-        mcflxf(i) = -1.d0
         mcswpf(i) = -1.d0
         mctraf(i) = -1.d0
         mcrotf(i) = -1.d0
