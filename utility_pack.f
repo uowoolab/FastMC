@@ -13,6 +13,8 @@
       real(8), allocatable :: bxdf(:),bydf(:),bzdf(:)
       real(8), allocatable :: newx(:),newy(:),newz(:)
       real(8), allocatable :: guestx(:,:),guesty(:,:),guestz(:,:)
+      real(8), allocatable :: guestix(:),guestiy(:),guestiz(:)
+      real(8), allocatable :: guestjx(:),guestjy(:),guestjz(:)
       real(8), allocatable :: atmcharge(:),atmchg(:,:)
       real(8), allocatable :: atmweight(:),atmwght(:,:)
       real(8), allocatable :: frambuff(:,:)
@@ -171,6 +173,7 @@ c     pore block file input channel
       save molxxx,molyyy,molzzz,frambuff
       save origmolxxx,origmolyyy,origmolzzz
       save atmcharge,atmchg,guestx,guesty,guestz
+      save guestix,guestiy,guestiz,guestjx,guestjy,guestjz
       save atmweight, atmwght
       save atomname,atmname
       save lentry,list
@@ -1116,6 +1119,12 @@ c      if(idnode.eq.0)write(nrite,"('maxalloc: ', i9)")maxalloc
       allocate(guest_insert(ntpguest), stat=fail(117))
       allocate(guest_min(ntpguest), stat=fail(118))
       allocate(guest_max(ntpguest), stat=fail(119))
+      allocate(guestjx(mxguestsite),stat=fail(2))
+      allocate(guestjy(mxguestsite),stat=fail(3))
+      allocate(guestjz(mxguestsite),stat=fail(4))
+      allocate(guestix(mxguestsite),stat=fail(2))
+      allocate(guestiy(mxguestsite),stat=fail(3))
+      allocate(guestiz(mxguestsite),stat=fail(4))
       do i=1,na
         if(fail(i).gt.0)then
             if(idnode.eq.0)write(nrite,'(10i5,10i5)')i,fail(i)

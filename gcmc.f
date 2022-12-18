@@ -2057,6 +2057,9 @@ c
 c     *** Currently only one switch is performed, but one could possibly
 c         include multi switches as long as (detailed) balance isn't
 c         violated. ***
+c     How would this work in sequence? Not two displacements - 
+c     the first displacement would result in overlap and infinite
+c     energies. So likely two deletion/insertions?
 c*******************************************************************************
       implicit none
       logical accepted,loverlap,loverallap,linitsurf,linitsurfj
@@ -2064,7 +2067,8 @@ c*******************************************************************************
       integer nswitchgst,ntpguest,i,j,mol,nmols,jguest,numblocks
       integer ichoice,jchoice,imol,jmol,ik,kk,iatm,idnode,imcon,keyfce
       integer iguest,totatm,maxmls,kmax1,kmax2,kmax3,newld
-      integer ntpatm,maxvdw,ntpfram,natms
+      integer ntpatm,maxvdw,ntpfram,inatms,jnatms
+
       real(8) icomx,icomy,icomz,jcomx,jcomy,jcomz,estep
       real(8) estepi,estepj,volm,statvolm,alpha,rcut,ddelr,drewd,epsq
       real(8) engunit,overlap,surftol,dlrpot,sumchg,temp,beta,delrc
@@ -2128,19 +2132,19 @@ c     back up original arrays in case move is rejected
 c     keeping track of the guest orientations by
 c     re-populating the 'template' configurations for
 c     guestx,guesty,guestz
-      call get_guest(jguest,jchoice,jmol,natms,nmols)
-      call com(natms,jmol,newx,newy,newz,jcomx,jcomy,jcomz)
-      do iatm=1,natms
-        guestx(jguest,iatm)=newx(iatm) - jcomx
-        guesty(jguest,iatm)=newy(iatm) - jcomy
-        guestz(jguest,iatm)=newz(iatm) - jcomz
+      call get_guest(jguest,jchoice,jmol,jnatms,nmols)
+      call com(jnatms,jmol,newx,newy,newz,jcomx,jcomy,jcomz)
+      do iatm=1,jnatms
+        guestjx(iatm)=newx(iatm) - jcomx
+        guestjy(iatm)=newy(iatm) - jcomy
+        guestjz(iatm)=newz(iatm) - jcomz
       enddo
-      call get_guest(iguest,ichoice,imol,natms,nmols)
-      call com(natms,imol,newx,newy,newz,icomx,icomy,icomz)
-      do iatm=1,natms
-        guestx(iguest,iatm)=newx(iatm) - icomx
-        guesty(iguest,iatm)=newy(iatm) - icomy
-        guestz(iguest,iatm)=newz(iatm) - icomz
+      call get_guest(iguest,ichoice,imol,inatms,nmols)
+      call com(inatms,imol,newx,newy,newz,icomx,icomy,icomz)
+      do iatm=1,inatms
+        guestix(iatm)=newx(iatm) - icomx
+        guestiy(iatm)=newy(iatm) - icomy
+        guestiz(iatm)=newz(iatm) - icomz
       enddo
 c************************************************************************
 c       START SWITCH OF GUESTI AND GUESTJ
@@ -2160,7 +2164,7 @@ c     so that jchoice from jguest can be inserted there.
      &(iguest,.false.,.true.,.false.,linitsurf,delrc,totatm,ichoice,
      &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
       estepi=-estep
-      call get_guest(jguest,jchoice,jmol,natms,nmols)
+      call get_guest(jguest,jchoice,jmol,jnatms,nmols)
       estep=0.d0
       call deletion 
      &(imcon,keyfce,jguest,jchoice,alpha,rcut,ddelr,drewd,maxmls,
@@ -2174,10 +2178,10 @@ c     so that jchoice from jguest can be inserted there.
 
 c     now insert the guests in their new positions (jguest in iguests
 c     position and vise versa)
-      do iatm=1,natms
-        newx(iatm) = guestx(jguest,iatm) + icomx
-        newy(iatm) = guesty(jguest,iatm) + icomy
-        newz(iatm) = guestz(jguest,iatm) + icomz
+      do iatm=1,jnatms
+        newx(iatm) = guestjx(iatm) + icomx
+        newy(iatm) = guestjy(iatm) + icomy
+        newz(iatm) = guestjz(iatm) + icomz
       enddo
       estep=0.d0
       call insertion
@@ -2191,11 +2195,11 @@ c     position and vise versa)
      &(jguest,.true.,.false.,.false.,lnewsurfj,delrc,totatm,jchoice,
      &ntpfram,ntpguest,maxmls,sumchg,engsictmp,chgtmp,newld)
 
-      call get_guest(iguest,ichoice,imol,natms,nmols)
-      do iatm=1,natms
-        newx(iatm) = guestx(iguest,iatm) + jcomx
-        newy(iatm) = guesty(iguest,iatm) + jcomy
-        newz(iatm) = guestz(iguest,iatm) + jcomz
+      call get_guest(iguest,ichoice,imol,inatms,nmols)
+      do iatm=1,inatms
+        newx(iatm) = guestix(iatm) + jcomx
+        newy(iatm) = guestiy(iatm) + jcomy
+        newz(iatm) = guestiz(iatm) + jcomz
       enddo
       estep=0.d0
       call insertion
